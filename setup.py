@@ -1,4 +1,5 @@
 import os
+import numpy
 
 from distutils.core import setup, Extension
 
@@ -8,7 +9,8 @@ libraries = ["bson-1.0"]
 bsonnumpymodule = Extension('bsonnumpy',
                             define_macros=[('MAJOR_VERSION', '0'),
                                             ('MINOR_VERSION', '1')],
-                            include_dirs=[os.path.join(bson_src, "include", "libbson-1.0")],
+                            include_dirs=[os.path.join(bson_src, "include", "libbson-1.0"),
+                                          numpy.get_include()],
                             library_dirs=[os.path.join(bson_src, "lib")],
                             libraries=libraries,
                             sources = [os.path.join("bson-numpy", "bsonnumpy.c")])
