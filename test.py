@@ -1,11 +1,7 @@
 import bsonnumpy
 import bson
 
+document = {"x": [1,2,3]}
+utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
 
-bson_string = (
-    b'Z\x00\x00\x00\x07_id\x00Um\xf6\x8bn2\xab!\xa9^\x07\x85\x02name\x00\t'
-    b'\x00\x00\x00Sherlock\x00\x04addresses\x00&\x00\x00\x00\x030\x00\x1e'
-    b'\x00\x00\x00\x02street\x00\r\x00\x00\x00Baker Street\x00\x00\x00\x00'
-)
-
-bsonnumpy.bson_to_ndarray(bson_string)
+bsonnumpy.bson_to_ndarray(utf8)

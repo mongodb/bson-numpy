@@ -41,6 +41,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     bson_iter_t sub_it;
     bson_t* document;
     bson_error_t error;
+    size_t err_offset;
 
     PyArg_ParseTuple(args, "O", &bobj);
     if (!PyBytes_Check(bobj)) {
@@ -50,28 +51,27 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     bytestr = PyBytes_AS_STRING(bobj);
     len = PyBytes_GET_SIZE(bobj);
 
+     // TODO: validate in a reasonable way
     document = bson_new_from_data((uint8_t*)bytestr, len); // slower than what??? Also, is this a valid cast?
-
-    char* doc = "{\"a\": [1, 2, 3]}";
-    document = bson_new_from_json ((uint8_t*)doc, -1, &error);
+    if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
+        PyErr_SetString(BsonNumpyError, "Document failed validation");
+        return NULL;
+    }
+    char* str = bson_as_json(document, (size_t*)&len);
+    printf("DOCUMENT: %s\n", str);
 
     bson_iter_init(&bsonit, document);
-    bson_iter_find (&bsonit, "a");
+    bson_iter_find (&bsonit, "x");
 
     if (!BSON_ITER_HOLDS_ARRAY(&bsonit)) {
-        PyErr_SetNone(PyExc_TypeError);
+        PyErr_SetString(BsonNumpyError, "Document must contain an array");
         return NULL;
     }
     bson_iter_recurse(&bsonit, &sub_it);
 
+    // Allocate ndarray --> any way of finding what array types/size from bson_it?
     while( bson_iter_next(&sub_it) ) {
-        if (BSON_ITER_HOLDS_INT32(&sub_it)) {
-            int value = (int32_t) bson_iter_int32(&sub_it);
-            printf("VALUE: %i\n", value);
-        }
-        else {
-            printf("NOT INT!\n");
-        }
+        //fill array
     }
 
 
