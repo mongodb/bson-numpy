@@ -3,14 +3,21 @@ import bson
 import numpy as np
 
 document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
-#document = {"0": 1, "1": 2, "2": 3}
-dtype = np.dtype('int32')
-array = np.ndarray([3], dtype='int32')
-array[0] = 1
-array[1] = 2
-array[2] = 3
-# dtype = np.dtype(('x', np.float))
 utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
 
-result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-print "result", result, "type", type(result)
+def compare_types(test_dtype):
+
+    dtype = np.dtype(test_dtype)
+    result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+    assert result.dtype == test_dtype
+    print "result", result, "python type", type(result), "dtype", result.dtype
+
+scalar_types = [
+    np.bool_, np.int_, np.intc, np.intp,
+    np.int8, np.int16, np.int32, np.int64,
+    np.uint8, np.uint16, np.uint32, np.uint64,
+    np.float_, np.float16, np.float32, np.float64,
+    np.complex_, np.complex64, np.complex128]
+
+for t in scalar_types:
+    compare_types(t)
