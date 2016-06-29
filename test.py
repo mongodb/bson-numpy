@@ -3,6 +3,7 @@ import bson
 import numpy as np
 import random
 import sys
+import datetime
 PY3 = sys.version_info[0] >= 3
 
 document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
@@ -53,9 +54,33 @@ def compare_binary():
         # WHY WONT U COMPARE RIGHT????
         assert bytes(document[str(b)]) == result[b]
 
+def compare_datetime():
+    document = bson.SON([("0", datetime.datetime(1970, 1, 1)),
+                         ("1", datetime.datetime(1980, 1, 1)),
+                         ("2", datetime.datetime(1990, 1, 1))])
+    print document
+    utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+    dtype = np.dtype('datetime64[s]')
+    result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+    print "result", result, "python type", type(result), "dtype", result.dtype, "type(result[0])", type(result[0])
+    print result
+    for b in range(3):
+        print np.datetime64(document[str(b)]), result[b].tolist()
+
+def compare_null():
+    document = bson.SON([("0", None), ("1", None), ("2", None)])
+    utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+    dtype = np.dtype('int32')
+    result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+    print "result", result, "python type", type(result), "dtype", result.dtype, "type(result[0])", type(result[0])
+    for b in range(3):
+        assert not result[b]
+
+
 # for t in scalar_types:
 #     compare_types(t)
 # compare_oid()
 # compare_string()
 # compare_binary()
-
+# compare_datetime()
+compare_null()

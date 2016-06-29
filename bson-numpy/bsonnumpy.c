@@ -78,25 +78,27 @@ static void _get_bson_value(bson_iter_t* bsonit) {
     case BSON_TYPE_INT32:       break; //int32);
     case BSON_TYPE_DOUBLE:      break; //double);
     case BSON_TYPE_BOOL:        break; //bool);
-    case BSON_TYPE_DATE_TIME:   break; //datetime);
 
     case BSON_TYPE_OID:         break; //oid (12-byte buffer)
     case BSON_TYPE_UTF8:        break; //utf8 (uint32_t len + char* str)
+    case BSON_TYPE_BINARY:      break; //binary    (uint32_t data_len + uint8_t* data + bson_subtype_t subtype)
+    case BSON_TYPE_SYMBOL:      break; //symbol (unint32_t len + char* symbol)
+    case BSON_TYPE_CODE:        break; //uint32_t (code_len + char* code)
     default:
         PyErr_SetString(BsonNumpyError, "Document failed validation");
     }
 /* Complex values:
-    case BSON_TYPE_TIMESTAMP:   return (void*)value->value.v_timestamp (uint32_t timestamp + uint32_t increment)
-    case BSON_TYPE_SYMBOL --> same as string
-    case BSON_TYPE_DOCUMENT:    return (void*)value->value.v_doc       (uint32_t len + uint8_t* data)
-    case BSON_TYPE_BINARY:      return (void*)value->value.v_binary    (uint32_t data_len + uint8_t* data + bson_subtype_t subtype)
-    case BSON_TYPE_REGEX:       return (void*)value->value.v_regex     (char* regex + char* options)
-    case BSON_TYPE_DBPOINTER:   return (void*)value->value.v_dbpointer (uint32_t code_len +  char* code)
-    case BSON_TYPE_CODE:        return (void*)value->value.v_code      (uint32_t code_len + char* code)
-    case BSON_TYPE_CODEWSCOPE:  return (void*)value->value.v_codewscope(uint32_t len + char* code + uint32_t scope_len + uint8_t* scope_data)
 
     Totally different case
     case BSON_TYPE_ARRAY:
+    case BSON_TYPE_DOCUMENT:    return (void*)value->value.v_doc       (uint32_t len + uint8_t* data)
+
+    With issues to work out:
+    case BSON_TYPE_TIMESTAMP:   return (void*)value->value.v_timestamp (uint32_t timestamp + uint32_t increment)
+    case BSON_TYPE_DATE_TIME:   break; //datetime);
+    case BSON_TYPE_REGEX:       return (void*)value->value.v_regex     (char* regex + char* options)
+    case BSON_TYPE_DBPOINTER:   return (void*)value->value.v_dbpointer (uint32_t code_len +  char* code)
+    case BSON_TYPE_CODEWSCOPE:  return (void*)value->value.v_codewscope(uint32_t len + char* code + uint32_t scope_len + uint8_t* scope_data)
 
     Probably error, no bson_iter_ for
     case BSON_TYPE_UNDEFINED
@@ -126,8 +128,28 @@ static int _load_scalar(bson_iter_t* bsonit,
         case BSON_TYPE_BINARY:
             data_ptr = value->value.v_binary.data;
             len = value->value.v_binary.data_len;
+        case BSON_TYPE_SYMBOL:
+            data_ptr = value->value.v_symbol.symbol;
+            len = value->value.v_binary.data_len;
+        case BSON_TYPE_CODE:
+            data_ptr = value->value.v_code.code;
+            len = value->value.v_code.code_len;
+        case BSON_TYPE_DATE_TIME:
+            if(PyArray_DESCR(ndarray)->type_num == NPY_DATETIME) {
+                // TODO: do we really want to convert to numpy.datetime64 if dtype is d64?
+            }
+        case BSON_TYPE_TIMESTAMP:
+            if(PyArray_DESCR(ndarray)->type_num == NPY_DATETIME) {
+                // TODO: same q
+            }
+        case BSON_TYPE_REGEX:
+            // TODO: what do people want to store their regexes in? 1 long string? an array of 2 strings?
+        case BSON_TYPE_NULL:
+            // TODO: probably mask
+            data_ptr = NULL;
+        default:
+            printf("TYPE=%i\n", value->value_type);
         }
-
         PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
 
 
@@ -179,7 +201,6 @@ bson_to_ndarray(PyObject* self, PyObject* args)
         PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
         return NULL;
     }
-    PyObject_Print(dtype_obj, stdout, 0);
 
     bson_iter_init(&bsonit, document);
 
@@ -187,7 +208,6 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     npy_intp* dims = malloc(sizeof(npy_intp)*1);
     dims[0] = keys;
     array_obj = PyArray_SimpleNewFromDescr(1, dims, dtype);
-    PyObject_Print(array_obj, stdout, 0);
     free(dims);
     PyArray_OutputConverter(array_obj, &ndarray);
 
