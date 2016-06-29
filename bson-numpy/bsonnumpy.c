@@ -71,34 +71,36 @@ ndarray_to_bson(PyObject* self, PyObject* args)
     return Py_BuildValue("");
 }
 
-static void* _get_bson_value(bson_iter_t* bsonit) {
+static void _get_bson_value(bson_iter_t* bsonit) {
     const bson_value_t* value = bson_iter_value(bsonit);
     switch(value->value_type) {
-    case BSON_TYPE_OID:         return (void*)&(value->value.v_oid);
-    case BSON_TYPE_INT64:       return (void*)&(value->value.v_int64);
-    case BSON_TYPE_INT32:       return (void*)&(value->value.v_int32);
-    case BSON_TYPE_DOUBLE:      return (void*)&(value->value.v_double);
-    case BSON_TYPE_BOOL:        return (void*)&(value->value.v_bool);
-    case BSON_TYPE_DATE_TIME:   return (void*)&(value->value.v_datetime);
+    case BSON_TYPE_INT64:       break; //int64);
+    case BSON_TYPE_INT32:       break; //int32);
+    case BSON_TYPE_DOUBLE:      break; //double);
+    case BSON_TYPE_BOOL:        break; //bool);
+    case BSON_TYPE_DATE_TIME:   break; //datetime);
+
+    case BSON_TYPE_OID:         break; //oid (12-byte buffer)
+    case BSON_TYPE_UTF8:        break; //utf8 (uint32_t len + char* str)
     default:
         PyErr_SetString(BsonNumpyError, "Document failed validation");
-        return NULL;
     }
 /* Complex values:
     case BSON_TYPE_TIMESTAMP:   return (void*)value->value.v_timestamp (uint32_t timestamp + uint32_t increment)
-    case BSON_TYPE_UTF8:        return (void*)value->value.v_utf8      (uint32_t len + char* str)
+    case BSON_TYPE_SYMBOL --> same as string
     case BSON_TYPE_DOCUMENT:    return (void*)value->value.v_doc       (uint32_t len + uint8_t* data)
     case BSON_TYPE_BINARY:      return (void*)value->value.v_binary    (uint32_t data_len + uint8_t* data + bson_subtype_t subtype)
     case BSON_TYPE_REGEX:       return (void*)value->value.v_regex     (char* regex + char* options)
     case BSON_TYPE_DBPOINTER:   return (void*)value->value.v_dbpointer (uint32_t code_len +  char* code)
     case BSON_TYPE_CODE:        return (void*)value->value.v_code      (uint32_t code_len + char* code)
     case BSON_TYPE_CODEWSCOPE:  return (void*)value->value.v_codewscope(uint32_t len + char* code + uint32_t scope_len + uint8_t* scope_data)
- */
-/* Unknown:
+
+    Totally different case
     case BSON_TYPE_ARRAY:
+
+    Probably error, no bson_iter_ for
     case BSON_TYPE_UNDEFINED
     case BSON_TYPE_NULL
-    case BSON_TYPE_SYMBOL
     case BSON_TYPE_MAXKEY
     case BSON_TYPE_MINKEY
     case BSON_TYPE_EOD
@@ -111,9 +113,30 @@ static int _load_scalar(bson_iter_t* bsonit,
                        char* pointer,
                        PyArrayObject* ndarray) {
         const bson_value_t* value = bson_iter_value(bsonit);
-        PyObject* data = PyArray_ToScalar((void*)&(value->value), ndarray);
+        int itemsize = PyArray_DESCR(ndarray)->elsize;;
+        int len = itemsize;
+        int success = 0;
+
+
+        void* data_ptr = (void*)&value->value;
+        switch(value->value_type) {
+        case BSON_TYPE_UTF8:
+            data_ptr = value->value.v_utf8.str; // Unclear why using value->value doesn't work
+            len = value->value.v_utf8.len;
+        case BSON_TYPE_BINARY:
+            data_ptr = value->value.v_binary.data;
+            len = value->value.v_binary.data_len;
+        }
+
+        PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
+
+
+        PyObject_Print(data, stdout, 0);
 //        Py_INCREF(data);
-        int success = PyArray_SETITEM(ndarray, pointer, data);
+        success = PyArray_SETITEM(ndarray, pointer, data);
+        if(len < itemsize) {
+            memset(pointer + len, 0, itemsize - len);
+        }
         return success;
 }
 
@@ -156,6 +179,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
         PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
         return NULL;
     }
+    PyObject_Print(dtype_obj, stdout, 0);
 
     bson_iter_init(&bsonit, document);
 
@@ -163,6 +187,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     npy_intp* dims = malloc(sizeof(npy_intp)*1);
     dims[0] = keys;
     array_obj = PyArray_SimpleNewFromDescr(1, dims, dtype);
+    PyObject_Print(array_obj, stdout, 0);
     free(dims);
     PyArray_OutputConverter(array_obj, &ndarray);
 
@@ -170,10 +195,10 @@ bson_to_ndarray(PyObject* self, PyObject* args)
         bson_iter_next(&bsonit);
         char* pointer =  PyArray_GetPtr(ndarray, &i);
         int success = _load_scalar(&bsonit, pointer, ndarray);
-//        if(!success) {
-//            PyErr_SetString(BsonNumpyError, "item failed to load");
-//            return NULL;
-//        }
+        if(success == -1) {
+            PyErr_SetString(BsonNumpyError, "item failed to load");
+            return NULL;
+        }
 
     }
 
