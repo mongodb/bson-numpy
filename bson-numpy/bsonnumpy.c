@@ -70,24 +70,19 @@ ndarray_to_bson(PyObject* self, PyObject* args)
     }
     return Py_BuildValue("");
 }
+/*
+    Straightforward
+    case BSON_TYPE_INT64
+    case BSON_TYPE_INT32
+    case BSON_TYPE_DOUBLE
+    case BSON_TYPE_BOOL
 
-static void _get_bson_value(bson_iter_t* bsonit) {
-    const bson_value_t* value = bson_iter_value(bsonit);
-    switch(value->value_type) {
-    case BSON_TYPE_INT64:       break; //int64);
-    case BSON_TYPE_INT32:       break; //int32);
-    case BSON_TYPE_DOUBLE:      break; //double);
-    case BSON_TYPE_BOOL:        break; //bool);
-
-    case BSON_TYPE_OID:         break; //oid (12-byte buffer)
-    case BSON_TYPE_UTF8:        break; //utf8 (uint32_t len + char* str)
-    case BSON_TYPE_BINARY:      break; //binary    (uint32_t data_len + uint8_t* data + bson_subtype_t subtype)
-    case BSON_TYPE_SYMBOL:      break; //symbol (unint32_t len + char* symbol)
-    case BSON_TYPE_CODE:        break; //uint32_t (code_len + char* code)
-    default:
-        PyErr_SetString(BsonNumpyError, "Document failed validation");
-    }
-/* Complex values:
+    case BSON_TYPE_OID
+    case BSON_TYPE_UTF8
+    case BSON_TYPE_BINARY
+    case BSON_TYPE_SYMBOL
+    case BSON_TYPE_CODE
+    case BSON_TYPE_CODEWSCOPE
 
     Totally different case
     case BSON_TYPE_ARRAY:
@@ -98,7 +93,6 @@ static void _get_bson_value(bson_iter_t* bsonit) {
     case BSON_TYPE_DATE_TIME:   break; //datetime);
     case BSON_TYPE_REGEX:       return (void*)value->value.v_regex     (char* regex + char* options)
     case BSON_TYPE_DBPOINTER:   return (void*)value->value.v_dbpointer (uint32_t code_len +  char* code)
-    case BSON_TYPE_CODEWSCOPE:  return (void*)value->value.v_codewscope(uint32_t len + char* code + uint32_t scope_len + uint8_t* scope_data)
 
     Probably error, no bson_iter_ for
     case BSON_TYPE_UNDEFINED
@@ -109,7 +103,6 @@ static void _get_bson_value(bson_iter_t* bsonit) {
  */
 
 
-}
 
 static int _load_scalar(bson_iter_t* bsonit,
                        char* pointer,
@@ -130,29 +123,21 @@ static int _load_scalar(bson_iter_t* bsonit,
             len = value->value.v_binary.data_len;
         case BSON_TYPE_SYMBOL:
             data_ptr = value->value.v_symbol.symbol;
-            len = value->value.v_binary.data_len;
+            len = value->value.v_symbol.len;
         case BSON_TYPE_CODE:
             data_ptr = value->value.v_code.code;
             len = value->value.v_code.code_len;
         case BSON_TYPE_DATE_TIME:
-            if(PyArray_DESCR(ndarray)->type_num == NPY_DATETIME) {
-                // TODO: do we really want to convert to numpy.datetime64 if dtype is d64?
-            }
         case BSON_TYPE_TIMESTAMP:
-            if(PyArray_DESCR(ndarray)->type_num == NPY_DATETIME) {
-                // TODO: same q
-            }
-        case BSON_TYPE_REGEX:
-            // TODO: what do people want to store their regexes in? 1 long string? an array of 2 strings?
-        case BSON_TYPE_NULL:
-            // TODO: probably mask
-            data_ptr = NULL;
+        case BSON_TYPE_DOCUMENT:
+            // TODO: what about V lengths that are longer than the doc?
+            data_ptr = value->value.v_doc.data;
+            len = value->value.v_doc.data_len;
         default:
             printf("TYPE=%i\n", value->value_type);
         }
+
         PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
-
-
         PyObject_Print(data, stdout, 0);
 //        Py_INCREF(data);
         success = PyArray_SETITEM(ndarray, pointer, data);
@@ -190,7 +175,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
         return NULL;
     }
     char* str = bson_as_json(document, (size_t*)&len);
-    printf("DOCUMENT: %s\n", str);
+//    printf("DOCUMENT: %s\n", str);
 
     // Convert dtype
     if (!PyArray_DescrCheck(dtype_obj)) {
