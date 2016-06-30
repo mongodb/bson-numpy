@@ -71,7 +71,7 @@ ndarray_to_bson(PyObject* self, PyObject* args)
     return Py_BuildValue("");
 }
 /*
-    Straightforward
+    |Straightforward
     case BSON_TYPE_INT64
     case BSON_TYPE_INT32
     case BSON_TYPE_DOUBLE
@@ -82,17 +82,20 @@ ndarray_to_bson(PyObject* self, PyObject* args)
     case BSON_TYPE_BINARY
     case BSON_TYPE_SYMBOL
     case BSON_TYPE_CODE
-    case BSON_TYPE_CODEWSCOPE
+    case BSON_TYPE_DATE_TIME
 
-    Totally different case
+    case BSON_TYPE_DOCUMENT
+
+    |Totally different case
     case BSON_TYPE_ARRAY:
-    case BSON_TYPE_DOCUMENT:    return (void*)value->value.v_doc       (uint32_t len + uint8_t* data)
 
-    With issues to work out:
-    case BSON_TYPE_TIMESTAMP:   return (void*)value->value.v_timestamp (uint32_t timestamp + uint32_t increment)
-    case BSON_TYPE_DATE_TIME:   break; //datetime);
-    case BSON_TYPE_REGEX:       return (void*)value->value.v_regex     (char* regex + char* options)
-    case BSON_TYPE_DBPOINTER:   return (void*)value->value.v_dbpointer (uint32_t code_len +  char* code)
+    |With issues to work out:
+    case BSON_TYPE_TIMESTAMP
+    case BSON_TYPE_REGEX
+
+    |Not clear what to do, maybe make a flexible type?
+    case BSON_TYPE_DBPOINTER
+    case BSON_TYPE_CODEWSCOPE
 
     Probably error, no bson_iter_ for
     case BSON_TYPE_UNDEFINED
@@ -111,38 +114,66 @@ static int _load_scalar(bson_iter_t* bsonit,
         int itemsize = PyArray_DESCR(ndarray)->elsize;;
         int len = itemsize;
         int success = 0;
-
+        int copy = 1;
+        int trailing_null = 1;
 
         void* data_ptr = (void*)&value->value;
         switch(value->value_type) {
         case BSON_TYPE_UTF8:
             data_ptr = value->value.v_utf8.str; // Unclear why using value->value doesn't work
             len = value->value.v_utf8.len;
+            break;
         case BSON_TYPE_BINARY:
             data_ptr = value->value.v_binary.data;
             len = value->value.v_binary.data_len;
-        case BSON_TYPE_SYMBOL:
+            break;
+        case BSON_TYPE_SYMBOL: // deprecated
             data_ptr = value->value.v_symbol.symbol;
             len = value->value.v_symbol.len;
+            break;
         case BSON_TYPE_CODE:
             data_ptr = value->value.v_code.code;
             len = value->value.v_code.code_len;
-        case BSON_TYPE_DATE_TIME:
-        case BSON_TYPE_TIMESTAMP:
+            break;
         case BSON_TYPE_DOCUMENT:
             // TODO: what about V lengths that are longer than the doc?
             data_ptr = value->value.v_doc.data;
             len = value->value.v_doc.data_len;
-        default:
-            printf("TYPE=%i\n", value->value_type);
-        }
+            break;
+        case BSON_TYPE_TIMESTAMP:
+            // Have to special case here because there's no numpy equivalent to a timestamp.
+            memcpy(pointer, &value->value.v_timestamp.timestamp, sizeof(int32_t));
+            memcpy((pointer+sizeof(int32_t)), &value->value.v_timestamp.increment, sizeof(int32_t));
+            copy = 0;
+            trailing_null = 0;
+            break;
+        case BSON_TYPE_REGEX:
+            len = strlen(value->value.v_regex.regex);
+            memcpy(pointer, value->value.v_regex.regex, len);
+            memset(pointer + len, '\0', 1);
+            memcpy(pointer + len + 1, value->value.v_regex.options, strlen(value->value.v_regex.options));
+            len = len + strlen(value->value.v_regex.options) + 1;
+            printf("regex_len=%i, option_len=%i\n", len, strlen(value->value.v_regex.options));
+            printf("regex=%s, options=%s\n", value->value.v_regex.regex, value->value.v_regex.options);
+            copy = 0;
+            break;
 
-        PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
-        PyObject_Print(data, stdout, 0);
-//        Py_INCREF(data);
-        success = PyArray_SETITEM(ndarray, pointer, data);
-        if(len < itemsize) {
-            memset(pointer + len, 0, itemsize - len);
+            // Have to special case here
+        }
+        printf("TYPE=%i\n", value->value_type);
+
+        if(copy) {
+            PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
+            success = PyArray_SETITEM(ndarray, pointer, data);
+            printf("item=");
+            PyObject_Print(data, stdout, 0);
+            printf("\n");
+    //        Py_INCREF(data);
+        }
+        if(trailing_null) {
+            if(len < itemsize) {
+                memset(pointer + len, '\0', itemsize - len);
+            }
         }
         return success;
 }
