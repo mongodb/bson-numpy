@@ -136,7 +136,48 @@ class TestArray2Ndarray(unittest.TestCase):
         dtype = np.dtype("<S35")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         data = [r.split('\x00') for r in result]
-        for b in range(len(result)):
+        for b in range(len(document)):
             self.assertEqual(2, len(data[b]), "Bad regex=%s" % data[b])
             self.assertEqual(bson.regex.Regex(*data[b]), document[str(b)])
 
+    def test_array(self):
+        # document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
+        # utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        # dtype = np.dtype("int32")
+        # print "python array", np.zeros(3, dtype)
+        # result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        # print "\n\n\n"
+        #
+        #
+        # document = bson.SON([("0", [9,8]),
+        #                      ("1", [6,5]),
+        #                      ("2", [3,2])]) # [ [a,b], [c,d], [e,f] ]
+        # utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        # dtype = np.dtype("2int32")
+        # result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        # self.assertEqual(dtype.subdtype[0], result.dtype)
+        # for b in range(len(result)):
+        #     self.assertTrue(np.array_equal(document[str(b)], result[b]))
+        #
+        # print "\n\n\n\n"
+        #
+        # document = bson.SON([("0", [[9,9],[8,8],[7,7]]),
+        #                      ("1", [[6,6],[5,5],[4,4]]),
+        #                      ("2", [[3,3],[2,2],[1,1]])])
+        # utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        # dtype = np.dtype('(3,2)int32')
+        # result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        # self.assertEqual(dtype.subdtype[0], result.dtype)
+        # for b in range(len(result)):
+        #     self.assertTrue(np.array_equal(document[str(b)], result[b]))
+
+        document = bson.SON([("0", [[[9],[9]],[[8],[8]],[[7],[7]]]),
+                             ("1", [[[6],[6]],[[5],[5]],[[4],[4]]]),
+                             ("2", [[[3],[3]],[[2],[2]],[[1],[1]]])])
+        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype('(3,2,1)int32')
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
+        print "result", result, "python type", type(result), "dtype", result.dtype, "type(result[0])", type(result[0])

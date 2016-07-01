@@ -11,33 +11,6 @@
 
 static PyObject* BsonNumpyError;
 
-bson_type_t get_bson_type(enum NPY_TYPES numpy_type) {
-    return BSON_TYPE_INT32;
-}
-
-//NPY_TYPES get_numpy_type(bson_type_t bson_type) {
-//    switch(bson_type) {
-//    }
-//}
-
-
-
-static PyObject*
-run_command(PyObject* self, PyObject* args)
-{
-    const char* command;
-    int sts;
-
-    if (!PyArg_ParseTuple(args, "s", &command))
-        return NULL;
-    sts = system(command);
-    if (sts < 0) {
-        PyErr_SetString(BsonNumpyError, "System command failed");
-        return NULL;
-    }
-    return Py_BuildValue("i", sts);
-}
-
 static PyObject*
 ndarray_to_bson(PyObject* self, PyObject* args)
 {
@@ -108,15 +81,44 @@ ndarray_to_bson(PyObject* self, PyObject* args)
 
 
 static int _load_scalar(bson_iter_t* bsonit,
-                       char* pointer,
-                       PyArrayObject* ndarray) {
-        const bson_value_t* value = bson_iter_value(bsonit);
+                       npy_intp* coordinates,
+                       PyArrayObject* ndarray,
+                       npy_intp depth,
+                       npy_intp number_dimensions) {
+
+        PyObject* subarray_obj;
+        bson_iter_t sub_it;
         int itemsize = PyArray_DESCR(ndarray)->elsize;;
         int len = itemsize;
         int success = 0;
         int copy = 1;
-        int trailing_null = 1;
 
+        if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
+            printf("FOUND ARRAY\n");
+            bson_iter_recurse(bsonit, &sub_it);
+
+            int i = 0;
+            while( bson_iter_next(&sub_it) ) {
+                coordinates[depth + 1] = i;
+                printf("calling _load_scalar FROM LOAD_SCALAR with coordinates: [");
+                for(int x=0;x<number_dimensions;x++){
+                    printf("%i,", coordinates[x]);
+                }
+                printf("]\n");
+                _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions);
+                i++;
+            }
+            return 1; // TODO: check result of _load_scalar
+        }
+        printf("FOUND NOT ARRAY\n");
+        printf("COORDINATES=[");
+        for(int x=0;x<number_dimensions;x++){
+            printf("%i,", (int)coordinates[x]);
+        }
+        printf("]\n");
+        int i = 0;
+        void* pointer = PyArray_GetPtr(ndarray, coordinates);
+        const bson_value_t* value = bson_iter_value(bsonit);
         void* data_ptr = (void*)&value->value;
         switch(value->value_type) {
         case BSON_TYPE_UTF8:
@@ -140,40 +142,35 @@ static int _load_scalar(bson_iter_t* bsonit,
             data_ptr = value->value.v_doc.data;
             len = value->value.v_doc.data_len;
             break;
+
+        // Have to special case for timestamp and regex bc there's no np equiv
         case BSON_TYPE_TIMESTAMP:
-            // Have to special case here because there's no numpy equivalent to a timestamp.
             memcpy(pointer, &value->value.v_timestamp.timestamp, sizeof(int32_t));
             memcpy((pointer+sizeof(int32_t)), &value->value.v_timestamp.increment, sizeof(int32_t));
             copy = 0;
-            trailing_null = 0;
             break;
         case BSON_TYPE_REGEX:
-            len = strlen(value->value.v_regex.regex);
+            len = (int)strlen(value->value.v_regex.regex);
             memcpy(pointer, value->value.v_regex.regex, len);
             memset(pointer + len, '\0', 1);
-            memcpy(pointer + len + 1, value->value.v_regex.options, strlen(value->value.v_regex.options));
-            len = len + strlen(value->value.v_regex.options) + 1;
-            printf("regex_len=%i, option_len=%i\n", len, strlen(value->value.v_regex.options));
-            printf("regex=%s, options=%s\n", value->value.v_regex.regex, value->value.v_regex.options);
+            memcpy(pointer + len + 1, value->value.v_regex.options, (int)strlen(value->value.v_regex.options));
+            len = len + (int)strlen(value->value.v_regex.options) + 1;
             copy = 0;
             break;
 
-            // Have to special case here
         }
-        printf("TYPE=%i\n", value->value_type);
+        printf("TYPE=%i ", value->value_type);
 
         if(copy) {
             PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
-            success = PyArray_SETITEM(ndarray, pointer, data);
-            printf("item=");
+            printf("ITEM=");
             PyObject_Print(data, stdout, 0);
             printf("\n");
+            success = PyArray_SETITEM(ndarray, pointer, data);
     //        Py_INCREF(data);
         }
-        if(trailing_null) {
-            if(len < itemsize) {
-                memset(pointer + len, '\0', itemsize - len);
-            }
+        if(len < itemsize) {
+            memset(pointer + len, '\0', itemsize - len);
         }
         return success;
 }
@@ -182,31 +179,33 @@ static PyObject*
 bson_to_ndarray(PyObject* self, PyObject* args)
 {
     // Takes in a BSON byte string
-    PyObject* bobj;
+    PyObject* binary_obj;
     PyObject* dtype_obj;
     PyObject *array_obj;
     const char* bytestr;
     PyArray_Descr* dtype;
     PyArrayObject* ndarray;
-    Py_ssize_t len;
+    Py_ssize_t bytes_len;
+    Py_ssize_t number_dimensions = -1;
+    npy_intp* dimension_lengths;
     bson_iter_t bsonit;
     bson_t* document;
     size_t err_offset;
 
-    if (!PyArg_ParseTuple(args, "SO", &bobj, &dtype_obj)) {
+    if (!PyArg_ParseTuple(args, "SO", &binary_obj, &dtype_obj)) {
         PyErr_SetNone(PyExc_TypeError);
         return NULL;
     }
-    bytestr = PyBytes_AS_STRING(bobj);
-    len = PyBytes_GET_SIZE(bobj);
-    document = bson_new_from_data((uint8_t*)bytestr, len); // slower than what??? Also, is this a valid cast?
+    bytestr = PyBytes_AS_STRING(binary_obj);
+    bytes_len = PyBytes_GET_SIZE(binary_obj);
+    document = bson_new_from_data((uint8_t*)bytestr, bytes_len); // slower than what??? Also, is this a valid cast?
     if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
      // TODO: validate in a reasonable way, now segfaults if bad
         PyErr_SetString(BsonNumpyError, "Document failed validation");
         return NULL;
     }
-    char* str = bson_as_json(document, (size_t*)&len);
-//    printf("DOCUMENT: %s\n", str);
+    char* str = bson_as_json(document, (size_t*)&bytes_len);
+    printf("DOCUMENT: %s\n", str);
 
     // Convert dtype
     if (!PyArray_DescrCheck(dtype_obj)) {
@@ -219,18 +218,36 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     }
 
     bson_iter_init(&bsonit, document);
+    dimension_lengths = malloc(sizeof(npy_intp));
+    dimension_lengths[0] = bson_count_keys(document);
+    number_dimensions = 1;
 
-    int keys = bson_count_keys(document);
-    npy_intp* dims = malloc(sizeof(npy_intp)*1);
-    dims[0] = keys;
-    array_obj = PyArray_SimpleNewFromDescr(1, dims, dtype);
-    free(dims);
+    printf("dtype_obj=");
+    PyObject_Print(dtype_obj, stdout, 0);
+    printf("\n");
+
+    Py_INCREF(dtype);
+
+    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); // number_dimensions, [length for each dim], dtype
+    printf("array_obj=");
+    PyObject_Print(array_obj, stdout, 0);
+    printf("\n");
+
     PyArray_OutputConverter(array_obj, &ndarray);
 
-    for(npy_intp i=0;i<keys;i++) {
+    npy_intp* coordinates = malloc(sizeof(npy_intp)*number_dimensions);
+    for(int x=0;x<number_dimensions;x++){ // memset being weird
+        coordinates[x] = 0;
+    }
+    for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
-        char* pointer =  PyArray_GetPtr(ndarray, &i);
-        int success = _load_scalar(&bsonit, pointer, ndarray);
+        coordinates[0] = i;
+        printf("calling _load_scalar FROM TOP with coordinates: [");
+        for(int x=0;x<number_dimensions;x++){
+            printf("%i,", coordinates[x]);
+        }
+        printf("]\n");
+        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions);
         if(success == -1) {
             PyErr_SetString(BsonNumpyError, "item failed to load");
             return NULL;
@@ -238,13 +255,12 @@ bson_to_ndarray(PyObject* self, PyObject* args)
 
     }
 
+    free(dimension_lengths);
     Py_INCREF(array_obj);
     return array_obj;
 }
 
 static PyMethodDef BsonNumpyMethods[] = {
-    {"run_command",  run_command, METH_VARARGS,
-     "Execute a shell command."},
     {"ndarray_to_bson", ndarray_to_bson, METH_VARARGS,
      "Convert an ndarray into a BSON byte string"},
     {"bson_to_ndarray", bson_to_ndarray, METH_VARARGS,
