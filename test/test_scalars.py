@@ -11,37 +11,41 @@ import bsonnumpy
 from test import unittest
 
 class TestArray2Ndarray(unittest.TestCase):
-    def compare_results(self, np_type, document):
+    def compare_results(self, np_type, document, compare_to):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype(np_type)
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         self.assertEqual(result.dtype, dtype)
         for i in range(len(result)):
-            self.assertEqual(document[str(i)], result[i],
+            self.assertEqual(compare_to[str(i)], result[i],
                              "Comparison failed for type %s: %s != %s" % (
-                                 dtype, document[str(i)], result[i]))
+                                 dtype, compare_to[str(i)], result[i]))
 
     def test_integer32_types(self):
-        document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
-        for np_type in [np.int8, np.int16, np.int32,
-                        np.uint8, np.uint16, np.uint32]:
-            self.compare_results(np_type, document)
+        document = bson.SON([("0", 99), ("1", 88), ("2", 77), ("3", 66)])
+        for np_type in [np.int8,
+                        np.int16, np.int32,
+                        np.uint8, np.uint16, np.uint32
+                       ]:
+            self.compare_results(np_type, document, document)
+    def test_do_nothing(self):
+        pass
 
     def test_integer64_types(self):
         document = bson.SON(
             [("0", long(99)), ("1", long(88)), ("2", long(77))])
         for np_type in [np.int_, np.intc, np.intp, np.uint64, np.int64]:
-            self.compare_results(np_type, document)
+            self.compare_results(np_type, document, document)
 
     def test_bool_types(self):
         document = bson.SON([("0", True), ("1", False), ("2", True)])
-        self.compare_results(np.bool_, document)
+        self.compare_results(np.bool_, document, document)
 
     def test_float64_types(self):
         document = bson.SON(
             [("0", float(99.99)), ("1", float(88.88)), ("2", float(77.77))])
         for np_type in [np.float_, np.float64]:
-            self.compare_results(np_type, document)
+            self.compare_results(np_type, document, document)
 
     def TODO_num_types(self):
         np_types = [np.complex_, np.complex64, np.complex128, np.float32 ] # https://jira.mongodb.org/browse/SERVER-9342
@@ -60,7 +64,11 @@ class TestArray2Ndarray(unittest.TestCase):
     def test_string(self):
         document = bson.SON(
             [("0", "string_0"), ("1", "str1"), ("2", "utf8-2")])
-        self.compare_results('<S10', document)
+        self.compare_results('<S10', document, document)
+        document2 = bson.SON(
+            [("0", "st"), ("1", "st"), ("2", "ut")])
+        self.compare_results('<S2', document, document2)
+        self.compare_results('<S2', document2, document2)
 
     def test_binary(self):
         document = bson.SON(
@@ -141,35 +149,34 @@ class TestArray2Ndarray(unittest.TestCase):
             self.assertEqual(bson.regex.Regex(*data[b]), document[str(b)])
 
     def test_array(self):
-        # document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
-        # utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        # dtype = np.dtype("int32")
-        # print "python array", np.zeros(3, dtype)
-        # result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        # print "\n\n\n"
-        #
-        #
-        # document = bson.SON([("0", [9,8]),
-        #                      ("1", [6,5]),
-        #                      ("2", [3,2])]) # [ [a,b], [c,d], [e,f] ]
-        # utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        # dtype = np.dtype("2int32")
-        # result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        # self.assertEqual(dtype.subdtype[0], result.dtype)
-        # for b in range(len(result)):
-        #     self.assertTrue(np.array_equal(document[str(b)], result[b]))
-        #
-        # print "\n\n\n\n"
-        #
-        # document = bson.SON([("0", [[9,9],[8,8],[7,7]]),
-        #                      ("1", [[6,6],[5,5],[4,4]]),
-        #                      ("2", [[3,3],[2,2],[1,1]])])
-        # utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        # dtype = np.dtype('(3,2)int32')
-        # result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        # self.assertEqual(dtype.subdtype[0], result.dtype)
-        # for b in range(len(result)):
-        #     self.assertTrue(np.array_equal(document[str(b)], result[b]))
+        document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
+        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype("int32")
+        print "python array", np.zeros(3, dtype)
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        print "\n\n\n"
+
+
+        document = bson.SON([("0", [9,8]),
+                             ("1", [6,5]),
+                             ("2", [3,2])]) # [ [a,b], [c,d], [e,f] ]
+        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype("2int32")
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
+
+
+        document = bson.SON([("0", [[9,9],[8,8],[7,7]]),
+                             ("1", [[6,6],[5,5],[4,4]]),
+                             ("2", [[3,3],[2,2],[1,1]])])
+        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype('(3,2)int32')
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
 
         document = bson.SON([("0", [[[9],[9]],[[8],[8]],[[7],[7]]]),
                              ("1", [[[6],[6]],[[5],[5]],[[4],[4]]]),

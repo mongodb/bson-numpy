@@ -14,6 +14,8 @@ bsonnumpymodule = setuptools.Extension('bsonnumpy',
                                           np.get_include()],
                             library_dirs=[os.path.join(bson_src, "lib")],
                             libraries=libraries,
+                            extra_compile_args=['-g', '-O0'],
+                            extra_link_args=['-g', '-O0'],
                             sources = [os.path.join("bson-numpy", "bsonnumpy.c")])
 
 test_requires = []

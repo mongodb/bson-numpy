@@ -86,7 +86,6 @@ static int _load_scalar(bson_iter_t* bsonit,
                        npy_intp depth,
                        npy_intp number_dimensions) {
 
-        PyObject* subarray_obj;
         bson_iter_t sub_it;
         int itemsize = PyArray_DESCR(ndarray)->elsize;;
         int len = itemsize;
@@ -94,29 +93,16 @@ static int _load_scalar(bson_iter_t* bsonit,
         int copy = 1;
 
         if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
-            printf("FOUND ARRAY\n");
             bson_iter_recurse(bsonit, &sub_it);
 
             int i = 0;
-            while( bson_iter_next(&sub_it) ) {
+            while( bson_iter_next(&sub_it) ) { // TODO: loop on ndarray not on bson, goign to have to pass dimensions from tuple
                 coordinates[depth + 1] = i;
-                printf("calling _load_scalar FROM LOAD_SCALAR with coordinates: [");
-                for(int x=0;x<number_dimensions;x++){
-                    printf("%i,", coordinates[x]);
-                }
-                printf("]\n");
                 _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions);
                 i++;
             }
             return 1; // TODO: check result of _load_scalar
         }
-        printf("FOUND NOT ARRAY\n");
-        printf("COORDINATES=[");
-        for(int x=0;x<number_dimensions;x++){
-            printf("%i,", (int)coordinates[x]);
-        }
-        printf("]\n");
-        int i = 0;
         void* pointer = PyArray_GetPtr(ndarray, coordinates);
         const bson_value_t* value = bson_iter_value(bsonit);
         void* data_ptr = (void*)&value->value;
@@ -159,18 +145,23 @@ static int _load_scalar(bson_iter_t* bsonit,
             break;
 
         }
-        printf("TYPE=%i ", value->value_type);
 
-        if(copy) {
+        if(copy && len == itemsize) {
             PyObject* data = PyArray_Scalar(data_ptr, PyArray_DESCR(ndarray), NULL);
-            printf("ITEM=");
-            PyObject_Print(data, stdout, 0);
-            printf("\n");
+//            printf("ITEM=");
+//            PyObject_Print(data, stdout, 0);
+//            printf("\n");
             success = PyArray_SETITEM(ndarray, pointer, data);
     //        Py_INCREF(data);
         }
-        if(len < itemsize) {
+        else if(copy) {
+            // Dealing with data that's shorter than the array datatype, so we can't read using the macros.
+            if(len > itemsize) {
+                len = itemsize; // truncate data that's too big
+            }
+            memcpy(pointer, data_ptr, len);
             memset(pointer + len, '\0', itemsize - len);
+
         }
         return success;
 }
@@ -198,14 +189,14 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     }
     bytestr = PyBytes_AS_STRING(binary_obj);
     bytes_len = PyBytes_GET_SIZE(binary_obj);
-    document = bson_new_from_data((uint8_t*)bytestr, bytes_len); // slower than what??? Also, is this a valid cast?
+    document = bson_new_from_data((uint8_t*)bytestr, bytes_len); // slower than what??? Also, is this a valid cast? TODO: free
     if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
      // TODO: validate in a reasonable way, now segfaults if bad
         PyErr_SetString(BsonNumpyError, "Document failed validation");
         return NULL;
     }
-    char* str = bson_as_json(document, (size_t*)&bytes_len);
-    printf("DOCUMENT: %s\n", str);
+//    char* str = bson_as_json(document, (size_t*)&bytes_len);
+//    printf("DOCUMENT: %s\n", str);
 
     // Convert dtype
     if (!PyArray_DescrCheck(dtype_obj)) {
@@ -218,45 +209,48 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     }
 
     bson_iter_init(&bsonit, document);
-    dimension_lengths = malloc(sizeof(npy_intp));
+    dimension_lengths = malloc(1* sizeof(npy_intp));
     dimension_lengths[0] = bson_count_keys(document);
     number_dimensions = 1;
 
-    printf("dtype_obj=");
-    PyObject_Print(dtype_obj, stdout, 0);
-    printf("\n");
+    if(dtype->subarray != NULL) {
+        PyObject *shape = dtype->subarray->shape;
+        if(!PyTuple_Check(shape)) {
+            PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+            return NULL;
+        }
+        number_dimensions = (int)PyTuple_Size(shape);
+    }
+
+//    printf("dtype_obj=");
+//    PyObject_Print(dtype_obj, stdout, 0);
+//    printf("\n");
 
     Py_INCREF(dtype);
 
-    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); // number_dimensions, [length for each dim], dtype
-    printf("array_obj=");
-    PyObject_Print(array_obj, stdout, 0);
-    printf("\n");
+    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); // This function steals a reference to dtype?
+//    printf("array_obj=");
+//    PyObject_Print(array_obj, stdout, 0);
+//    printf("\n");
 
     PyArray_OutputConverter(array_obj, &ndarray);
 
-    npy_intp* coordinates = malloc(sizeof(npy_intp)*number_dimensions);
-    for(int x=0;x<number_dimensions;x++){ // memset being weird
-        coordinates[x] = 0;
-    }
+
+    npy_intp* coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
-        printf("calling _load_scalar FROM TOP with coordinates: [");
-        for(int x=0;x<number_dimensions;x++){
-            printf("%i,", coordinates[x]);
-        }
-        printf("]\n");
-        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions);
+        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions + 1);
         if(success == -1) {
             PyErr_SetString(BsonNumpyError, "item failed to load");
             return NULL;
         }
-
     }
 
     free(dimension_lengths);
-    Py_INCREF(array_obj);
+    free(document);
+    free(coordinates);
+//    Py_INCREF(array_obj);
     return array_obj;
 }
 
@@ -288,6 +282,7 @@ initbsonnumpy(void)
 int
 main(int argc, char* argv[])
 {
+    printf("RUNNING MAIN");
     /* Pass argv[0] to the Python interpreter */
     Py_SetProgramName(argv[0]);
 
