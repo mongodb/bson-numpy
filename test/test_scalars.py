@@ -3,6 +3,9 @@ import sys
 import bson
 import datetime
 import numpy as np
+import pymongo
+from bson.codec_options import CodecOptions
+from bson.raw_bson import RawBSONDocument
 import struct
 
 import bsonnumpy
@@ -187,4 +190,17 @@ class TestArray2Ndarray(unittest.TestCase):
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
-        print "result", result, "python type", type(result), "dtype", result.dtype, "type(result[0])", type(result[0])
+
+
+class TestCollection2Ndarray(unittest.TestCase):
+    def test_iterator(self):
+        client = pymongo.MongoClient()
+        client.drop_database("bsonnumpy_test")
+        client.bsonnumpy_test.coll.insert([{"x": i} for i in range(1000)])
+        raw_coll = client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+        cursor = raw_coll.find()
+        dtype = np.dtype("int32")
+        ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
+        print "NDARRAY", ndarray

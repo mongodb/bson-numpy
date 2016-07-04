@@ -12,7 +12,7 @@
 static PyObject* BsonNumpyError;
 
 static PyObject*
-ndarray_to_bson(PyObject* self, PyObject* args)
+ndarray_to_bson(PyObject* self, PyObject* args) // Stub to test passing ndarrays.
 {
     PyObject* dtype_obj;
     PyObject* array_obj;
@@ -166,6 +166,12 @@ static int _load_scalar(bson_iter_t* bsonit,
         return success;
 }
 
+//TODO: repeated code
+static PyObject* _init_ndarray(int length, PyArray_Descr* dtype, npy_intp* dimension_lengths)
+{
+    return NULL;
+}
+
 static PyObject*
 bson_to_ndarray(PyObject* self, PyObject* args)
 {
@@ -254,11 +260,79 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     return array_obj;
 }
 
+static PyObject*
+collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Collection/cursor both seem to specific to PyMongo.
+{
+    PyObject* iterator_obj;
+    PyObject* dtype_obj;
+    PyObject* array_obj;
+    PyObject* document;
+    PyArray_Descr* dtype;
+    PyArrayObject* ndarray;
+    int num_documents;
+    Py_ssize_t number_dimensions;
+    npy_intp* dimension_lengths;
+
+    if (!PyArg_ParseTuple(args, "OOi", &iterator_obj, &dtype_obj, &num_documents)) {
+        PyErr_SetNone(PyExc_TypeError);
+        return NULL;
+    }
+    if(!PyIter_Check(iterator_obj)) {
+        PyErr_SetString(BsonNumpyError, "collection_to_ndarray expects an iterator");
+        return NULL;
+    }
+    if (!PyArray_DescrCheck(dtype_obj)) {
+        PyErr_SetNone(PyExc_TypeError);
+        return NULL;
+    }
+    if (!PyArray_DescrConverter(dtype_obj, &dtype)) {
+        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+        return NULL;
+    }
+
+
+    dimension_lengths = malloc(1* sizeof(npy_intp));
+    dimension_lengths[0] = num_documents;
+    number_dimensions = 1;
+
+    if(dtype->subarray != NULL) {
+        PyObject *shape = dtype->subarray->shape;
+        if(!PyTuple_Check(shape)) {
+            PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+            return NULL;
+        }
+        number_dimensions = (int)PyTuple_Size(shape);
+    }
+
+    Py_INCREF(dtype);
+
+    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); // This function steals a reference to dtype?
+
+    PyArray_OutputConverter(array_obj, &ndarray);
+
+
+    npy_intp* coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));
+
+
+    while((document = PyIter_Next(iterator_obj))) {
+//        PyObject_Print(document, stdout, 0);
+
+    }
+    free(dimension_lengths);
+    free(coordinates);
+//    Py_INCREF(array_obj);
+    return array_obj;
+
+}
+
+
 static PyMethodDef BsonNumpyMethods[] = {
     {"ndarray_to_bson", ndarray_to_bson, METH_VARARGS,
      "Convert an ndarray into a BSON byte string"},
     {"bson_to_ndarray", bson_to_ndarray, METH_VARARGS,
      "Convert BSON byte string into an ndarray"},
+    {"collection_to_ndarray", collection_to_ndarray, METH_VARARGS,
+     "Convert an iterator containing BSON documents into an ndarray"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
