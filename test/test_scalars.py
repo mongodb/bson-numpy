@@ -6,7 +6,10 @@ import numpy as np
 import pymongo
 from bson.codec_options import CodecOptions
 from bson.raw_bson import RawBSONDocument
+import random
 import struct
+import string
+
 
 import bsonnumpy
 
@@ -201,6 +204,25 @@ class TestCollection2Ndarray(unittest.TestCase):
             'bsonnumpy_test',
             codec_options=CodecOptions(document_class=RawBSONDocument)).coll
         cursor = raw_coll.find()
+
         dtype = np.dtype("int32")
         ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
-        print "NDARRAY", ndarray
+        # print "NDARRAY", ndarray
+
+    def test_flexible_type(self):
+        client = pymongo.MongoClient()
+        client.drop_database("bsonnumpy_test")
+        num_docs = 10
+        names = [random.choice(string.lowercase)*10 for i in range(num_docs)]
+        client.bsonnumpy_test.coll.insert([{"name": names[i],
+                                            "grades": [random.random(),
+                                                       random.random()]}
+                                           for i in range(num_docs)])
+        raw_coll = client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+        cursor = raw_coll.find()
+
+        dtype = np.dtype([('name', np.str_, 18), ('grades', np.float64, (2,))])
+        ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
+        print "NDARRAY", ndarray[0]
