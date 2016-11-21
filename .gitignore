@@ -3,4 +3,3 @@
 *.so
 build/
 *.pyc
-tox.ini
