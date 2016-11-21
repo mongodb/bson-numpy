@@ -14,6 +14,16 @@ import bsonnumpy
 
 from test import unittest
 
+
+def millis(delta):
+    if hasattr(delta, 'total_seconds'):
+        return delta.total_seconds() * 1000
+
+    # Python 2.6.
+    return ((delta.days * 86400 + delta.seconds) * 1000 +
+            delta.microseconds / 1000.0)
+
+
 class TestArray2Ndarray(unittest.TestCase):
     def compare_results(self, np_type, document, compare_to):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
@@ -96,8 +106,8 @@ class TestArray2Ndarray(unittest.TestCase):
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         for b in range(len(result)):
             self.assertEqual(
-                (document[str(b)] - datetime.datetime(1970,1,1)).total_seconds(
-                )* 1000, result[b]) # convert to microseconds
+                millis(document[str(b)] - datetime.datetime(1970, 1, 1)),
+                result[b])
 
     def test_timestamp(self):
         document = bson.SON([("0",
