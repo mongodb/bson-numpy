@@ -1,0 +1,6 @@
+.tox/
+*.egg-info/
+*.so
+build/
+*.pyc
+tox.ini
