@@ -1,5 +1,3 @@
-import sys
-
 import bson
 import datetime
 import numpy as np
