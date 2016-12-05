@@ -7,11 +7,14 @@ import setuptools
 bson_src = os.path.join("/usr", "local")
 libraries = ["bson-1.0"]
 
+# TODO: bootstrap numpy installation so setup.py install works.
+
 bsonnumpymodule = setuptools.Extension('bsonnumpy',
                             define_macros=[('MAJOR_VERSION', '0'),
                                             ('MINOR_VERSION', '1')],
                             include_dirs=[os.path.join(bson_src, "include", "libbson-1.0"),
                                           np.get_include()],
+                            install_requires=['pymongo', 'numpy'],
                             library_dirs=[os.path.join(bson_src, "lib")],
                             libraries=libraries,
                             extra_compile_args=['-g', '-O0'],

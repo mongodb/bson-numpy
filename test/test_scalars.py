@@ -34,6 +34,7 @@ class TestArray2Ndarray(unittest.TestCase):
                         np.uint8, np.uint16, np.uint32
                        ]:
             self.compare_results(np_type, document, document)
+
     def test_do_nothing(self):
         pass
 
@@ -155,13 +156,59 @@ class TestArray2Ndarray(unittest.TestCase):
             self.assertEqual(bson.regex.Regex(*data[b]), document[str(b)])
 
     def test_array(self):
-        document = bson.SON([("0", 99), ("1", 88), ("2", 77)])
+        document = bson.SON([("0", 99),
+                             ("1", 88),
+                             ("2", 77)])
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("int32")
-        print "python array", np.zeros(3, dtype)
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print "\n\n\n"
+        print result
+        print
+        self.assertEqual(dtype, result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
 
+        # arrays of length 1 get automatically converted to constants, except if top-level array is 1.
+
+        document = bson.SON([("0", [99,88,77])])
+        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype("3int32")
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        print result
+        print
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
+
+        same_document = bson.SON([("0", [[99,88,77]])])
+        utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype("3int32")
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        print result
+        print
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
+
+        same_document = bson.SON([("0", [[99],[88],[77]])])
+        utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype("3int32")
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        print result
+        print
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
+
+        same_document = bson.SON([("0", [[[[[99]]]],[[[[[88]]]]],[[[[77]]]]])])
+        utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype("3int32")
+        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        print result
+        print
+        self.assertEqual(dtype.subdtype[0], result.dtype)
+        for b in range(len(result)):
+            self.assertTrue(np.array_equal(document[str(b)], result[b]))
 
         document = bson.SON([("0", [9,8]),
                              ("1", [6,5]),
@@ -173,7 +220,6 @@ class TestArray2Ndarray(unittest.TestCase):
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
 
-
         document = bson.SON([("0", [[9,9],[8,8],[7,7]]),
                              ("1", [[6,6],[5,5],[4,4]]),
                              ("2", [[3,3],[2,2],[1,1]])])
@@ -184,9 +230,24 @@ class TestArray2Ndarray(unittest.TestCase):
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
 
-        document = bson.SON([("0", [[[9],[9]],[[8],[8]],[[7],[7]]]),
-                             ("1", [[[6],[6]],[[5],[5]],[[4],[4]]]),
-                             ("2", [[[3],[3]],[[2],[2]],[[1],[1]]])])
+        document = bson.SON([("0", [
+                                    [[9],[9]],
+                                    [[8],[8]],
+                                    [[7],[7]]
+                                   ]
+                             ),
+                             ("1", [
+                                    [[6],[6]],
+                                    [[5],[5]],
+                                    [[4],[4]]
+                                   ]
+                             ),
+                             ("2", [
+                                    [[3],[3]],
+                                    [[2],[2]],
+                                    [[1],[1]]
+                                   ]
+                             )])
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype('(3,2,1)int32')
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
@@ -225,4 +286,10 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         dtype = np.dtype([('name', np.str_, 18), ('grades', np.float64, (2,))])
         ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
-        print "NDARRAY", ndarray[0]
+        print "NDARRAY", ndarray
+
+        #~/Python-2.7.11/valgrind/coregrind/valgrind --tool=memcheck --leak-check=full
+        # --suppressions=valgrind-python.supp python setup.
+
+if __name__ == "__main__":
+    unittest.main()
