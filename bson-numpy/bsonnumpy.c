@@ -273,7 +273,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     PyArray_OutputConverter(array_obj, &ndarray); //TODO: figure this out again
 
 
-    npy_intp* coordinates = calloc(number_dimensions, sizeof(npy_intp));
+    npy_intp* coordinates = calloc(number_dimensions + 1, sizeof(npy_intp));
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
