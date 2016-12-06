@@ -109,7 +109,7 @@ static int _load_scalar(bson_iter_t* bsonit,
                 count++;
             }
             bson_iter_recurse(bsonit, &sub_it);
-            if (count == 1) {
+            if (count == 1 || !dtype->subarray) {
                 bson_iter_next(&sub_it);
                 printf("\t\tIGNORING ARRAY OF LEN 1\n");
                 // Array is of length 1, therefore we treat it like a number
@@ -138,6 +138,16 @@ static int _load_scalar(bson_iter_t* bsonit,
         case BSON_TYPE_UTF8:
             data_ptr = value->value.v_utf8.str; // Unclear why using value->value doesn't work
             len = value->value.v_utf8.len;
+            break;
+        case BSON_TYPE_INT32:
+            data_ptr = &value->value.v_int32;
+            len = sizeof (value->value.v_int32);
+            copy = 0;
+            break;
+        case BSON_TYPE_INT64:
+            data_ptr = &value->value.v_int64;
+            len = sizeof (value->value.v_int64);
+            copy = 0;
             break;
         case BSON_TYPE_BINARY:
             data_ptr = value->value.v_binary.data;
@@ -532,6 +542,33 @@ static PyMethodDef BsonNumpyMethods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef bsonnumpymodule = {
+   PyModuleDef_HEAD_INIT,
+   "bsonnumpy",
+   NULL,
+   -1,
+   BsonNumpyMethods
+};
+
+PyMODINIT_FUNC
+PyInit_bsonnumpy(void) {
+    PyObject* m;
+
+    m = PyModule_Create(&bsonnumpymodule);
+    if (m == NULL)
+        return NULL;
+
+    BsonNumpyError = PyErr_NewException("bsonnumpy.error", NULL, NULL);
+    Py_INCREF(BsonNumpyError);
+    PyModule_AddObject(m, "error", BsonNumpyError);
+
+    import_array();
+
+    return m;
+}
+#else  // Python 2.x
 PyMODINIT_FUNC
 initbsonnumpy(void)
 {
@@ -547,19 +584,4 @@ initbsonnumpy(void)
 
     import_array();
 }
-
-
-int
-main(int argc, char* argv[])
-{
-    printf("RUNNING MAIN");
-    /* Pass argv[0] to the Python interpreter */
-    Py_SetProgramName(argv[0]);
-
-    /* Initialize the Python interpreter.  Required. */
-    Py_Initialize();
-
-    /* Add a static module */
-    initbsonnumpy();
-}
-
+#endif

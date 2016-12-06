@@ -48,7 +48,7 @@ class TestArray2Ndarray(unittest.TestCase):
 
     def test_integer64_types(self):
         document = bson.SON(
-            [("0", long(99)), ("1", long(88)), ("2", long(77))])
+            [("0", 99), ("1", 88), ("2", 77)])
         for np_type in [np.int_, np.intc, np.intp, np.uint64, np.int64]:
             self.compare_results(np_type, document, document)
 
@@ -58,7 +58,7 @@ class TestArray2Ndarray(unittest.TestCase):
 
     def test_float64_types(self):
         document = bson.SON(
-            [("0", float(99.99)), ("1", float(88.88)), ("2", float(77.77))])
+            [("0", 99.99), ("1", 88.88), ("2", 77.77)])
         for np_type in [np.float_, np.float64]:
             self.compare_results(np_type, document, document)
 
@@ -74,21 +74,21 @@ class TestArray2Ndarray(unittest.TestCase):
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         self.assertEqual(result.dtype, dtype)
         for i in range(len(result)):
-            self.assertEqual(str(document[str(i)].binary), str(result[i]))
+            self.assertEqual(document[str(i)].binary, result[i].tobytes())
 
     def test_string(self):
         document = bson.SON(
-            [("0", "string_0"), ("1", "str1"), ("2", "utf8-2")])
+            [("0", b"string_0"), ("1", b"str1"), ("2", b"utf8-2")])
         self.compare_results('<S10', document, document)
         document2 = bson.SON(
-            [("0", "st"), ("1", "st"), ("2", "ut")])
+            [("0", b"st"), ("1", b"st"), ("2", b"ut")])
         self.compare_results('<S2', document, document2)
         self.compare_results('<S2', document2, document2)
 
     def test_binary(self):
         document = bson.SON(
-            [("0", bson.Binary("binary_0")), ("1", bson.Binary('bin1')),
-             ("2", bson.Binary('utf8-2'))])
+            [("0", bson.Binary(b"binary_0")), ("1", bson.Binary(b"bin1")),
+             ("2", bson.Binary(b"utf8-2"))])
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("<V15")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
@@ -120,7 +120,7 @@ class TestArray2Ndarray(unittest.TestCase):
         dtype = np.dtype('uint64')
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         data = [bson.timestamp.Timestamp(*struct.unpack("<ii", ts)) for ts in result]
-        print "data=", data
+        print("data=%s" % (data), )
         for b in range(len(result)):
             self.assertEqual(data[b], document[str(b)])
 
@@ -146,7 +146,7 @@ class TestArray2Ndarray(unittest.TestCase):
         dtype = np.dtype("<S35")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         for b in range(len(result)):
-            self.assertEqual(str(document[str(b)]), result[b])
+            self.assertEqual(str(document[str(b)]), result[b].decode('utf-8'))
 
     def test_regex(self):
         document = bson.SON([("0",
@@ -158,10 +158,12 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("<S35")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        data = [r.split('\x00') for r in result]
+        data = [r.split(b'\x00') for r in result]
         for b in range(len(document)):
             self.assertEqual(2, len(data[b]), "Bad regex=%s" % data[b])
-            self.assertEqual(bson.regex.Regex(*data[b]), document[str(b)])
+            pattern, flags = data[b]
+            self.assertEqual(bson.regex.Regex(pattern, str(flags)),
+                             document[str(b)])
 
     def test_array(self):
         document = bson.SON([("0", 99),
