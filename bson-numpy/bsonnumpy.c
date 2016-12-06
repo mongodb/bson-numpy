@@ -109,12 +109,15 @@ static int _load_scalar(bson_iter_t* bsonit,
                 count++;
             }
             bson_iter_recurse(bsonit, &sub_it);
-            if (count == 1 || !dtype->subarray) {
+            if (count == 1) {
                 bson_iter_next(&sub_it);
                 printf("\t\tIGNORING ARRAY OF LEN 1\n");
                 // Array is of length 1, therefore we treat it like a number
-                return _load_scalar(&sub_it, coordinates, ndarray, depth, number_dimensions, dtype);
+                return _load_scalar(&sub_it, coordinates, ndarray, depth,
+                                    number_dimensions, dtype);
             } else {
+                PyArray_Descr* base = dtype->subarray ? dtype->subarray->base :
+                                      dtype;
                 int i = 0;
                 while( bson_iter_next(&sub_it) ) { // TODO: loop on ndarray not on bson, going to have to pass dimensions from tuple
                     coordinates[depth + 1] = i;
@@ -123,10 +126,9 @@ static int _load_scalar(bson_iter_t* bsonit,
                         printf("%i,", (int)coordinates[i]);
                     }
                     printf("], new dtype=");
-                    //TODO: need to get sub dtype, is base type enough?
-                    PyObject_Print((PyObject*)dtype->subarray->base, stdout, 0);
+                    PyObject_Print((PyObject*)base, stdout, 0);
                     printf("\n");
-                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, dtype->subarray->base);
+                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, base);
                     i++;
                 }
                 return 1; // TODO: check result of _load_scalar
@@ -142,12 +144,10 @@ static int _load_scalar(bson_iter_t* bsonit,
         case BSON_TYPE_INT32:
             data_ptr = &value->value.v_int32;
             len = sizeof (value->value.v_int32);
-            copy = 0;
             break;
         case BSON_TYPE_INT64:
             data_ptr = &value->value.v_int64;
             len = sizeof (value->value.v_int64);
-            copy = 0;
             break;
         case BSON_TYPE_BINARY:
             data_ptr = value->value.v_binary.data;
