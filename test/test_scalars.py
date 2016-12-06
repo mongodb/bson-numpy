@@ -172,8 +172,7 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print result
-        print
+        print (result)
         self.assertEqual(dtype, result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -184,8 +183,7 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print result
-        print
+        print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -194,8 +192,7 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print result
-        print
+        print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -204,8 +201,7 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print result
-        print
+        print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -214,8 +210,7 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print result
-        print
+        print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -278,7 +273,7 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         dtype = np.dtype("int32")
         ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
-        # print "NDARRAY", ndarray
+        # print ("NDARRAY", ndarray)
 
     def test_flexible_type(self):
         client = pymongo.MongoClient()
@@ -296,7 +291,7 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         dtype = np.dtype([('name', np.str_, 18), ('grades', np.float64, (2,))])
         ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
-        print "NDARRAY", ndarray
+        print ("NDARRAY", ndarray)
 
         #~/Python-2.7.11/valgrind/coregrind/valgrind --tool=memcheck --leak-check=full
         # --suppressions=valgrind-python.supp python setup.
