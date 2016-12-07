@@ -3,3 +3,7 @@
 *.so
 build/
 *.pyc
+*.eggs
+*.idea
+bsonenv
+cmake-build-debug/

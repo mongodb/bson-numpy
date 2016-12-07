@@ -8,11 +8,9 @@ import random
 import struct
 import string
 
-
 import bsonnumpy
 
-
-from test import unittest
+from test import unittest, TestFromBSON
 
 
 def millis(delta):
@@ -24,23 +22,13 @@ def millis(delta):
             delta.microseconds / 1000.0)
 
 
-class TestArray2Ndarray(unittest.TestCase):
-    def compare_results(self, np_type, document, compare_to):
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype(np_type)
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        self.assertEqual(result.dtype, dtype)
-        for i in range(len(result)):
-            self.assertEqual(compare_to[str(i)], result[i],
-                             "Comparison failed for type %s: %s != %s" % (
-                                 dtype, compare_to[str(i)], result[i]))
+class TestFromBSONScalars(TestFromBSON):
 
     def test_integer32_types(self):
         document = bson.SON([("0", 99), ("1", 88), ("2", 77), ("3", 66)])
         for np_type in [np.int8,
                         np.int16, np.int32,
-                        np.uint8, np.uint16, np.uint32
-                       ]:
+                        np.uint8, np.uint16, np.uint32]:
             self.compare_results(np_type, document, document)
 
     def test_do_nothing(self):
@@ -63,7 +51,9 @@ class TestArray2Ndarray(unittest.TestCase):
             self.compare_results(np_type, document, document)
 
     def TODO_num_types(self):
-        np_types = [np.complex_, np.complex64, np.complex128, np.float32 ] # https://jira.mongodb.org/browse/SERVER-9342
+        # np_types = [np.complex_, np.complex64, np.complex128, np.float32 ]
+        # https://jira.mongodb.org/browse/SERVER-9342
+        pass
 
     def test_oid(self):
         document = bson.SON(
@@ -95,7 +85,7 @@ class TestArray2Ndarray(unittest.TestCase):
         for b in range(len(result)):
             # TODO: trailing null chars
             pass
-            #self.assertEqual(str(document[str(b)]), str(result[b]))
+            # self.assertEqual(str(document[str(b)]), str(result[b]))
 
     def test_datetime(self):
         document = bson.SON([("0", datetime.datetime(1970, 1, 1)),
@@ -119,8 +109,8 @@ class TestArray2Ndarray(unittest.TestCase):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype('uint64')
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        data = [bson.timestamp.Timestamp(*struct.unpack("<ii", ts)) for ts in result]
-        print("data=%s" % (data), )
+        data = [bson.timestamp.Timestamp(
+            *struct.unpack("<ii", ts)) for ts in result]
         for b in range(len(result)):
             self.assertEqual(data[b], document[str(b)])
 
@@ -165,136 +155,43 @@ class TestArray2Ndarray(unittest.TestCase):
             self.assertEqual(bson.regex.Regex(pattern, str(flags)),
                              document[str(b)])
 
-    def test_array(self):
-        document = bson.SON([("0", 99),
-                             ("1", 88),
-                             ("2", 77)])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("int32")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
-        self.assertEqual(dtype, result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        # arrays of length 1 get automatically converted to constants, except if top-level array is 1.
-
-        document = bson.SON([("0", [99,88,77])])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("3int32")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        same_document = bson.SON([("0", [[99,88,77]])])
-        utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("3int32")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        same_document = bson.SON([("0", [[99],[88],[77]])])
-        utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("3int32")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        same_document = bson.SON([("0", [[[[[99]]]],[[[[[88]]]]],[[[[77]]]]])])
-        utf8 = bson._dict_to_bson(same_document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("3int32")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        document = bson.SON([("0", [9,8]),
-                             ("1", [6,5]),
-                             ("2", [3,2])]) # [ [a,b], [c,d], [e,f] ]
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("2int32")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        document = bson.SON([("0", [[9,9],[8,8],[7,7]]),
-                             ("1", [[6,6],[5,5],[4,4]]),
-                             ("2", [[3,3],[2,2],[1,1]])])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype('(3,2)int32')
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
-        document = bson.SON([("0", [
-                                    [[9],[9]],
-                                    [[8],[8]],
-                                    [[7],[7]]
-                                   ]
-                             ),
-                             ("1", [
-                                    [[6],[6]],
-                                    [[5],[5]],
-                                    [[4],[4]]
-                                   ]
-                             ),
-                             ("2", [
-                                    [[3],[3]],
-                                    [[2],[2]],
-                                    [[1],[1]]
-                                   ]
-                             )])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype('(3,2,1)int32')
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        self.assertEqual(dtype.subdtype[0], result.dtype)
-        for b in range(len(result)):
-            self.assertTrue(np.array_equal(document[str(b)], result[b]))
-
 
 class TestCollection2Ndarray(unittest.TestCase):
-    def test_iterator(self):
-        client = pymongo.MongoClient()
-        client.drop_database("bsonnumpy_test")
-        client.bsonnumpy_test.coll.insert([{"x": i} for i in range(1000)])
-        raw_coll = client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
+    def test_nothing(self):
+        pass
 
-        dtype = np.dtype("int32")
-        ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
-        # print ("NDARRAY", ndarray)
-
-    def test_flexible_type(self):
-        client = pymongo.MongoClient()
-        client.drop_database("bsonnumpy_test")
-        num_docs = 10
-        names = [random.choice(string.lowercase)*10 for i in range(num_docs)]
-        client.bsonnumpy_test.coll.insert([{"name": names[i],
-                                            "grades": [random.random(),
-                                                       random.random()]}
-                                           for i in range(num_docs)])
-        raw_coll = client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
-
-        dtype = np.dtype([('name', np.str_, 18), ('grades', np.float64, (2,))])
-        ndarray = bsonnumpy.collection_to_ndarray((doc.raw for doc in cursor), dtype, raw_coll.count())
-        print ("NDARRAY", ndarray)
-
-        #~/Python-2.7.11/valgrind/coregrind/valgrind --tool=memcheck --leak-check=full
-        # --suppressions=valgrind-python.supp python setup.
+    # def test_iterator(self):
+    #     client = pymongo.MongoClient()
+    #     client.drop_database("bsonnumpy_test")
+    #     client.bsonnumpy_test.coll.insert([{"x": i} for i in range(1000)])
+    #     raw_coll = client.get_database(
+    #         'bsonnumpy_test',
+    #         codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+    #     cursor = raw_coll.find()
+    #
+    #     dtype = np.dtype("int32")
+    #     bsonnumpy.collection_to_ndarray(
+    #         (doc.raw for doc in cursor), dtype, raw_coll.count())
+    #     # print ("NDARRAY", ndarray)
+    #
+    # def test_flexible_type(self):
+    #     client = pymongo.MongoClient()
+    #     client.drop_database("bsonnumpy_test")
+    #     num_docs = 10
+    #     names = [random.choice(string.lowercase)*10 for i in range(num_docs)]
+    #     client.bsonnumpy_test.coll.insert([{"name": names[i],
+    #                                         "grades": [random.random(),
+    #                                                    random.random()]}
+    #                                        for i in range(num_docs)])
+    #     raw_coll = client.get_database(
+    #         'bsonnumpy_test',
+    #         codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+    #     cursor = raw_coll.find()
+    #
+    #     dtype = np.dtype([('name', np.str_, 18), ('grades', np.float64, (2,))])
+    #     ndarray = bsonnumpy.collection_to_ndarray(
+    #         (doc.raw for doc in cursor), dtype, raw_coll.count())
+    #     print ("NDARRAY", ndarray)
 
 if __name__ == "__main__":
     unittest.main()
