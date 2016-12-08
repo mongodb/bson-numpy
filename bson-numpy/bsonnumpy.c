@@ -100,6 +100,10 @@ static int _load_scalar(bson_iter_t* bsonit,
         printf("\n");
 
         void* pointer = PyArray_GetPtr(ndarray, coordinates);
+
+        int dtype_num = dtype->type_num;
+        printf("DTYPE NUM=%i\n", dtype_num); // TODO: Use this for error checking
+
         if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
             printf("\t\tBSON_ITER_HOLDS_ARRAY\n");
             // Get length of array
@@ -117,7 +121,7 @@ static int _load_scalar(bson_iter_t* bsonit,
                                     number_dimensions, dtype);
             } else {
                 PyArray_Descr* base = dtype->subarray ? dtype->subarray->base :
-                                      dtype;
+                                      dtype; // TODO: I'm not sure why this is working for arrays of length 1 that are subarrays
                 int i = 0;
                 while( bson_iter_next(&sub_it) ) { // TODO: loop on ndarray not on bson, going to have to pass dimensions from tuple
                     coordinates[depth + 1] = i;
@@ -136,6 +140,7 @@ static int _load_scalar(bson_iter_t* bsonit,
         }
         const bson_value_t* value = bson_iter_value(bsonit);
         void* data_ptr = (void*)&value->value;
+        printf("Switching on %i\n", value->value_type);
         switch(value->value_type) {
         case BSON_TYPE_UTF8:
             data_ptr = value->value.v_utf8.str; // Unclear why using value->value doesn't work
@@ -163,6 +168,7 @@ static int _load_scalar(bson_iter_t* bsonit,
             break;
         case BSON_TYPE_DOCUMENT:
             // TODO: what about V lengths that are longer than the doc?
+            // TODO: check for flexible dtype with dtype.fields
             data_ptr = value->value.v_doc.data;
             len = value->value.v_doc.data_len;
             break;

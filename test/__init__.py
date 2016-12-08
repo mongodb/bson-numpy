@@ -38,7 +38,7 @@ class ClientContext(object):
             self.client = None
         else:
             self.connected = True
-            self.client = pymongo.MongoClient(host, port)
+            self.client = pymongo.MongoClient(host, port, connect=False)
 
     def _require(self, condition, msg, func=None):
         def make_wrapper(f):
