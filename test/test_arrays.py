@@ -3,7 +3,7 @@ import numpy as np
 
 import bsonnumpy
 
-from test import unittest, TestFromBSON
+from test import TestFromBSON
 
 
 class TestFromBSONArrays(TestFromBSON):
