@@ -28,7 +28,7 @@ class TestCollection2Ndarray(unittest.TestCase):
             codec_options=CodecOptions(document_class=RawBSONDocument)).coll
         cursor = raw_coll.find()
 
-        dtype = np.dtype([('x', np.int), ('y', np.int)])
+        dtype = np.dtype([('x', np.int32), ('y', np.int32)])
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
         print ndarray

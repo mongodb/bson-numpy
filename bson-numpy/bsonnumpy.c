@@ -87,7 +87,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
                        npy_intp number_dimensions,
                        PyArray_Descr* dtype) {
         bson_iter_t sub_it;
-        int itemsize = PyArray_DESCR(ndarray)->elsize;
+        int itemsize = dtype->elsize;
         int bson_item_len = itemsize;
         int success = 0;
         int copy = 1;
@@ -140,7 +140,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
         }
         const bson_value_t* value = bson_iter_value(bsonit);
         void* data_ptr = (void*)&value->value;
-//        printf("Switching on %i\n", value->value_type);
+        printf("\t-switching on %i\n", value->value_type);
         switch(value->value_type) {
         case BSON_TYPE_UTF8:
             data_ptr = value->value.v_utf8.str; // Unclear why using value->value doesn't work
@@ -190,12 +190,16 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
         }
 
+        printf("\tbson_item_len=%i, itemsize=%i\n", bson_item_len, itemsize);
         if(copy && bson_item_len == itemsize) {
+            printf("\tusing SETITEM\n");
             PyObject* data = PyArray_Scalar(data_ptr, dtype, NULL);
             success = PyArray_SETITEM(ndarray, pointer, data);
+            printf("HERE, success=%i\n", success); //TODO PICKUP HERE: flexible data types fails SETITEM
     //        Py_INCREF(data);
         }
         else if(copy) {
+            printf("\tusing memcpy\n");
             // Dealing with data that's shorter than the array datatype, so we can't read using the macros.
             if(bson_item_len > itemsize) {
                 bson_item_len = itemsize; // truncate data that's too big
@@ -204,6 +208,9 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
             memset(pointer + bson_item_len, '\0', itemsize - bson_item_len);
             success = 1;
 
+        }
+        else {
+            printf("NOT COPYING\n");
         }
 //        printf("\t\tEND OF LOAD SCALAR:");
 //        PyObject_Print((PyObject*)ndarray, stdout, 0);
@@ -400,7 +407,7 @@ static int load_document(PyObject* binary_doc,
 
 
             bson_iter_init(&bsonit, document);
-            if(bson_iter_find(&bsonit, key_str)) { //CURRENT TODO: coordinates aren't being set right
+            if(bson_iter_find(&bsonit, key_str)) {
                 success = _load_scalar(&bsonit, coordinates, ndarray, depth + 1, number_dimensions, sub_dtype);
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
