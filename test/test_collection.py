@@ -15,8 +15,26 @@ class TestCollection2Ndarray(unittest.TestCase):
     def setUpClass(cls):
         cls.client = client_context.client
 
+    # TODO: deal with both name and title in dtype
+
+    @client_context.require_connected
+    def test_collection_flexible(self):
+        self.client.drop_database("bsonnumpy_test")
+        docs = [{"x": i, "y": 10-i} for i in range(10)]
+        print "docs", docs
+        self.client.bsonnumpy_test.coll.insert(docs)
+        raw_coll = self.client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+        cursor = raw_coll.find()
+
+        dtype = np.dtype([('x', np.int), ('y', np.int)])
+        ndarray = bsonnumpy.collection_to_ndarray(
+            (doc.raw for doc in cursor), dtype, raw_coll.count())
+        print ndarray
+
     # @client_context.require_connected
-    # def test_iterator(self):
+    # def test_collection_standard(self):
     #     self.client.drop_database("bsonnumpy_test")
     #     self.client.bsonnumpy_test.coll.insert(
     #         [{"x": i} for i in range(1000)])
@@ -25,27 +43,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     #         codec_options=CodecOptions(document_class=RawBSONDocument)).coll
     #     cursor = raw_coll.find()
     #
-    #     dtype = np.dtype("int32")
-    #     bsonnumpy.collection_to_ndarray(
+    #     dtype = np.dtype(np.int)
+    #     ndarray = bsonnumpy.collection_to_ndarray(
     #         (doc.raw for doc in cursor), dtype, raw_coll.count())
-    #     # print ("NDARRAY", ndarray)
 
-    @client_context.require_connected
-    def test_flexible_type(self):
-        self.client.drop_database("bsonnumpy_test")
-        num_docs = 10
-        names = [random.choice(string.ascii_letters) * 10
-                 for _ in range(num_docs)]
-        self.client.bsonnumpy_test.coll.insert([{"name": names[i],
-                                                 "grades": [random.random(),
-                                                            random.random()]}
-                                                for i in range(num_docs)])
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
-
-        dtype = np.dtype([('name', np.str_, 18), ('grades', np.float64, (2,))])
-        ndarray = bsonnumpy.collection_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
-        print ("NDARRAY", ndarray)
