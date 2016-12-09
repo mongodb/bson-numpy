@@ -341,61 +341,41 @@ static int load_document(PyObject* binary_doc,
         PyObject* sub_dtype_obj, *offset;
         int success;
 
-        PyObject* ordered_dict = PyDict_New();
         while(PyDict_Next(fields, &pos, &key, &value)) { // for each column --> this could be rewritten not use a dict
             if (!PyTuple_Check(value)) {
                 PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
             }
-            offset = PyTuple_GetItem(value, 1);
-            PyObject* new_tuple = PyTuple_New(2);
-            PyTuple_SetItem(new_tuple, 0, key);
-            PyTuple_SetItem(new_tuple, 1, value);
-            PyDict_SetItem(ordered_dict, offset, new_tuple);
-        }
-        PyObject* offsets = PyDict_Keys(ordered_dict);
-        PyList_Sort(offsets); // TODO: this is probably unneccssary --> load_scalar calculates offset instead of being told
-        Py_ssize_t total_length = PyList_Size(offsets);
-
-//        printf("just finished creating sorted dict:");
-//        PyObject_Print(ordered_dict, stdout, 0);
-//        printf(" offsets=");
-//        PyObject_Print(offsets, stdout, 0);
-//        printf(" total_length=%i\n", (int)total_length);
-
-        // for each key in document, matching order in array
-        for (Py_ssize_t i=0; i<total_length; i++) {
-            PyObject* curr_offset = PyList_GetItem(offsets, i);
-            PyObject* key_value_tuple = PyDict_GetItem(ordered_dict, curr_offset);
-            key = PyTuple_GetItem(key_value_tuple, 0);
-            value = PyTuple_GetItem(key_value_tuple, 1);
-
-
-            key_str = PyBytes_AS_STRING(key);
-            if (!PyTuple_Check(value)) {
-                PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
+            PyTypeObject* type = key->ob_type;
+            const char* p = type->tp_name;
+            if (PyUnicode_Check(key)) {
+                key = PyUnicode_AsASCIIString(key);
             }
+            if (!PyBytes_Check(key)) {
+                PyErr_SetString(BsonNumpyError, "bson string error in key names");
+            }
+            key_str = PyBytes_AsString(key);
+            offset = PyTuple_GetItem(value, 1);
             sub_dtype_obj = PyTuple_GetItem(value, 0);
-
-
             if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) { // Convert from python object to numpy dtype object
                 PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
                 return 0;
             }
-            coordinates[depth] = i;
 
             printf("-->looping through fields, key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
             printf(" coordinates: ["); for (int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
+            // Don't need to update coordinates because location within row is handled by offset
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, coordinates, ndarray, depth + 1, number_dimensions, sub_dtype, PyLong_AsLong(curr_offset));
+                success = _load_scalar(&bsonit, coordinates, ndarray, depth + 1, number_dimensions, sub_dtype, PyLong_AsLong(offset));
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
                 }
             }
             else {
-                printf("ERROR, KEY %s NT FOUND\n", key_str);
+                PyErr_SetString(BsonNumpyError, "document does not match dtype."); // TODO: nicer error message
+                return 0;
             }
             if(!validate_field_type(value, &bsonit)) {
                 PyErr_SetString(BsonNumpyError, "field type was incorrect");
