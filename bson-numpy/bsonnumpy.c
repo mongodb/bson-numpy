@@ -104,7 +104,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
         if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
 
-            printf("\t\t-->found subarray\n");
+            printf("\t\tFound subarray\n");
 
             // Get length of array
             bson_iter_recurse(bsonit, &sub_it);
@@ -120,17 +120,18 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
                 // Array is of length 1, therefore we treat it like a number
                 return _load_scalar(&sub_it, coordinates, ndarray, depth,
-                                    number_dimensions, dtype, 0);
+                                    number_dimensions, dtype, flexible_offset);
             } else {
                 PyArray_Descr* base = dtype->subarray ? dtype->subarray->base :
                                       dtype; // TODO: I'm not sure why this is working for arrays of length 1 that are subarrays
                 int i = 0;
                 while( bson_iter_next(&sub_it) ) {
                     coordinates[depth + 1] = i;
+                    printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", depth, number_dimensions, i);
 
-                    printf("\t\tSUBARRAY: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("], new dtype="); PyObject_Print((PyObject*)base, stdout, 0); printf("\n");
+                    printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("], new dtype="); PyObject_Print((PyObject*)base, stdout, 0); printf("\n");
 
-                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, base, 0);
+                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, base, flexible_offset);
                     i++;
                 }
                 return 1; // TODO: check result of _load_scalar
@@ -345,8 +346,6 @@ static int load_document(PyObject* binary_doc,
             if (!PyTuple_Check(value)) {
                 PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
             }
-            PyTypeObject* type = key->ob_type;
-            const char* p = type->tp_name;
             if (PyUnicode_Check(key)) {
                 key = PyUnicode_AsASCIIString(key);
             }
@@ -389,14 +388,16 @@ static int load_document(PyObject* binary_doc,
     return 1;
 }
 
+
 static int _get_depth(int current_depth, PyArray_Descr* dtype) {
+    printf("in get_depth, curr_depth=%i\n", current_depth);
     if(dtype->subarray != NULL) {
         PyObject *shape = dtype->subarray->shape;
         if(!PyTuple_Check(shape)) {
             PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
             return -1;
         }
-        return (int)PyTuple_Size(shape) + current_depth;
+        return (int)PyTuple_Size(shape) + current_depth + 1;
     }
 
     if(dtype->fields != NULL && dtype->fields != Py_None) { // flexible type
@@ -428,11 +429,32 @@ static int _get_depth(int current_depth, PyArray_Descr* dtype) {
                 max_depth = sub_depth;
             }
         }
-        return sub_depth + current_depth;
+        return max_depth;
     }
     return current_depth + 1;
 }
 
+static PyObject* get_dtype_depth(PyObject* self, PyObject* args) {
+    PyObject* dtype_obj;
+    PyArray_Descr* dtype;
+    int depth;
+
+    if (!PyArg_ParseTuple(args, "O", &dtype_obj)) {
+        PyErr_SetNone(PyExc_TypeError);
+        return NULL;
+    }
+    if (!PyArray_DescrCheck(dtype_obj)) {
+        PyErr_SetNone(PyExc_TypeError);
+        return NULL;
+    }
+    if (!PyArray_DescrConverter(dtype_obj, &dtype)) {
+        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+        return NULL;
+    }
+
+    depth = _get_depth(0, dtype);
+    return PyLong_FromDouble(depth);
+}
 
 // TODO: RENAME TO SEQUENCE_
 static PyObject*
@@ -515,6 +537,8 @@ static PyMethodDef BsonNumpyMethods[] = {
      "Convert BSON byte string into an ndarray"},
     {"collection_to_ndarray", collection_to_ndarray, METH_VARARGS,
      "Convert an iterator containing BSON documents into an ndarray"},
+    {"get_dtype_depth", get_dtype_depth, METH_VARARGS,
+     "Get the longest dimensions of a flexible type"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
