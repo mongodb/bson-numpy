@@ -21,7 +21,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     def test_collection_flexible(self):
         self.client.drop_database("bsonnumpy_test")
         docs = [{"x": i, "y": 10-i} for i in range(10)]
-        print "docs", docs
+        print("docs", docs)
         self.client.bsonnumpy_test.coll.insert(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
@@ -31,7 +31,7 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x', np.int32), ('y', np.int32)])
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
-        print ndarray
+        print(ndarray)
 
     # @client_context.require_connected
     # def test_collection_standard(self):
