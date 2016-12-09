@@ -19,12 +19,11 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     def compare_elements(self, expected, actual):
         if isinstance(actual, np.ndarray):
-            # print "comparing", actual, expected, "type act", type(actual)
-            pass
-            # self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
-            # self.assertEqual(len(actual), len(expected))
-            # for i in range(len(actual)):
-            #     self.assertEqual(actual[i], expected[i])
+            print("comparing", actual, expected, "type act", type(actual))
+            self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
+            self.assertEqual(len(actual), len(expected))
+            for i in range(len(actual)):
+                self.assertEqual(actual[i], expected[i])
         elif isinstance(actual, np.bytes_):
             expected = b(expected)
             self.assertEqual(expected, actual)
@@ -73,6 +72,21 @@ class TestCollection2Ndarray(unittest.TestCase):
         cursor = raw_coll.find()
 
         dtype = np.dtype([('x', np.int32), ('y', 'S11')])
+        ndarray = bsonnumpy.collection_to_ndarray(
+            (doc.raw for doc in cursor), dtype, raw_coll.count())
+        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray(self):
+        self.client.drop_database("bsonnumpy_test")
+        docs = [{"x": [i, 10-i]} for i in range(10)]
+        self.client.bsonnumpy_test.coll.insert_many(docs)
+        raw_coll = self.client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+        cursor = raw_coll.find()
+
+        dtype = np.dtype([('x', '2int32')])
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
         self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)

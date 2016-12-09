@@ -94,10 +94,19 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
         int copy = 1;
 
         printf("\tin load_scalar, depth=%i, coordinates=[", (int)depth); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }
-        printf("] + DTYPE="); PyObject_Print((PyObject*)dtype, stdout, 0); printf("\n");
+        printf("] + DTYPE="); PyObject_Print((PyObject*)dtype, stdout, 0); printf("OFFSET=%i\n", flexible_offset);
+
+        /*TODO:
+         * For flexible types with subarrays:
+         * - GetPtr is not working for last coordinate (i.e. [0, 1, 1] === [0, 1, 0])
+         * - Dtype doesn't provide offsets for subarrays of flexible types
+         * - dtype getting passed in is 2d array, but coordinates are for whole ndarray?
+         * - maybe setting to null with memset?
+         */
 
         void* pointer = PyArray_GetPtr(ndarray, coordinates);
         pointer = pointer + flexible_offset;
+        printf("location of pointer=%p\n", pointer);
 
 //        int dtype_num = dtype->type_num;
 //        printf("DTYPE NUM=%i\n", dtype_num); // TODO: Use this for error checking
@@ -195,7 +204,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
         }
 
         /* Commented out because PyArray_SETITEM fails for flexible types, but memcpy works.
-           TODO: use macros whenever possible, better to handle errors
+           TODO: use macros whenever possible, better to handle errors. Can check how far off by GETITEM address w coordinates vs. pointer
            PyObject* data = PyArray_Scalar(data_ptr, dtype, NULL);
            success = PyArray_SETITEM(ndarray, pointer, data);
          */
@@ -342,16 +351,34 @@ static int load_document(PyObject* binary_doc,
         PyObject* sub_dtype_obj, *offset;
         int success;
 
+
+        PyObject* ordered_dict = PyDict_New();
         while(PyDict_Next(fields, &pos, &key, &value)) { // for each column --> this could be rewritten not use a dict
             if (!PyTuple_Check(value)) {
                 PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
             }
+            offset = PyTuple_GetItem(value, 1);
+            PyObject* new_tuple = PyTuple_New(2);
             if (PyUnicode_Check(key)) {
                 key = PyUnicode_AsASCIIString(key);
             }
             if (!PyBytes_Check(key)) {
                 PyErr_SetString(BsonNumpyError, "bson string error in key names");
             }
+            PyTuple_SetItem(new_tuple, 0, key);
+            PyTuple_SetItem(new_tuple, 1, value);
+            PyDict_SetItem(ordered_dict, offset, new_tuple);
+        }
+        PyObject* offsets = PyDict_Keys(ordered_dict);
+        PyList_Sort(offsets);
+        Py_ssize_t total_length = PyList_Size(offsets);
+
+        for (Py_ssize_t i=0; i<total_length; i++) {
+            PyObject* curr_offset = PyList_GetItem(offsets, i);
+            PyObject* key_value_tuple = PyDict_GetItem(ordered_dict, curr_offset);
+            key = PyTuple_GetItem(key_value_tuple, 0);
+            value = PyTuple_GetItem(key_value_tuple, 1);
+
             key_str = PyBytes_AsString(key);
             offset = PyTuple_GetItem(value, 1);
             sub_dtype_obj = PyTuple_GetItem(value, 0);
@@ -360,13 +387,14 @@ static int load_document(PyObject* binary_doc,
                 return 0;
             }
 
+            coordinates[depth] = i;
+
             printf("-->looping through fields, key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
             printf(" coordinates: ["); for (int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
-            // Don't need to update coordinates because location within row is handled by offset
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, coordinates, ndarray, depth + 1, number_dimensions, sub_dtype, PyLong_AsLong(offset));
+                success = _load_scalar(&bsonit, coordinates, ndarray, depth, number_dimensions, sub_dtype, PyLong_AsLong(offset));
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
@@ -390,7 +418,6 @@ static int load_document(PyObject* binary_doc,
 
 
 static int _get_depth(int current_depth, PyArray_Descr* dtype) {
-    printf("in get_depth, curr_depth=%i\n", current_depth);
     if(dtype->subarray != NULL) {
         PyObject *shape = dtype->subarray->shape;
         if(!PyTuple_Check(shape)) {
@@ -412,7 +439,7 @@ static int _get_depth(int current_depth, PyArray_Descr* dtype) {
         }
 
         int max_depth = 0;
-        int sub_depth = 1;
+        int sub_depth = 1; // TODO: pretty sure fields can't be empty
 
         while(PyDict_Next(fields, &pos, &key, &value)) { // for each column
             if (!PyTuple_Check(value)) {
