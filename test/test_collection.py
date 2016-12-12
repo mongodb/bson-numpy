@@ -19,11 +19,14 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     def compare_elements(self, expected, actual):
         if isinstance(actual, np.ndarray):
-            # print("comparing", actual, expected, "type act", type(actual))
-            self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
-            self.assertEqual(len(actual), len(expected))
-            for i in range(len(actual)):
-                self.assertEqual(actual[i], expected[i])
+            print("comparing:", type(actual))
+            print(actual)
+            print(expected)
+            # self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
+            # self.assertEqual(len(actual), len(expected))
+            # for i in range(len(actual)):
+            #     self.compare_elements(expected[i], actual[i])
+
         elif isinstance(actual, np.bytes_):
             expected = b(expected)
             self.assertEqual(expected, actual)
@@ -44,67 +47,60 @@ class TestCollection2Ndarray(unittest.TestCase):
                 name = desc[0]
                 self.compare_elements(exp[name], act[name])
 
-    @client_context.require_connected
-    def test_collection_flexible_int32(self):
+    def make_mixed_collection_test(self, docs, dtype):
         self.client.drop_database("bsonnumpy_test")
-        docs = [{"x": i, "y": 10-i} for i in range(10)]
-        print("docs", docs)
         self.client.bsonnumpy_test.coll.insert_many(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
             codec_options=CodecOptions(document_class=RawBSONDocument)).coll
         cursor = raw_coll.find()
 
-        dtype = np.dtype([('x', np.int32), ('y', np.int32)])
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
-        self.compare_results(
-            dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+
+    @client_context.require_connected
+    def test_collection_flexible_int32(self):
+        docs = [{"x": i, "y": 10-i} for i in range(10)]
+        dtype = np.dtype([('x', np.int32), ('y', np.int32)])
+        self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
     def test_collection_flexible_mixed_scalar(self):
-        self.client.drop_database("bsonnumpy_test")
         docs = [{"x": i, "y": random.choice(string.ascii_lowercase)*11} for i in range(10)]
-        self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
-
         dtype = np.dtype([('x', np.int32), ('y', 'S11')])
-        ndarray = bsonnumpy.collection_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
-        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+        self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_subarray(self):
-        self.client.drop_database("bsonnumpy_test")
+    def test_collection_flexible_subarray1(self):
+        # 2d subarray
         docs = [{"x": [1+i, -i-1]} for i in range(10)]
-        self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
-
         dtype = np.dtype([('x', '2int32')])
-        ndarray = bsonnumpy.collection_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
-        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray2(self):
+        # 3d subarray
+        docs = [{"x": [[i, i+1, i+2],
+                       [-i, -i-1, -i-2],
+                       [100*i, 100*i+1, 100*i+2]],
+                 "y": i} for i in range(10)]
+        dtype = np.dtype([('x', "(3,3)int32"), ('y', np.int32)])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray3(self):
+        docs = [{"x": [1+i, -i-1]} for i in range(10)]
+        dtype = np.dtype([('x', "(1,2,3,4,5,6,7,8)int32"), ('y', np.int32)])
+        self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
     def test_collection_flexible_mixed(self):
-        self.client.drop_database("bsonnumpy_test")
         docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase)*11, "z": {"a": i}} for i in range(10)]
-        self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
-
         dtype = np.dtype([('x', '2int32'), ('y', 'S11'), ('z', 'V12')])
-        ndarray = bsonnumpy.collection_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
-        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+        self.make_mixed_collection_test(docs, dtype);
+
+
 
     def test_dtype_depth(self):
         # simple dtypes
