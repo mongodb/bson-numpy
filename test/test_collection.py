@@ -18,14 +18,15 @@ class TestCollection2Ndarray(unittest.TestCase):
         cls.client = client_context.client
 
     def compare_elements(self, expected, actual):
+        print("comparing:", type(actual))
+        print(actual)
+        print(expected)
         if isinstance(actual, np.ndarray):
-            print("comparing:", type(actual))
-            print(actual)
-            print(expected)
-            # self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
-            # self.assertEqual(len(actual), len(expected))
-            # for i in range(len(actual)):
-            #     self.compare_elements(expected[i], actual[i])
+            self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
+            self.assertEqual(len(actual), len(expected))
+            for i in range(len(actual)):
+                self.compare_elements(expected[i], actual[i])
+            pass
 
         elif isinstance(actual, np.bytes_):
             expected = b(expected)
@@ -57,6 +58,8 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
+        print ndarray
+        print [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]
         self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
 
     @client_context.require_connected

@@ -80,26 +80,32 @@ ndarray_to_bson(PyObject* self, PyObject* args) // Stub to test passing ndarrays
 
 
 static void* _get_pointer(PyArrayObject* ndarray,
-                          npy_intp coordinates) {
-    return PyArray_GetPtr(ndarray, coordinates);
+                          npy_intp* coordinates,
+                          int offset) {
+    return PyArray_GetPtr(ndarray, coordinates) + offset;
 }
 
 static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flexible types
-                       npy_intp* coordinates,
-                       PyArrayObject* ndarray,
-                       npy_intp current_depth) {
+                        npy_intp* coordinates,
+                        PyArrayObject* ndarray,
+                        int current_depth,
+                        int offset,
+                        int itemsize) {
         bson_iter_t sub_it;
-        int itemsize = PyArray_STRIDE(ndarray, current_depth);
         npy_intp number_dimensions = PyArray_NDIM(ndarray);
-        int bson_item_len = itemsize;
+        if (current_depth < number_dimensions) { // If we are within a flexible type
+            printf("setting itemsize to given\n");
+            itemsize = PyArray_STRIDE(ndarray, current_depth);
+        }
+        npy_intp bson_item_len = itemsize;
         int success = 0;
         int copy = 1;
 
-//        printf("\tin load_scalar, depth=%i, coordinates=[", (int)depth); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }
-//        printf("] STRIDE=%i, OFFSET=%i\n", itemsize, flexible_offset);
+        printf("\tin load_scalar, depth=%i, nd=%i, coordinates=[", current_depth, (int)number_dimensions); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }
+        printf("] STRIDE=%i, offset=%i\n", itemsize, offset);
 
 
-        void* pointer = _get_pointer(ndarray, coordinates);
+        void* pointer = _get_pointer(ndarray, coordinates, offset);
 
         if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
 
@@ -118,17 +124,18 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
                 printf("\t\t-ignoring array of len 1\n");
 
                 // Array is of length 1, therefore we treat it like a number
-                return _load_scalar(&sub_it, coordinates, ndarray, current_depth);
+                return _load_scalar(&sub_it, coordinates, ndarray, current_depth, offset, itemsize);
             } else {
 
                 int i = 0;
                 while( bson_iter_next(&sub_it) ) {
                     coordinates[current_depth + 1] = i;
-                    printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", current_depth, number_dimensions, i);
+                    printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", current_depth, (int)number_dimensions, i);
 
                     printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n");
 
-                    int ret = _load_scalar(&sub_it, coordinates, ndarray, current_depth + 1);
+                    // TODO: maybe use shape
+                    int ret = _load_scalar(&sub_it, coordinates, ndarray, current_depth + 1, offset, itemsize);//TODO fix itemsize
                     if (ret == 0) {
                         return 0;
                     };
@@ -282,7 +289,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
-        int success = _load_scalar(&bsonit, coordinates, ndarray, 0);
+        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, 0, 0);
         if(success == 0) {
             return NULL;
         }
@@ -305,8 +312,8 @@ static int validate_field_type(PyObject* np_type, bson_iter_t* bsonit) {
 static int _load_document(PyObject* binary_doc,
                          npy_intp* coordinates,
                          PyArrayObject* ndarray,
-                         npy_intp depth,
-                         npy_intp number_dimensions) {
+                         int current_depth,
+                         int number_dimensions) {
     PyObject* fields, *key, *value = NULL;
     PyArray_Descr* dtype = PyArray_DTYPE(ndarray);
     Py_ssize_t pos, bytes_len = 0;
@@ -326,7 +333,7 @@ static int _load_document(PyObject* binary_doc,
     }
 
     char* str = bson_as_json(document, (size_t*)&bytes_len);
-    printf("\nDOCUMENT: %s, DTYPE:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n");
+    printf("\nDOCUMENT: %s, dtype->fields dict:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n");
 
     fields = dtype->fields; //A field is described by a tuple composed of another data- type-descriptor and a byte offset.
 
@@ -341,7 +348,7 @@ static int _load_document(PyObject* binary_doc,
         PyObject* sub_dtype_obj, *offset;
         int success;
 
-
+        // Rearrange the fields dictionary so that key is byte offset
         PyObject* ordered_dict = PyDict_New();
         while(PyDict_Next(fields, &pos, &key, &value)) { // for each column --> this could be rewritten not use a dict
             if (!PyTuple_Check(value)) {
@@ -359,10 +366,12 @@ static int _load_document(PyObject* binary_doc,
             PyTuple_SetItem(new_tuple, 1, value);
             PyDict_SetItem(ordered_dict, offset, new_tuple);
         }
+        // Create a sorted list of offsets so we know the coordinates of each element
         PyObject* offsets = PyDict_Keys(ordered_dict);
         PyList_Sort(offsets);
         Py_ssize_t total_length = PyList_Size(offsets);
 
+        // Loop through the subfields in byte-offset order
         for (Py_ssize_t i=0; i<total_length; i++) {
             PyObject* curr_offset = PyList_GetItem(offsets, i);
             PyObject* key_value_tuple = PyDict_GetItem(ordered_dict, curr_offset);
@@ -377,14 +386,14 @@ static int _load_document(PyObject* binary_doc,
                 return 0;
             }
 
-            coordinates[depth] = i;
+            coordinates[current_depth] = i;
 
             printf("-->looping through fields, key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
             printf(" coordinates: ["); for (int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, coordinates, ndarray, depth);// 1, PyLong_AsLong(offset));
+                success = _load_scalar(&bsonit, coordinates, ndarray, current_depth, PyLong_AsLong(offset), sub_dtype->elsize);
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
@@ -486,7 +495,7 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
     PyArrayObject* ndarray;
 
     int num_documents;
-    Py_ssize_t number_dimensions;
+    int number_dimensions;
     npy_intp* dimension_lengths;
 
     if (!PyArg_ParseTuple(args, "OOi", &iterator_obj, &dtype_obj, &num_documents)) {
@@ -538,6 +547,10 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
             return NULL;
         }
         coordinates[0] = ++row;
+        // Reset coordinates to zero
+        for(int p = 1; p < number_dimensions; p++) {
+            coordinates[p] = 0;
+        }
     }
     free(dimension_lengths);
     free(coordinates);
