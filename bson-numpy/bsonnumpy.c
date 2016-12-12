@@ -89,24 +89,21 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
                        PyArrayObject* ndarray,
                        npy_intp depth,
                        npy_intp number_dimensions,
-                       PyArray_Descr* dtype,
                        int is_flexible,
                        long flexible_offset) {
         bson_iter_t sub_it;
-        int itemsize = dtype->elsize;
+        int itemsize = PyArray_STRIDE(ndarray, depth);
         int bson_item_len = itemsize;
         int success = 0;
         int copy = 1;
 
-        printf("\tin load_scalar, depth=%i, coordinates=[", (int)depth); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }
-        printf("] + DTYPE="); PyObject_Print((PyObject*)dtype, stdout, 0); printf(" OFFSET=%i\n", flexible_offset);
+//        printf("\tin load_scalar, depth=%i, coordinates=[", (int)depth); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }
+//        printf("] STRIDE=%i, OFFSET=%i\n", itemsize, flexible_offset);
 
         /*TODO:
          * For flexible types with subarrays:
          * - GetPtr is not working for last coordinate (i.e. [0, 1, 1] === [0, 1, 0])
          * - Dtype doesn't provide offsets for subarrays of flexible types
-         * - dtype getting passed in is 2d array, but coordinates are for whole ndarray?
-         * - maybe setting to null with memset?
          */
 
         void* pointer = _get_pointer(ndarray, coordinates);
@@ -133,22 +130,26 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
                 // Array is of length 1, therefore we treat it like a number
                 return _load_scalar(&sub_it, coordinates, ndarray, depth,
-                                    number_dimensions, dtype, is_flexible, flexible_offset);
+                                    number_dimensions, is_flexible, flexible_offset);
             } else {
-                PyArray_Descr* base = dtype->subarray ? dtype->subarray->base :
-                                      dtype; // TODO: I'm not sure why this is working for arrays of length 1 that are subarrays
+
                 int i = 0;
                 while( bson_iter_next(&sub_it) ) {
                     coordinates[depth + 1] = i;
                     printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", depth, number_dimensions, i);
 
-                    printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("], new dtype="); PyObject_Print((PyObject*)base, stdout, 0); printf("\n");
+                    printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n");
 
-                    int new_offset = flexible_offset;
-                    if (is_flexible) {
-                        new_offset = coordinates[depth + 1]*base->elsize;
-                    }
-                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, base, is_flexible, new_offset);
+//                    int new_offset = flexible_offset;
+//                    if (is_flexible) {
+//                        new_offset = coordinates[depth + 1]*base->elsize;
+//                    }
+                    int ret = _load_scalar(
+                            &sub_it, coordinates, ndarray, depth+1,
+                            number_dimensions, is_flexible, 0);
+                    if (ret == 0) {
+                        return 0;
+                    };
                     i++;
                 }
                 return 1; // TODO: check result of _load_scalar
@@ -299,9 +300,8 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
-        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions, dtype, 0, 0);
-        if(success == -1) {
-            PyErr_SetString(BsonNumpyError, "item failed to load");
+        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions, 0, 0);
+        if(success == 0) {
             return NULL;
         }
     }
@@ -402,7 +402,7 @@ static int load_document(PyObject* binary_doc,
 
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, coordinates, ndarray, depth, number_dimensions, sub_dtype, 1, PyLong_AsLong(offset));
+                success = _load_scalar(&bsonit, coordinates, ndarray, depth, number_dimensions, 1, PyLong_AsLong(offset));
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
