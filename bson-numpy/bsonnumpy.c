@@ -86,6 +86,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
                        npy_intp depth,
                        npy_intp number_dimensions,
                        PyArray_Descr* dtype,
+                       int is_flexible,
                        long flexible_offset) {
         bson_iter_t sub_it;
         int itemsize = dtype->elsize;
@@ -94,7 +95,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
         int copy = 1;
 
         printf("\tin load_scalar, depth=%i, coordinates=[", (int)depth); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }
-        printf("] + DTYPE="); PyObject_Print((PyObject*)dtype, stdout, 0); printf("OFFSET=%i\n", flexible_offset);
+        printf("] + DTYPE="); PyObject_Print((PyObject*)dtype, stdout, 0); printf(" OFFSET=%i\n", flexible_offset);
 
         /*TODO:
          * For flexible types with subarrays:
@@ -106,7 +107,6 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
         void* pointer = PyArray_GetPtr(ndarray, coordinates);
         pointer = pointer + flexible_offset;
-        printf("location of pointer=%p\n", pointer);
 
 //        int dtype_num = dtype->type_num;
 //        printf("DTYPE NUM=%i\n", dtype_num); // TODO: Use this for error checking
@@ -129,7 +129,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
                 // Array is of length 1, therefore we treat it like a number
                 return _load_scalar(&sub_it, coordinates, ndarray, depth,
-                                    number_dimensions, dtype, flexible_offset);
+                                    number_dimensions, dtype, is_flexible, flexible_offset);
             } else {
                 PyArray_Descr* base = dtype->subarray ? dtype->subarray->base :
                                       dtype; // TODO: I'm not sure why this is working for arrays of length 1 that are subarrays
@@ -140,7 +140,11 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
                     printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("], new dtype="); PyObject_Print((PyObject*)base, stdout, 0); printf("\n");
 
-                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, base, flexible_offset);
+                    int new_offset = flexible_offset;
+                    if (is_flexible) {
+                        new_offset = coordinates[depth + 1]*base->elsize;
+                    }
+                    _load_scalar(&sub_it, coordinates, ndarray, depth+1, number_dimensions, base, is_flexible, new_offset);
                     i++;
                 }
                 return 1; // TODO: check result of _load_scalar
@@ -291,7 +295,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
-        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions, dtype, 0);
+        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions, dtype, 0, 0);
         if(success == -1) {
             PyErr_SetString(BsonNumpyError, "item failed to load");
             return NULL;
@@ -394,7 +398,7 @@ static int load_document(PyObject* binary_doc,
 
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, coordinates, ndarray, depth, number_dimensions, sub_dtype, PyLong_AsLong(offset));
+                success = _load_scalar(&bsonit, coordinates, ndarray, depth, number_dimensions, sub_dtype, 1, PyLong_AsLong(offset));
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
@@ -532,7 +536,7 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
 
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); // This function steals a reference to dtype?
 
-    PyArray_OutputConverter(array_obj, &ndarray); // why did i add this?
+    PyArray_OutputConverter(array_obj, &ndarray);
 
 
     npy_intp* coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));

@@ -19,7 +19,7 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     def compare_elements(self, expected, actual):
         if isinstance(actual, np.ndarray):
-            print("comparing", actual, expected, "type act", type(actual))
+            # print("comparing", actual, expected, "type act", type(actual))
             self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
             self.assertEqual(len(actual), len(expected))
             for i in range(len(actual)):
@@ -79,7 +79,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_subarray(self):
         self.client.drop_database("bsonnumpy_test")
-        docs = [{"x": [i, 10-i]} for i in range(10)]
+        docs = [{"x": [1+i, -i-1]} for i in range(10)]
         self.client.bsonnumpy_test.coll.insert_many(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
@@ -94,7 +94,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_mixed(self):
         self.client.drop_database("bsonnumpy_test")
-        docs = [{"x": [i, 10-i], "y": random.choice(string.ascii_lowercase)*11, "z": {"a": i}} for i in range(10)]
+        docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase)*11, "z": {"a": i}} for i in range(10)]
         self.client.bsonnumpy_test.coll.insert_many(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
