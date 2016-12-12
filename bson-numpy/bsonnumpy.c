@@ -87,10 +87,10 @@ static void* _get_pointer(PyArrayObject* ndarray,
 static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flexible types
                        npy_intp* coordinates,
                        PyArrayObject* ndarray,
-                       npy_intp depth,
-                       npy_intp number_dimensions) {
+                       npy_intp current_depth) {
         bson_iter_t sub_it;
-        int itemsize = PyArray_STRIDE(ndarray, depth);
+        int itemsize = PyArray_STRIDE(ndarray, current_depth);
+        npy_intp number_dimensions = PyArray_NDIM(ndarray);
         int bson_item_len = itemsize;
         int success = 0;
         int copy = 1;
@@ -118,20 +118,17 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
                 printf("\t\t-ignoring array of len 1\n");
 
                 // Array is of length 1, therefore we treat it like a number
-                return _load_scalar(&sub_it, coordinates, ndarray, depth,
-                                    number_dimensions);
+                return _load_scalar(&sub_it, coordinates, ndarray, current_depth);
             } else {
 
                 int i = 0;
                 while( bson_iter_next(&sub_it) ) {
-                    coordinates[depth + 1] = i;
-                    printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", depth, number_dimensions, i);
+                    coordinates[current_depth + 1] = i;
+                    printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", current_depth, number_dimensions, i);
 
                     printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n");
 
-                    int ret = _load_scalar(
-                            &sub_it, coordinates, ndarray, depth+1,
-                            number_dimensions);
+                    int ret = _load_scalar(&sub_it, coordinates, ndarray, current_depth + 1);
                     if (ret == 0) {
                         return 0;
                     };
@@ -285,7 +282,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
-        int success = _load_scalar(&bsonit, coordinates, ndarray, 0, number_dimensions);
+        int success = _load_scalar(&bsonit, coordinates, ndarray, 0);
         if(success == 0) {
             return NULL;
         }
@@ -306,12 +303,12 @@ static int validate_field_type(PyObject* np_type, bson_iter_t* bsonit) {
 }
 
 static int _load_document(PyObject* binary_doc,
-                         PyArray_Descr* dtype,
                          npy_intp* coordinates,
                          PyArrayObject* ndarray,
                          npy_intp depth,
                          npy_intp number_dimensions) {
     PyObject* fields, *key, *value = NULL;
+    PyArray_Descr* dtype = PyArray_DTYPE(ndarray);
     Py_ssize_t pos, bytes_len = 0;
     bson_t* document;
     bson_iter_t bsonit;
@@ -387,7 +384,7 @@ static int _load_document(PyObject* binary_doc,
 
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, coordinates, ndarray, depth, number_dimensions);// 1, PyLong_AsLong(offset));
+                success = _load_scalar(&bsonit, coordinates, ndarray, depth);// 1, PyLong_AsLong(offset));
                 if(!success) {
                     PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
@@ -536,7 +533,7 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
 
         printf("START COORDINATES: ["); for(int q = 0; q < number_dimensions; q++) { printf("%i,", (int)coordinates[q]);} printf("]\n");
 
-        if(_load_document(binary_doc, dtype, coordinates,
+        if(_load_document(binary_doc, coordinates,
                           ndarray, 1, number_dimensions) == 0) { // error set by _load_document
             return NULL;
         }
