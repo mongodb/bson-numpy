@@ -79,6 +79,10 @@ ndarray_to_bson(PyObject* self, PyObject* args) // Stub to test passing ndarrays
  */
 
 
+static void* _get_pointer(PyArrayObject* ndarray,
+                          npy_intp coordinates) {
+    return PyArray_GetPtr(ndarray, coordinates);
+}
 
 static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flexible types
                        npy_intp* coordinates,
@@ -105,7 +109,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
          * - maybe setting to null with memset?
          */
 
-        void* pointer = PyArray_GetPtr(ndarray, coordinates);
+        void* pointer = _get_pointer(ndarray, coordinates);
         pointer = pointer + flexible_offset;
 
 //        int dtype_num = dtype->type_num;
