@@ -18,9 +18,9 @@ class TestCollection2Ndarray(unittest.TestCase):
         cls.client = client_context.client
 
     def compare_elements(self, expected, actual):
-        print("comparing:", type(actual))
-        print(actual)
-        print(expected)
+        # print("comparing:", type(actual))
+        # print(actual)
+        # print(expected)
         if isinstance(actual, np.ndarray):
             self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
             self.assertEqual(len(actual), len(expected))
@@ -58,8 +58,8 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
-        print ndarray
-        print [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]
+        print "ndarray", ndarray
+        print "docs", [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]
         self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
 
     @client_context.require_connected
@@ -72,6 +72,8 @@ class TestCollection2Ndarray(unittest.TestCase):
     def test_collection_flexible_mixed_scalar(self):
         docs = [{"x": i, "y": random.choice(string.ascii_lowercase)*11} for i in range(10)]
         dtype = np.dtype([('x', np.int32), ('y', 'S11')])
+        self.make_mixed_collection_test(docs, dtype)
+        dtype = np.dtype([('y', 'S11'), ('x', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
@@ -130,17 +132,17 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype10_sub = np.dtype([('x', dtype3), ('y', dtype10)])
         dtype10_sub_sub = np.dtype([('x', dtype10_sub), ('y', dtype10)])
 
-        self.assertEqual(4, bsonnumpy.get_dtype_depth(dtype4))
-        self.assertEqual(3, bsonnumpy.get_dtype_depth(dtype3))
-        self.assertEqual(2, bsonnumpy.get_dtype_depth(dtype2))
-        self.assertEqual(10, bsonnumpy.get_dtype_depth(dtype10))
-
-        self.assertEqual(3, bsonnumpy.get_dtype_depth(dtype2_sub))
-        self.assertEqual(4, bsonnumpy.get_dtype_depth(dtype3_sub))
-        self.assertEqual(5, bsonnumpy.get_dtype_depth(dtype4_sub))
-        self.assertEqual(11, bsonnumpy.get_dtype_depth(dtype10_sub))
-
-        self.assertEqual(12, bsonnumpy.get_dtype_depth(dtype10_sub_sub))
+        # self.assertEqual(4, bsonnumpy.get_dtype_depth(dtype4))
+        # self.assertEqual(3, bsonnumpy.get_dtype_depth(dtype3))
+        # self.assertEqual(2, bsonnumpy.get_dtype_depth(dtype2))
+        # self.assertEqual(10, bsonnumpy.get_dtype_depth(dtype10))
+        #
+        # self.assertEqual(3, bsonnumpy.get_dtype_depth(dtype2_sub))
+        # self.assertEqual(4, bsonnumpy.get_dtype_depth(dtype3_sub))
+        # self.assertEqual(5, bsonnumpy.get_dtype_depth(dtype4_sub))
+        # self.assertEqual(11, bsonnumpy.get_dtype_depth(dtype10_sub))
+        #
+        # self.assertEqual(12, bsonnumpy.get_dtype_depth(dtype10_sub_sub))
 
     # @client_context.require_connected
     # def test_collection_standard(self):
