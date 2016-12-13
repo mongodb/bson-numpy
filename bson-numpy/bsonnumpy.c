@@ -79,20 +79,6 @@ ndarray_to_bson(PyObject* self, PyObject* args) // Stub to test passing ndarrays
  */
 
 
-static void* _get_pointer(PyArrayObject* ndarray,
-                          npy_intp* coordinates,
-                          long flexible_offset) {
-    void* pointer = PyArray_GetPtr(ndarray, coordinates);
-//    int ndarray_nd = PyArray_NDIM(ndarray);
-//    int flexible_offset = 0;
-//    printf("\t\tgetting pointer: extra dims=%i: \n", (int)dimensions - ndarray_nd);
-//    for (int i = ndarray_nd; i < dimensions; i++) {
-//        printf("\t\t-->coordinates[%i] = %i, flexible_offsets[%i]=%i = TOTAL ADDED=%i\n", i, coordinates[i], i - ndarray_nd, flexible_offsets[i-ndarray_nd], coordinates[i] * flexible_offsets[i - ndarray_nd]);
-//        flexible_offset += coordinates[i] * flexible_offsets[i - ndarray_nd];
-//    }
-    return pointer + flexible_offset;
-}
-
 static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flexible types
                         PyArrayObject* ndarray,
                         long offset,
@@ -102,6 +88,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
     bson_iter_t sub_it;
     npy_intp dimensions = PyArray_NDIM(ndarray);
     npy_intp itemsize;
+
     if (current_depth < dimensions) { // If we are within a flexible type
         printf("setting itemsize to given\n");
         itemsize = PyArray_STRIDE(ndarray, current_depth);
@@ -116,7 +103,8 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
     printf("coordinates=["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
 
-    void* pointer = _get_pointer(ndarray, coordinates, offset);
+    void* pointer = PyArray_GetPtr(ndarray, coordinates);
+    pointer += offset;
 
     if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
 
@@ -322,13 +310,6 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     return array_obj;
 }
 
-
-static int validate_field_type(PyObject* np_type, bson_iter_t* bsonit) {
-    // Create dict in Python because easiest
-    return 1;
-
-}
-
 static int _load_flexible(bson_t* document,
                           npy_intp* coordinates,
                           PyArrayObject* ndarray,
@@ -404,10 +385,6 @@ static int _load_flexible(bson_t* document,
                     PyErr_SetString(BsonNumpyError, "document does not match dtype."); // TODO: nicer error message
                     return 0;
                 }
-                if (!validate_field_type(value, &bsonit)) {
-                    PyErr_SetString(BsonNumpyError, "field type was incorrect");
-                    return 0;
-                }
             }
         }
     } else if (dtype->subarray) {
@@ -416,7 +393,6 @@ static int _load_flexible(bson_t* document,
         npy_intp elsize = sub_descr->elsize;
         bson_iter_t sub_it;
 
-        printf("ARRAY\n");
         printf("\tdtype="); PyObject_Print((PyObject*)sub_descr, stdout, 0); printf(" shape="); PyObject_Print(shape, stdout, 0); printf("\n");
 
         bson_iter_init(&bsonit, document);
@@ -428,41 +404,32 @@ static int _load_flexible(bson_t* document,
                 PyErr_SetString(BsonNumpyError, "Expected list from dtype, got other type");
                 return 0;
             }
-            for (long i = 0; i < dims_subarray; i++) {
-                // Get dimension
-                PyObject *dimension_len_obj = PyTuple_GetItem(shape, i);
-                long dimension_len_long = PyLong_AsLong(dimension_len_obj);
-
-                    bson_iter_recurse(&bsonit, &sub_it);
-                    bsonit = sub_it;
-
-                    for (long j = 0; j < dimension_len_long; j++) {
-                        printf("i=%i, j=%i, elsize=%i, dimension_len_long=%i\n", (int)i, (int)j, (int)elsize, (int)dimension_len_long);
-                        bson_iter_next(&sub_it);
-                        long new_offset = (i * dimension_len_long * elsize) + (elsize * j);
-
-                        int success = _load_scalar(&sub_it, ndarray, offset + new_offset, coordinates,
-                                                   current_depth + (int)i, sub_descr);
-                        if (!success) {
-                            return 0;
-                        }
-                    }
-                    bson_iter_next(&bsonit);
-            }
-        } else {
+            //TODO: write element into array
+            PyErr_SetString(BsonNumpyError, "TODO: NEXT!");
+//            for (long i = 0; i < dims_subarray; i++) {
+//                // Get dimension
+//                PyObject *dimension_len_obj = PyTuple_GetItem(shape, i);
+//                long dimension_len_long = PyLong_AsLong(dimension_len_obj);
+//
+//                for (long j = 0; j < dimension_len_long; j++) {
+//                    printf("i=%i, j=%i, elsize=%i, dimension_len_long=%i\n", (int)i, (int)j, (int)elsize, (int)dimension_len_long);
+//
+//                        long new_offset = (i * dimension_len_long * elsize) + (elsize * j);
+//
+//                        int success = _load_scalar(&sub_it, ndarray, offset + new_offset, coordinates,
+//                                                   current_depth + (int) i, sub_descr);
+//                        if (!success) {
+//                            return 0;
+//                        }
+//                }
+//            }
+        }
+        else {
             PyErr_SetString(BsonNumpyError, "key from dtype not found");
             return 0;
         }
 
-//        if (!validate_field_type(value, &bsonit)) {
-//            PyErr_SetString(BsonNumpyError, "field type was incorrect");
-//            return 0;
-//        }
-
-
-
     } else {
-        printf("OTHER\n");
         PyErr_SetString(BsonNumpyError, "TODO: constant loaded with _load_dcument, shouldn't happen");
         return 0;
     }
