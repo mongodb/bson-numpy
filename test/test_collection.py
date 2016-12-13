@@ -86,6 +86,15 @@ class TestCollection2Ndarray(unittest.TestCase):
         # 3d subarray
         docs = [{"x": [[i, i+1, i+2],
                        [-i, -i-1, -i-2],
+                       [100*i, 100*i+1, 100*i+2]]} for i in range(10)]
+        dtype = np.dtype([('x', "(3,3)int32")])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray2_mixed(self):
+        # 3d subarray
+        docs = [{"x": [[i, i+1, i+2],
+                       [-i, -i-1, -i-2],
                        [100*i, 100*i+1, 100*i+2]],
                  "y": i} for i in range(10)]
         dtype = np.dtype([('x', "(3,3)int32"), ('y', np.int32)])

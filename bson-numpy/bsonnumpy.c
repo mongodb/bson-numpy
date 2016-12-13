@@ -95,25 +95,27 @@ static void* _get_pointer(PyArrayObject* ndarray,
 
 static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flexible types
                         PyArrayObject* ndarray,
-                        long dimensions,
                         long offset,
-                        npy_intp itemsize,
                         npy_intp* coordinates,
-                        int current_depth) {
+                        int current_depth,
+                        PyArray_Descr* dtype,
+                        PyObject* shape) {
     bson_iter_t sub_it;
-    npy_intp ndim = PyArray_NDIM(ndarray);
-//    npy_intp itemsize;
-//    if (current_depth < ndim) { // If we are within a flexible type
-//        printf("setting itemsize to given\n");
-//        itemsize = PyArray_STRIDE(ndarray, current_depth);
-//    } else {
-//        itemsize = flexible_offsets[current_depth - ndim];
-//    }
+    npy_intp dimensions = PyArray_NDIM(ndarray);
+    npy_intp itemsize;
+    if (current_depth < dimensions) { // If we are within a flexible type
+        printf("setting itemsize to given\n");
+        itemsize = PyArray_STRIDE(ndarray, current_depth);
+//        itemsize = PyTuple_GetItem(shape, current_depth);
+    } else {
+        itemsize = dtype->elsize; // Not sure about this
+    }
     npy_intp bson_item_len = itemsize;
     int success = 0;
     int copy = 1;
 
-    printf("\tin load_scalar, dimensions=%i, ndims=%i, current_depth=%i, offset=%i, itemsize=%i ", (int)dimensions, (int)ndim, current_depth, (int)offset, (int)itemsize);
+    printf("\tin load_scalar, SHAPE: "); PyObject_Print(shape, stdout, 0);
+    printf(" dimensions=%i, current_depth=%i, offset=%i, itemsize=%i ", (int)dimensions, current_depth, (int)offset, (int)itemsize);
     printf("coordinates=["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
 
@@ -136,18 +138,31 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
             printf("\t\t-ignoring array of len 1\n");
 
             // Array is of length 1, therefore we treat it like a number
-            return _load_scalar(&sub_it, ndarray, dimensions, offset, itemsize, coordinates, current_depth);
+            return _load_scalar(&sub_it, ndarray,offset, coordinates, current_depth, dtype, shape); // arrays of length 1 have the same dtype as element
         } else {
 
             int i = 0;
             while( bson_iter_next(&sub_it) ) {
-                coordinates[current_depth + 1] = i;
-                printf("\t\t-->depth=%i, len coordinates=%i, i=%i\n", current_depth, (int)dimensions, i);
+//                if (dtype->subarray == NULL) { // TODO: maybe pass shape length to see it'd a nd array?
+//                    PyErr_SetString(BsonNumpyError, "Expected subarray but got constant");
+//                    return 0;
+//                }
+                PyArray_Descr* sub_dtype = dtype->subarray ? dtype->subarray->base : dtype;
+                PyObject* sub_shape = dtype->subarray ? dtype->subarray->shape : shape;
+
+                // If we're recurring after the end of dtype's dimensions, we have a flexible type subarray
+                long new_offset = offset;
+                if (current_depth + 1 < dimensions) {
+                    coordinates[current_depth + 1] = i;
+                } else {
+                    new_offset += (i * sub_dtype->elsize);
+                }
+                printf("\t\t-->new dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
+                printf(" new depth=%i, dimensions=%i, index=%i\n", current_depth + 1, (int)dimensions, i);
 
                 printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n");
 
-                long sub_itemsize = PyArray_STRIDE(ndarray, current_depth + 1); //TODO: fix for out of range
-                int ret = _load_scalar(&sub_it, ndarray, dimensions, offset, sub_itemsize, coordinates, current_depth + 1);
+                int ret = _load_scalar(&sub_it, ndarray, new_offset, coordinates, current_depth + 1, sub_dtype, shape);
                 if (ret == 0) {
                     return 0;
                 };
@@ -301,8 +316,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
     for(npy_intp i=0;i<dimension_lengths[0];i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
-        npy_intp itemsize = PyArray_STRIDE(ndarray, 0);
-        int success = _load_scalar(&bsonit, ndarray, number_dimensions, 0, itemsize, coordinates, 0);
+        int success = _load_scalar(&bsonit, ndarray, 0, coordinates, 0, dtype, NULL);
         if(success == 0) {
             return NULL;
         }
@@ -359,35 +373,10 @@ static int _load_document(PyObject* binary_doc,
         }
         pos = 0;
         PyArray_Descr* sub_dtype;
-        PyObject* sub_dtype_obj, *offset;
+        PyObject* sub_dtype_obj, *offset, *shape;
         int success;
 
-//        // Rearrange the fields dictionary so that key is byte offset
-//        PyObject* ordered_dict = PyDict_New();
-//        while(PyDict_Next(fields, &pos, &key, &value)) { // for each column --> this could be rewritten not use a dict
-//            if (!PyTuple_Check(value)) {
-//                PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
-//            }
-//            offset = PyTuple_GetItem(value, 1);
-//            PyObject* new_tuple = PyTuple_New(2);
-//            if (PyUnicode_Check(key)) {
-//                key = PyUnicode_AsASCIIString(key);
-//            }
-//            if (!PyBytes_Check(key)) {
-//                PyErr_SetString(BsonNumpyError, "bson string error in key names");
-//            }
-//            PyTuple_SetItem(new_tuple, 0, key);
-//            PyTuple_SetItem(new_tuple, 1, value);
-//            PyDict_SetItem(ordered_dict, offset, new_tuple);
-//        }
-//        // Create a sorted list of offsets so we know the coordinates of each element
-//        PyObject* offsets = PyDict_Keys(ordered_dict);
-//        PyList_Sort(offsets);
-//        Py_ssize_t total_length = PyList_Size(offsets);
-//
-//        // Loop through the subfields in byte-offset order
-//        for (Py_ssize_t i=0; i<total_length; i++) {
-        while(PyDict_Next(fields, &pos, &key, &value)) { // for each column --> this could be rewritten not use a dict
+        while(PyDict_Next(fields, &pos, &key, &value)) {
             if (!PyTuple_Check(value)) {
                 PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
             }
@@ -407,19 +396,26 @@ static int _load_document(PyObject* binary_doc,
                 return 0;
             }
 
+            if (sub_dtype_obj->subarray) {
+
+            } else if (sub_type_obj->fields) {
+
+            }
+
 
 //            coordinates[current_depth] = i;
 
-            printf("-->looping through fields, key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
-            printf("offset=%i, coordinates: [", (int)offset_long); for (int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
+            printf("-->looping through fields, SHAPE="); PyObject_Print(shape, stdout, 0);
+            printf(" key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
+            printf(" offset=%i, coordinates: [", (int)offset_long); for (int i=0;i<number_dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
 
 
             bson_iter_init(&bsonit, document);
             if(bson_iter_find(&bsonit, key_str)) {
-                success = _load_scalar(&bsonit, ndarray, number_dimensions, offset_long, sub_dtype->elsize, coordinates, current_depth); // TODO: get itemsize right
+                //TODO: if sub_dtype->elsize==0, then it is a flexible type
+                success = _load_scalar(&bsonit, ndarray, offset_long, coordinates, current_depth, sub_dtype, shape);
                 if(!success) {
-                    PyErr_SetString(BsonNumpyError, "failed to load scalar");
                     return 0;
                 }
             }
