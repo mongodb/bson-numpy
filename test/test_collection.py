@@ -126,12 +126,6 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('y', np.int32), ('x', "(3,3)int32")])
         self.make_mixed_collection_test(docs, dtype)
 
-    # @client_context.require_connected
-    # def test_collection_flexible_subarray4_mixed(self):
-    #     docs = [{"x": [1+i, -i-1]} for i in range(10)]
-    #     dtype = np.dtype([('x', "(1,2,3,4,5,6,7,8)int32"), ('y', np.int32)])
-    #     self.make_mixed_collection_test(docs, dtype)
-
     @client_context.require_connected
     def test_collection_flexible_mixed(self):
         docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase)*11, "z": {"a": i}} for i in range(10)]
@@ -142,47 +136,19 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('y', 'S11'), ('x', '2int32'), ('z', 'V12')])
         self.make_mixed_collection_test(docs, dtype);
 
+    @client_context.require_connected
+    def test_collection_sub1(self):
+        docs = [{'x': {'y': 100+i}} for i in range(10)]
+        dtype = np.dtype([('y', np.int32)])
+        dtype_sub = np.dtype([('x', dtype)])
+        self.make_mixed_collection_test(docs, dtype_sub)
 
-
-    def test_dtype_depth(self):
-        # simple dtypes
-        dtype2 = np.dtype([('x', np.int32)])
-
-        # dtypes with subarrays
-        dtype3 = np.dtype([('x', '2int32'), ('y', 'S11'), ('z', 'V12')])
-        dtype4 = np.dtype([('x', "(3,3)int32"), ('y', np.int32)])
-        dtype10 = np.dtype([('x', "(1,2,3,4,5,6,7,8)int32"), ('y', np.int32)])
-
-        # dtypes with sub*-dtypes
-        dtype2_sub = np.dtype([('x', dtype2)])
-        dtype3_sub = np.dtype([('x', dtype3)])
-        dtype4_sub = np.dtype([('x', dtype4)])
-        dtype10_sub = np.dtype([('x', dtype3), ('y', dtype10)])
-        dtype10_sub_sub = np.dtype([('x', dtype10_sub), ('y', dtype10)])
-
-        # self.assertEqual(4, bsonnumpy.get_dtype_depth(dtype4))
-        # self.assertEqual(3, bsonnumpy.get_dtype_depth(dtype3))
-        # self.assertEqual(2, bsonnumpy.get_dtype_depth(dtype2))
-        # self.assertEqual(10, bsonnumpy.get_dtype_depth(dtype10))
-        #
-        # self.assertEqual(3, bsonnumpy.get_dtype_depth(dtype2_sub))
-        # self.assertEqual(4, bsonnumpy.get_dtype_depth(dtype3_sub))
-        # self.assertEqual(5, bsonnumpy.get_dtype_depth(dtype4_sub))
-        # self.assertEqual(11, bsonnumpy.get_dtype_depth(dtype10_sub))
-        #
-        # self.assertEqual(12, bsonnumpy.get_dtype_depth(dtype10_sub_sub))
-
-    # @client_context.require_connected
-    # def test_collection_standard(self):
-    #     self.client.drop_database("bsonnumpy_test")
-    #     self.client.bsonnumpy_test.coll.insert(
-    #         [{"x": i} for i in range(1000)])
-    #     raw_coll = self.client.get_database(
-    #         'bsonnumpy_test',
-    #         codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-    #     cursor = raw_coll.find()
-    #
-    #     dtype = np.dtype(np.int)
-    #     ndarray = bsonnumpy.collection_to_ndarray(
-    #         (doc.raw for doc in cursor), dtype, raw_coll.count())
-
+    @client_context.require_connected
+    def test_collection_not_flexible(self):
+        # TODO: determine what to do when user doesn't give a flexible type for documents. Doc order?
+        docs = [{"x": [i, i-1], "y": [10-i, 9-i]} for i in range(10)]
+        dtype = np.dtype("(2, 2)int32")
+        # self.make_mixed_collection_test(docs, dtype)
+        docs = [{"x": i, "y": 10-i} for i in range(10)]
+        dtype = np.dtype("2int32")
+        # self.make_mixed_collection_test(docs, dtype)

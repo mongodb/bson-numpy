@@ -376,11 +376,31 @@ static int _load_flexible(bson_t* document,
 
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
                 printf("\t Recurring with FIELDS\n");
+                bson_iter_init(&bsonit, document);
+                if (bson_iter_find(&bsonit, key_str)) {
+                    if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
+                        PyErr_SetString(BsonNumpyError, "Expected list from dtype, got other type");
+                        return 0;
+                    }
+
+                    bson_t* sub_document;
+                    uint32_t document_len;
+                    const uint8_t* document_buffer;
+                    bson_iter_document(&bsonit, &document_len, &document_buffer);
+                    sub_document = bson_new_from_data(document_buffer, document_len);
+
+                    char* str = bson_as_json(sub_document, (size_t*)&document_len);
+                    printf("SUB DOCUMENT: %s\n", str);
+
+                    _load_flexible(sub_document, coordinates, ndarray, sub_dtype, current_depth + 1, NULL, 0);
+
+
+                }
                 PyErr_SetString(BsonNumpyError, "TODO: not implemented");
                 return 0;
-            } else {
-
-                printf("\tkey="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject *) sub_dtype, stdout, 0);
+            }
+            else {
+                printf("\tLOADING VAL: key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject *) sub_dtype, stdout, 0);
                 printf(" offset=%i, coordinates: [", (int) offset_long); for (int i = 0; i < number_dimensions; i++) { printf("%i,", (int) coordinates[i]); } printf("]\n");
 
 
@@ -424,10 +444,6 @@ static int _load_flexible(bson_t* document,
                 PyErr_SetString(BsonNumpyError, "Expected subarray, got other type");
                 return 0;
             }
-//            printf("GOT ITEM:"); PyObject_Print(subndarray_obj, stdout, 0); printf("\n");
-//            printf("SUB ARRAY OBJ=");PyObject_Print(subndarray, stdout, 0);printf("\n");
-            printf("ARRAY TUPLE="); PyObject_Print(subndarray_tuple, stdout, 0);printf("\n");
-
             // Get length of top-level array
             PyObject* length_obj = PyTuple_GetItem(shape, 0);
             long length_long = PyLong_AsLong(length_obj);
