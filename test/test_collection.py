@@ -79,7 +79,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_subarray1(self):
         # 2d subarray
-        docs = [{"x": [1+i, -i-1]} for i in range(10)]
+        docs = [{"x": [1+i, -i-1]} for i in range(5)]
         dtype = np.dtype([('x', '2int32')])
         self.make_mixed_collection_test(docs, dtype)
 
@@ -88,22 +88,43 @@ class TestCollection2Ndarray(unittest.TestCase):
         # 3d subarray
         docs = [{"x": [[i, i+1, i+2],
                        [-i, -i-1, -i-2],
-                       [100*i, 100*i+1, 100*i+2]]} for i in range(10)]
-        dtype = np.dtype([('x', "(3,3)int32")])
-        self.make_mixed_collection_test(docs, dtype)
-
-    @client_context.require_connected
-    def test_collection_flexible_subarray2_mixed(self):
-        # 3d subarray
-        docs = [{"x": [[i, i+1, i+2],
-                       [-i, -i-1, -i-2],
-                       [100*i, 100*i+1, 100*i+2]],
-                 "y": i} for i in range(10)]
-        dtype = np.dtype([('x', "(3,3)int32"), ('y', np.int32)])
+                       [100*i, 100*i+1, 100*i+2],
+                       [0, 1, 2]]} for i in range(5)]
+        dtype = np.dtype([('x', "(4,3)int32")])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
     def test_collection_flexible_subarray3(self):
+        # 3d subarray
+        docs = [{"x": [[[i, i+1], [i+1, i+2], [i+2, i+3]],
+                       [[-i, -i+1], [-i-1, -i], [-i-2, -i-1]],
+                       [[100*i, 100*i+i], [100*i+1, 100*i+i], [100*i+2, 100*i+i]],
+                       [[0,1], [1,2], [3,4]]]} for i in range(5)]
+        dtype = np.dtype([('x', "(4,3,2)int32")])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray2_mixed1(self):
+        # 3d subarray
+        docs = [{"x": [[i, i+1, i+2],
+                       [-i, -i-1, -i-2],
+                       [100*i, 100*i+1, 100*i+2]],
+                 "y": 100-i} for i in range(2)]
+        dtype = np.dtype([('x', "(3,3)int32"), ('y', np.int32)])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray2_mixed2(self):
+        # 3d subarray
+        docs = [{"x": [[i, i+1, i+2],
+                       [-i, -i-1, -i-2],
+                       [100*i, 100*i+1, 100*i+2]],
+                 "y": 100-i} for i in range(2)]
+        dtype = np.dtype([('y', np.int32), ('x', "(3,3)int32")])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_subarray4_mixed(self):
         docs = [{"x": [1+i, -i-1]} for i in range(10)]
         dtype = np.dtype([('x', "(1,2,3,4,5,6,7,8)int32"), ('y', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
