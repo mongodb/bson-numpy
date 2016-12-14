@@ -316,7 +316,8 @@ static int _load_flexible(bson_t* document,
                           PyArray_Descr* dtype,
                           int current_depth,
                           char* key_str,
-                          int index) {
+                          int index,
+                          npy_intp offset) {
     PyObject* fields, *key, *value = NULL;
     int number_dimensions = PyArray_NDIM(ndarray);
     Py_ssize_t pos = 0;
@@ -330,7 +331,7 @@ static int _load_flexible(bson_t* document,
         PyObject_Print(ordered_names, stdout, 0); printf(" fields="); PyObject_Print(dtype->fields, stdout, 0);
 
         Py_ssize_t number_fields = PyTuple_Size(ordered_names);
-        printf("len(fields)=%li\n", number_fields);
+        printf(" len(fields)=%li\n", number_fields);
 
 
         fields = dtype->fields; // A field is described by a tuple composed of another data- type-descriptor and a byte offset.
@@ -340,7 +341,7 @@ static int _load_flexible(bson_t* document,
         }
         pos = 0;
         PyArray_Descr* sub_dtype;
-        PyObject* sub_dtype_obj, *offset;
+        PyObject* sub_dtype_obj, *offset_obj;
         int success;
 
         for (Py_ssize_t i=0; i<number_fields; i++) {
@@ -359,8 +360,8 @@ static int _load_flexible(bson_t* document,
                 PyErr_SetString(BsonNumpyError, "bson string error in key names");
                 return 0;
             }
-            offset = PyTuple_GetItem(value, 1);
-            long offset_long = PyLong_AsLong(offset);
+            offset_obj = PyTuple_GetItem(value, 1);
+            long offset_long = PyLong_AsLong(offset_obj);
             key_str = PyBytes_AsString(key);
             sub_dtype_obj = PyTuple_GetItem(value, 0);
 
@@ -371,8 +372,9 @@ static int _load_flexible(bson_t* document,
             }
 
             if (sub_dtype->subarray) {
-                printf("\t Recurring with SUBARRAY\n");
-                _load_flexible(document, coordinates, ndarray, sub_dtype, current_depth + 1, key_str, i);
+                printf("\t Recurring with SUBARRAY\n");//TODO: START HERE: potentially get sub array here as well, currently given tuple
+
+                _load_flexible(document, coordinates, ndarray, sub_dtype, current_depth + 1, key_str, i, offset);
 
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
                 printf("\t Recurring with FIELDS\n");
@@ -389,25 +391,23 @@ static int _load_flexible(bson_t* document,
                     bson_iter_document(&bsonit, &document_len, &document_buffer);
                     sub_document = bson_new_from_data(document_buffer, document_len);
 
-                    char* str = bson_as_json(sub_document, (size_t*)&document_len);
-                    printf("SUB DOCUMENT: %s\n", str);
-
-                    _load_flexible(sub_document, coordinates, ndarray, sub_dtype, current_depth + 1, NULL, 0);
+                    _load_flexible(sub_document, coordinates, ndarray, sub_dtype, current_depth + 1, NULL, 0, offset + offset_long);
 
 
+                } else {
+                    PyErr_SetString(BsonNumpyError, "Error: expected key from dtype in document, not found");
                 }
-                PyErr_SetString(BsonNumpyError, "TODO: not implemented");
-                return 0;
+//                PyErr_SetString(BsonNumpyError, "TODO: not implemented");
+//                return 0;
             }
             else {
                 printf("\tLOADING VAL: key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject *) sub_dtype, stdout, 0);
                 printf(" offset=%i, coordinates: [", (int) offset_long); for (int i = 0; i < number_dimensions; i++) { printf("%i,", (int) coordinates[i]); } printf("]\n");
 
-
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
                     //TODO: if sub_dtype->elsize==0, then it is a flexible type
-                    success = _load_scalar(&bsonit, ndarray, offset_long, coordinates, current_depth, sub_dtype);
+                    success = _load_scalar(&bsonit, ndarray, offset + offset_long, coordinates, current_depth, sub_dtype);
                     if (!success) {
                         return 0;
                     }
@@ -438,7 +438,9 @@ static int _load_flexible(bson_t* document,
             // Get subarray as ndarray
             void* ptr = PyArray_GetPtr(ndarray, coordinates);
             PyObject* subndarray_tuple = PyArray_GETITEM(ndarray, ptr);
-            PyObject* subndarray_obj = PyTuple_GetItem(subndarray_tuple, index); //TODO: handle multiple types, why is this a tuple
+            printf("TUPLE="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
+            PyObject* subndarray_obj = PyTuple_GetItem(subndarray_tuple, index);
+            printf("OBJ="); PyObject_Print(subndarray_obj, stdout, 0); printf("\n");
             PyArrayObject* subndarray;
             if (!PyArray_OutputConverter(subndarray_obj, &subndarray)) {
                 PyErr_SetString(BsonNumpyError, "Expected subarray, got other type");
@@ -555,7 +557,7 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
         printf("\nDOCUMENT: %s, dtype->fields dict:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n");
 
 
-        if(_load_flexible(document, coordinates, ndarray, PyArray_DTYPE(ndarray), 1, NULL, 0) == 0) { // Don't need to pass key to first layer
+        if(_load_flexible(document, coordinates, ndarray, PyArray_DTYPE(ndarray), 1, NULL, 0, 0) == 0) { // Don't need to pass key to first layer
             return NULL; // error set by _load_flexible
         }
         free(document);
