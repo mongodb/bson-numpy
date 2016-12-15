@@ -234,6 +234,7 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype_sub = np.dtype([('x1', '(2,2,2)int32'), ('x', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
 
+    @client_context.require_connected
     def test_collection_sub4(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': 100+i}}} for i in range(10)]
@@ -242,6 +243,7 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
+    @client_context.require_connected
     def test_collection_sub4_array(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': [100+i, 100-i]}}} for i in range(10)]
@@ -250,6 +252,7 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
+    @client_context.require_connected
     def test_collection_sub4_array(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': [[100+i, 100-i, 100],
@@ -261,6 +264,7 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
+    @client_context.require_connected
     def test_collection_sub4_array2(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': [[100+i, 100-i, 100],
@@ -280,6 +284,7 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x2', '3int32'), ('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
+    @client_context.require_connected
     def test_collection_sub4_array3(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': i,
@@ -296,8 +301,9 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x2', 'int32'), ('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
+    @client_context.require_connected
     def test_collection_sub_many(self):
-        num = 2
+        num = 3
         docs = [{} for _ in range(num)]
 
         for i in range(num):
