@@ -447,14 +447,14 @@ static int _load_flexible(bson_t* document,
             // Get subarray as ndarray
             void* ptr = PyArray_GetPtr(ndarray, coordinates);
             PyObject* subndarray_tuple = PyArray_GETITEM(ndarray, ptr);
-            printf("curr depth=%i, num_dims=%i: STARTING TUPLE=", current_depth, number_dimensions); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
+//            printf("curr depth=%i, num_dims=%i: STARTING TUPLE=", current_depth, number_dimensions); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
             for (int sub_i = 0; sub_i < current_depth - number_dimensions; sub_i++) {
                 int offset = sub_coordinates[sub_i];
-                printf("\t offset=%i\n", offset);
+//                printf("\t offset=%i\n", offset);
                 subndarray_tuple = PyTuple_GetItem(subndarray_tuple, offset);
-                printf("\t SUB TUPLE="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
+//                printf("\t SUB TUPLE="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
             }
-            printf("OBJ="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
+//            printf("OBJ="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n");
             PyArrayObject* subndarray;
             if (!PyArray_OutputConverter(subndarray_tuple, &subndarray)) {
                 PyErr_SetString(BsonNumpyError, "Expected subarray, got other type");
@@ -472,7 +472,7 @@ static int _load_flexible(bson_t* document,
             bson_iter_t sub_it;
             bson_iter_recurse(&bsonit, &sub_it);
             for(npy_intp i=0;i<length_long;i++) {
-                printf("\t(SUB)START COORDINATES="); for (int i = 0; i < dims_subarray; i++) { printf("%i,", (int) subarray_coordinates[i]); } printf("]\n");
+//                printf("\t(SUB)START COORDINATES="); for (int i = 0; i < dims_subarray; i++) { printf("%i,", (int) subarray_coordinates[i]); } printf("]\n");
                 bson_iter_next(&sub_it);
                 subarray_coordinates[0] = i;
                 int success = _load_scalar(&sub_it, subndarray, 0, subarray_coordinates, 0, sub_descr);
