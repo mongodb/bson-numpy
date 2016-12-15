@@ -5,6 +5,9 @@ branches:
   only:
   - dev
 
+services:
+  - mongodb
+
 env:
   - BSON_DIR=`pwd`/libbson/bson-build LD_LIBRARY_PATH=$BSON_DIR/lib:$LD_LIBRARY_PATH
 
