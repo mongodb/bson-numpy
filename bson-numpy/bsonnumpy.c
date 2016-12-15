@@ -91,7 +91,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
     if (current_depth < dimensions) { // If we are within a flexible type
         itemsize = PyArray_STRIDE(ndarray, current_depth);
-        printf("\tsetting itemsize using strides: %li\n", itemsize);
+//        printf("\tsetting itemsize using strides: %li\n", itemsize);
     } else {
         itemsize = dtype->elsize; // Not sure about this
     }
@@ -99,8 +99,8 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
     int success = 0;
     int copy = 1;
 
-    printf("\tin load_scalar, dimensions=%i, current_depth=%i, offset=%i, itemsize=%i ", (int)dimensions, current_depth, (int)offset, (int)itemsize);
-    printf("coordinates=["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
+//    printf("\tin load_scalar, dimensions=%i, current_depth=%i, offset=%i, itemsize=%i ", (int)dimensions, current_depth, (int)offset, (int)itemsize);
+//    printf("coordinates=["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); } printf("]\n");
 
 
     void* pointer = PyArray_GetPtr(ndarray, coordinates);
@@ -108,7 +108,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
 
     if(BSON_ITER_HOLDS_ARRAY(bsonit)) {
 
-        printf("\t\tFound subarray\n");
+//        printf("\t\tFound subarray\n");
 
         // Get length of array
         bson_iter_recurse(bsonit, &sub_it);
@@ -120,7 +120,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
         if (count == 1) {
             bson_iter_next(&sub_it);
 
-            printf("\t\t-ignoring array of len 1\n");
+//            printf("\t\t-ignoring array of len 1\n");
 
             // Array is of length 1, therefore we treat it like a number
             return _load_scalar(&sub_it, ndarray,offset, coordinates, current_depth, dtype); // arrays of length 1 have the same dtype as element
@@ -138,10 +138,10 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
                     PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
                     return 0;
                 }
-                printf("\t\t-->new dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
-                printf(" new depth=%i, dimensions=%i, index=%i\n", current_depth + 1, (int)dimensions, i);
-
-                printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n");
+//                printf("\t\t-->new dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0);
+//                printf(" new depth=%i, dimensions=%i, index=%i\n", current_depth + 1, (int)dimensions, i);
+//
+//                printf("\t\t-->recurring on load_scalar: new coordinates= ["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n");
 
                 int ret = _load_scalar(&sub_it, ndarray, new_offset, coordinates, current_depth + 1, sub_dtype);
                 if (ret == 0) {
@@ -155,7 +155,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
     const bson_value_t* value = bson_iter_value(bsonit);
     void* data_ptr = (void*)&value->value;
 
-    printf("\t- switching on %i\n", value->value_type);
+//    printf("\t- switching on %i\n", value->value_type);
 
     switch(value->value_type) {
     case BSON_TYPE_UTF8:
@@ -206,7 +206,7 @@ static int _load_scalar(bson_iter_t* bsonit, // TODO: elsize won't work for flex
         success = 1;
         break;
     default:
-        printf("TODO: bson type %i not handled\n", value->value_type);
+        printf("TODO: bson type %i raw copy\n", value->value_type);
     }
 
     /* Commented out because PyArray_SETITEM fails for flexible types, but memcpy works.
@@ -257,8 +257,8 @@ bson_to_ndarray(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    char* str = bson_as_json(document, (size_t*)&bytes_len);
-    printf("DOCUMENT: %s\n", str);
+//    char* str = bson_as_json(document, (size_t*)&bytes_len);
+//    printf("DOCUMENT: %s\n", str);
 
     // Convert dtype
     if (!PyArray_DescrCheck(dtype_obj)) {
@@ -286,7 +286,7 @@ bson_to_ndarray(PyObject* self, PyObject* args)
 
     Py_INCREF(dtype);
 
-    printf("PYARRAY_ZEROS(1, %i, ", (int)dimension_lengths[0]); PyObject_Print((PyObject*)dtype, stdout, 0); printf(", 0)\n");
+//    printf("PYARRAY_ZEROS(1, %i, ", (int)dimension_lengths[0]); PyObject_Print((PyObject*)dtype, stdout, 0); printf(", 0)\n");
 
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); // This function steals a reference to dtype?
 
@@ -324,16 +324,16 @@ static int _load_flexible(bson_t* document,
     Py_ssize_t pos = 0;
     bson_iter_t bsonit;
 
-    printf("    in _load_flexible: KEY=%s, SUB_COORDINATES=[", key_str);for (int i = 0; i < sub_coordinates_length; i++) { printf("%i,", (int) sub_coordinates[i]); } printf("]\n");
-    printf(" DTYPE IS ");
+//    printf("    in _load_flexible: KEY=%s, SUB_COORDINATES=[", key_str);for (int i = 0; i < sub_coordinates_length; i++) { printf("%i,", (int) sub_coordinates[i]); } printf("]\n");
+//    printf(" DTYPE IS ");
 
     if(dtype->fields != NULL && dtype->fields != Py_None) {
-        printf("FLEXIBLE\n\tnames=");
+//        printf("FLEXIBLE\n\tnames=");
         PyObject* ordered_names = PyArray_FieldNames(dtype->fields);
-        PyObject_Print(ordered_names, stdout, 0); printf(" fields="); PyObject_Print(dtype->fields, stdout, 0);
+//        PyObject_Print(ordered_names, stdout, 0); printf(" fields="); PyObject_Print(dtype->fields, stdout, 0);
 
         Py_ssize_t number_fields = PyTuple_Size(ordered_names);
-        printf(" len(fields)=%li\n", number_fields);
+//        printf(" len(fields)=%li\n", number_fields);
 
 
         fields = dtype->fields; // A field is described by a tuple composed of another data- type-descriptor and a byte offset.
@@ -350,7 +350,7 @@ static int _load_flexible(bson_t* document,
             key = PyTuple_GetItem(ordered_names, i);
             value = PyDict_GetItem(fields, key);
 
-            printf("    -->looping through fields: key="); PyObject_Print(key, stdout, 0); printf(" value="); PyObject_Print(value, stdout, 0); printf("\n");
+//            printf("    -->looping through fields: key="); PyObject_Print(key, stdout, 0); printf(" value="); PyObject_Print(value, stdout, 0); printf("\n");
             if (!PyTuple_Check(value)) {
                 PyErr_SetString(BsonNumpyError, "dtype in fields is not a tuple");
                 return 0;
@@ -375,14 +375,14 @@ static int _load_flexible(bson_t* document,
 
             int sub_depth = current_depth - number_dimensions;
             if (sub_dtype->subarray) {
-                printf("\t Recurring with SUBARRAY\n");
+//                printf("\t Recurring with SUBARRAY\n");
 
 
                 sub_coordinates[sub_depth] = i;
                 _load_flexible(document, coordinates, ndarray, sub_dtype, current_depth + 1, key_str, sub_coordinates, sub_coordinates_length+1, offset);
 
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
-                printf("\t Recurring with FIELDS: sub_dtype="); PyObject_Print(sub_dtype->fields, stdout, 0); printf("\n");
+//                printf("\t Recurring with FIELDS: sub_dtype="); PyObject_Print(sub_dtype->fields, stdout, 0); printf("\n");
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
                     if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
@@ -396,7 +396,7 @@ static int _load_flexible(bson_t* document,
                     bson_iter_document(&bsonit, &document_len, &document_buffer);
                     sub_document = bson_new_from_data(document_buffer, document_len);
 
-                    printf("\t setting sub_coordinates at %i to %i\n", sub_depth, i);
+//                    printf("\t setting sub_coordinates at %i to %i\n", sub_depth, i);
                     sub_coordinates[sub_depth] = i;
 
 
@@ -410,8 +410,8 @@ static int _load_flexible(bson_t* document,
 //                return 0;
             }
             else {
-                printf("\tLOADING VAL: key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject *) sub_dtype, stdout, 0);
-                printf(" offset=%i, coordinates: [", (int) offset_long); for (int i = 0; i < number_dimensions; i++) { printf("%i,", (int) coordinates[i]); } printf("]\n");
+//                printf("\tLOADING VAL: key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject *) sub_dtype, stdout, 0);
+//                printf(" offset=%i, coordinates: [", (int) offset_long); for (int i = 0; i < number_dimensions; i++) { printf("%i,", (int) coordinates[i]); } printf("]\n");
 
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
@@ -428,11 +428,11 @@ static int _load_flexible(bson_t* document,
             pos++;
         }
     } else if (dtype->subarray) {
-        printf("ARRAY\n");
+//        printf("ARRAY\n");
         PyObject* shape = dtype->subarray->shape;
         PyArray_Descr* sub_descr = dtype->subarray->base;
 
-        printf("\tdtype="); PyObject_Print((PyObject*)sub_descr, stdout, 0); printf(" shape="); PyObject_Print(shape, stdout, 0); printf("\n");
+//        printf("\tdtype="); PyObject_Print((PyObject*)sub_descr, stdout, 0); printf(" shape="); PyObject_Print(shape, stdout, 0); printf("\n");
 
         bson_iter_init(&bsonit, document);
 
@@ -468,7 +468,7 @@ static int _load_flexible(bson_t* document,
             npy_intp* subarray_coordinates = calloc(dims_subarray + 1, sizeof(npy_intp));
 
             // Loop through array and load sub-arrays
-            printf("looping through top-level array, len=%li\n", length_long);
+//            printf("looping through top-level array, len=%li\n", length_long);
             bson_iter_t sub_it;
             bson_iter_recurse(&bsonit, &sub_it);
             for(npy_intp i=0;i<length_long;i++) {
@@ -555,7 +555,7 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
     int row = 0;
     while((binary_doc = PyIter_Next(iterator_obj))) { // For each row
 
-        printf("START COORDINATES: ["); for(int q = 0; q < number_dimensions; q++) { printf("%i,", (int)coordinates[q]);} printf("]\n");
+//        printf("START COORDINATES: ["); for(int q = 0; q < number_dimensions; q++) { printf("%i,", (int)coordinates[q]);} printf("]\n");
 
         // Get BSON document
         const char* bytes_str = PyBytes_AS_STRING(binary_doc);
@@ -567,8 +567,8 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
             return 0;
         }
 
-        char* str = bson_as_json(document, (size_t*)&bytes_len);
-        printf("\nDOCUMENT: %s, dtype->fields dict:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n");
+//        char* str = bson_as_json(document, (size_t*)&bytes_len);
+//        printf("\nDOCUMENT: %s, dtype->fields dict:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n");
 
         npy_intp* sub_coordinates = calloc(100, sizeof(npy_intp));
 

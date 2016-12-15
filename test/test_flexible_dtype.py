@@ -30,7 +30,7 @@ class TestFlexibleTypes(unittest.TestCase):
 
         self.assertEqual(ndarray.dtype, dtype)
         self.assertEqual(num_dicts, len(ndarray))
-        print(dtype.descr)
+        # print(dtype.descr)
         for i in range(num_dicts):
             for desc in dtype.descr:
                 name = desc[0]

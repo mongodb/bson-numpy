@@ -14,7 +14,7 @@ class TestFromBSONArrays(TestFromBSON):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
+        # print (result)
         self.assertEqual(dtype, result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -26,7 +26,7 @@ class TestFromBSONArrays(TestFromBSON):
         utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
+        # print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -36,7 +36,7 @@ class TestFromBSONArrays(TestFromBSON):
             same_document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
+        # print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -46,7 +46,7 @@ class TestFromBSONArrays(TestFromBSON):
             same_document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
+        # print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
@@ -57,7 +57,7 @@ class TestFromBSONArrays(TestFromBSON):
             same_document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype("3int32")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        print (result)
+        # print (result)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
             self.assertTrue(np.array_equal(document[str(b)], result[b]))
