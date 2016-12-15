@@ -63,8 +63,8 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         ndarray = bsonnumpy.collection_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
-        # print "ndarray", ndarray
-        # print "docs", [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]
+        print "ndarray", ndarray
+        print "docs", [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]
         self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
 
     @client_context.require_connected
@@ -189,11 +189,11 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_sub4_subarrays(self):
-        docs = [{'x': {'y': [100+i, 100, i], 'y1': (i+1)*10}, 'x1': 10*i} for i in range(10)]
+        docs = [{'x': {'y': [100+i, 100, i], 'y1': (i+1)*10}, 'x1': i+5} for i in range(10)]
         dtype = np.dtype([('y', '3int32'), ('y1', 'int32')])
         dtype_sub = np.dtype([('x', dtype), ('x1', 'int32')])
         # TODO: START HERE
-        # self.make_mixed_collection_test(docs, dtype_sub)
+        self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
     def test_collection_not_flexible(self):
