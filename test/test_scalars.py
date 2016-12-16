@@ -16,6 +16,11 @@ def millis(delta):
     return ((delta.days * 86400 + delta.seconds) * 1000 +
             delta.microseconds / 1000.0)
 
+class TestFromNdarrayToBSON(unittest.TestCase):
+    def test_integer32_types(self):
+        array = np.array([99, 88, 77, 66], dtype=np.int32)
+        bsonnumpy.ndarray_to_bson(array)
+
 
 class TestFromBSONScalars(TestFromBSON):
 
