@@ -21,6 +21,8 @@ ndarray_to_bson(PyObject* self, PyObject* args) // Stub to test passing ndarrays
     PyObject* array_obj;
     PyArray_Descr* dtype;
     PyArrayObject* ndarray;
+    bson_t document;
+
     if (!PyArg_ParseTuple(args, "O", &array_obj)) {
         PyErr_SetNone(PyExc_TypeError);
         return NULL;
@@ -37,8 +39,26 @@ ndarray_to_bson(PyObject* self, PyObject* args) // Stub to test passing ndarrays
     }
     dtype = PyArray_DTYPE(ndarray);
 
+    npy_intp num_dims = PyArray_NDIM(ndarray);
+    npy_intp* shape = PyArray_SHAPE(ndarray);
+    npy_intp num_documents = PyArray_DIM(ndarray, 0);
+
+    bson_init (&document);
+
+    for (npy_intp i=0; i < num_documents; i++) {
+        void* pointer = PyArray_GETPTR1(ndarray, i);
+        PyObject* result = PyArray_GETITEM(ndarray, pointer);
+        printf("got item at %i =", i); PyObject_Print(result, stdout, 0); printf(" type=");
+        PyObject* type = PyObject_Type(result);
+        PyObject_Print(type, stdout, 0); printf("\n");
+    }
+
+    //TODO: could use array iterator API but potentially better to recur ourselves
+
+
+
     printf("ndarray="); PyObject_Print((PyObject*)ndarray, stdout, 0); printf(" dtype="); PyObject_Print((PyObject*)dtype, stdout, 0); printf("\n");
-    return Py_BuildValue("");
+    return Py_BuildValue(""); //TODO: return document instead
 }
 /*
     |Straightforward

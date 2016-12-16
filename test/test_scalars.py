@@ -16,10 +16,64 @@ def millis(delta):
     return ((delta.days * 86400 + delta.seconds) * 1000 +
             delta.microseconds / 1000.0)
 
-class TestFromNdarrayToBSON(unittest.TestCase):
+class TestToBSONScalars(unittest.TestCase):
     def test_integer32_types(self):
         array = np.array([99, 88, 77, 66], dtype=np.int32)
         bsonnumpy.ndarray_to_bson(array)
+
+    def test_integer64_types(self):
+        array = np.array([99, 88, 77, 66], dtype=np.int64)
+        bsonnumpy.ndarray_to_bson(array)
+
+    def test_bool(self):
+        array = np.array([True, False, True, False], dtype=np.bool)
+        bsonnumpy.ndarray_to_bson(array)
+
+    def test_float64_types(self):
+        array = np.array([99.99, 88.88, 77.77, 66.66], dtype=np.float64)
+        bsonnumpy.ndarray_to_bson(array)
+
+    # def test_oid(self):
+    #     array = np.array([bson.ObjectId(), bson.ObjectId(),
+    #                       bson.ObjectId(), bson.ObjectId()],
+    #                      dtype=np.dtype('<V12'))
+    #     bsonnumpy.ndarray_to_bson(array)
+
+    def test_string(self):
+        array = np.array([b"string_0", b"str1", b"utf8-2"], dtype=np.dtype('<S2'))
+        bsonnumpy.ndarray_to_bson(array)
+
+    def test_binary(self):
+        array = np.array([bson.Binary(b"binary_0"),
+                          bson.Binary(b"bin1"),
+                          bson.Binary(b"utf8-2")], dtype=np.dtype('<V15'))
+        bsonnumpy.ndarray_to_bson(array)
+
+    def test_subarray(self):
+        array = np.array([[1,2,3], [4,5,6], [7,8,9]], dtype=np.dtype('int32'))
+        bsonnumpy.ndarray_to_bson(array)
+
+    # def test_datetime(self):
+    #     array = np.array([datetime.datetime(1970, 1, 1),
+    #                       datetime.datetime(1970, 1, 2),
+    #                       datetime.datetime(1970, 1, 3)], dtype=np.dtype('int64'))
+    #     bsonnumpy.ndarray_to_bson(array)
+    #
+    # def test_timestamp(self):
+    #     array = np.array([
+    #         bson.timestamp.Timestamp(time=00000, inc=77),
+    #         bson.timestamp.Timestamp(time=00000, inc=88),
+    #         bson.timestamp.Timestamp(time=00000, inc=99)], dtype=np.dtype('uint64'))
+    #     bsonnumpy.ndarray_to_bson(array)
+    #
+    # def test_documents(self):
+    #     array = np.array([
+    #         bson.SON([("a", 1)]),
+    #         bson.SON([("b", 2)]),
+    #         bson.SON([("c", 3)])], dtype=np.dtype('<V35'))
+    #     bsonnumpy.ndarray_to_bson(array)
+
+
 
 
 class TestFromBSONScalars(TestFromBSON):
@@ -40,7 +94,7 @@ class TestFromBSONScalars(TestFromBSON):
         for np_type in [np.int_, np.intc, np.intp, np.uint64, np.int64]:
             self.compare_results(np_type, document, document)
 
-    def test_bool_types(self):
+    def test_bool(self):
         document = bson.SON([("0", True), ("1", False), ("2", True)])
         self.compare_results(np.bool_, document, document)
 
