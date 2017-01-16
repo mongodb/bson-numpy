@@ -70,7 +70,36 @@ Installing
 
 BSON-NumPy is supported on Linux and Mac OS X, with Python 2.6 and later.
 Installation is in two steps: first install the C library libbson yourself,
-then install BSON-NumPy with pip:
+then install BSON-NumPy with pip.
 
 - `Install libbson <http://mongoc.org/libbson/current/installing.html>`_
-- ``python -m pip install bsonnumpy``
+- ``python -m pip install git+github.com/aherlihy/numpy-bson.git``
+
+Here are more detailed instructions for a few platforms.
+
+Debian or Ubuntu
+^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+  $ sudo apt-get install -y libbson-dev python-dev python-numpy
+  $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
+
+Fedora or RedHat
+^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+  $ sudo apt-get install -y libbson-devel python-devel numpy
+  $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
+
+Mac OS X
+^^^^^^^^
+
+The easiest way to install libbson is with Homebrew. `Install Homebrew
+<http://brew.sh/>`_, then:
+
+.. code-block:: none
+
+  $ brew install mongo-c-driver
+  $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
