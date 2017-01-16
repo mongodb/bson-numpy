@@ -54,6 +54,9 @@ API
 
 .. py:function:: sequence_to_ndarray(iterator, dtype, length)
 
+  Convert a series of bytes objects, each containing raw BSON data, into a
+  NumPy array.
+
   Parameters:
 
   - `iterator`: An :ref:`iterator object <typeiter>` representing a sequence
@@ -61,9 +64,6 @@ API
   - `dtype`: A :class:`numpy.dtype` listing the fields to extract from each
     BSON document and what NumPy type to convert it to.
   - `length`: An integer, the number of items in `iterator`.
-
-  Convert a series of bytes objects, each containing raw BSON data, into a
-  NumPy array.
 
 Installing
 ----------
