@@ -15,6 +15,7 @@ bsonnumpymodule = setuptools.Extension(
     'bsonnumpy',
     define_macros=[('MAJOR_VERSION', '0'), ('MINOR_VERSION', '1')],
     include_dirs=[os.path.join(bson_src, "include", "libbson-1.0"),
+                  "/usr/include/libbson-1.0",
                   np.get_include()],
     install_requires=['pymongo'],
     library_dirs=[os.path.join(bson_src, "lib")],
