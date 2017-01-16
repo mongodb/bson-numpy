@@ -61,7 +61,7 @@ class TestCollection2Ndarray(unittest.TestCase):
             codec_options=CodecOptions(document_class=RawBSONDocument)).coll
         cursor = raw_coll.find()
 
-        ndarray = bsonnumpy.collection_to_ndarray(
+        ndarray = bsonnumpy.sequence_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
         # print "ndarray", ndarray
         # print "docs", [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]

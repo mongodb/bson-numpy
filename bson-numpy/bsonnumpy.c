@@ -510,9 +510,8 @@ static int _load_flexible_from_bson(bson_t* document,
     return 1;
 }
 
-// TODO: RENAME TO SEQUENCE_
 static PyObject*
-collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Collection/cursor both seem to specific to PyMongo.
+sequence_to_ndarray(PyObject* self, PyObject* args)
 {
     PyObject* iterator_obj;
     PyObject* dtype_obj;
@@ -531,7 +530,7 @@ collection_to_ndarray(PyObject* self, PyObject* args) // Better name please! Col
         return NULL;
     }
     if(!PyIter_Check(iterator_obj)) {
-        PyErr_SetString(BsonNumpyError, "collection_to_ndarray expects an iterator");
+        PyErr_SetString(BsonNumpyError, "sequence_to_ndarray expects an iterator");
         return NULL;
     }
     if (!PyArray_DescrCheck(dtype_obj)) {
@@ -612,7 +611,7 @@ static PyMethodDef BsonNumpyMethods[] = {
      "Convert an ndarray into a BSON byte string"},
     {"bson_to_ndarray", bson_to_ndarray, METH_VARARGS,
      "Convert BSON byte string into an ndarray"},
-    {"collection_to_ndarray", collection_to_ndarray, METH_VARARGS,
+    {"sequence_to_ndarray", sequence_to_ndarray, METH_VARARGS,
      "Convert an iterator containing BSON documents into an ndarray"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
