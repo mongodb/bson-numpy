@@ -30,9 +30,9 @@ if sys.version_info[:2] == (2, 6):
     test_requires.append("unittest2")
     test_suite = "unittest2.collector"
 
-setuptools.setup (name = 'BsonNumpy',
+setuptools.setup (name = 'BSON-NumPy',
        version = '0.1',
-       description = 'Module for converting directly from BSON to Numpy ndarrays and vice versa',
+       description = 'Module for converting directly from BSON to NumPy ndarrays and vice versa',
        author = 'Anna Herlihy',
        author_email = 'anna@mongodb',
        url = '',
