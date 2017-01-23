@@ -1,18 +1,17 @@
 import random
 import string
 
-from bson.codec_options import CodecOptions
-from bson.raw_bson import RawBSONDocument
-from bson.py3compat import b
-from bson import BSON
-import numpy as np
-
 import bsonnumpy
-from test import unittest, client_context
+import numpy as np
+from bson import BSON
+from bson.codec_options import CodecOptions
+from bson.py3compat import b
+from bson.raw_bson import RawBSONDocument
+
+from test import client_context, unittest
 
 
 class TestCollection2Ndarray(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.client = client_context.client
@@ -26,11 +25,12 @@ class TestCollection2Ndarray(unittest.TestCase):
             self.assertEqual(doc, expected)
             return
 
-        if isinstance(expected, dict): # need to loop through
+        if isinstance(expected, dict):  # need to loop through
             for key, value in expected.items():
                 self.compare_elements(value, actual[key])
         elif isinstance(actual, np.ndarray):
-            self.assertTrue(isinstance(expected, list) or isinstance(expected, np.ndarray))
+            self.assertTrue(
+                isinstance(expected, list) or isinstance(expected, np.ndarray))
             self.assertEqual(len(actual), len(expected))
             for i in range(len(actual)):
                 self.compare_elements(expected[i], actual[i])
@@ -41,7 +41,6 @@ class TestCollection2Ndarray(unittest.TestCase):
             self.assertEqual(expected, actual)
         else:
             self.assertEqual(expected, actual)
-
 
     # TODO: deal with both name and title in dtype
     def compare_results(self, dtype, expected, actual):
@@ -63,13 +62,12 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         ndarray = bsonnumpy.sequence_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
-        # print "ndarray", ndarray
-        # print "docs", [tuple(v[k] for k in v.keys() if k != '_id') for v in docs]
-        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(), ndarray)
+        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(),
+                             ndarray)
 
     @client_context.require_connected
     def test_collection_flexible_int32(self):
-        docs = [{"x": i, "y": 10-i} for i in range(10)]
+        docs = [{"x": i, "y": 10 - i} for i in range(10)]
         dtype = np.dtype([('x', np.int32), ('y', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', np.int32), ('x', np.int32)])
@@ -77,7 +75,8 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_flexible_mixed_scalar(self):
-        docs = [{"x": i, "y": random.choice(string.ascii_lowercase)*11} for i in range(10)]
+        docs = [{"x": i, "y": random.choice(string.ascii_lowercase) * 11} for i
+                in range(10)]
         dtype = np.dtype([('x', np.int32), ('y', 'S11')])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', 'S11'), ('x', np.int32)])
@@ -86,7 +85,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_subarray1(self):
         # 2d subarray
-        docs = [{"x": [1+i, -i-1], "y": [i, -i]} for i in range(5)]
+        docs = [{"x": [1 + i, -i - 1], "y": [i, -i]} for i in range(5)]
         dtype = np.dtype([('x', '2int32'), ('y', '2int32')])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', '2int32'), ('x', '2int32')])
@@ -95,9 +94,9 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_subarray2(self):
         # 3d subarray
-        docs = [{"x": [[i, i+1, i+2],
-                       [-i, -i-1, -i-2],
-                       [100*i, 100*i+1, 100*i+2],
+        docs = [{"x": [[i, i + 1, i + 2],
+                       [-i, -i - 1, -i - 2],
+                       [100 * i, 100 * i + 1, 100 * i + 2],
                        [0, 1, 2]],
                  "y": "string!!!"} for i in range(5)]
         dtype = np.dtype([('x', "(4,3)int32"), ('y', 'S10')])
@@ -108,12 +107,29 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_subarray3(self):
         # 3d subarray
-        docs = [
-            {"x": [[[i, i+1], [i+1, i+2], [i+2, i+3]],
-                       [[-i, -i+1], [-i-1, -i], [-i-2, -i-1]],
-                       [[100*i, 100*i+i], [100*i+1, 100*i+i], [100*i+2, 100*i+i]],
-                       [[0,1], [1,2], [3,4]]],
-             "some_other_key": ["string" + str(i), "string" + str(i+1)]} for i in range(5)]
+        docs = []
+        for i in range(5):
+            docs.append({
+                "x": [
+                    [
+                        [i, i + 1], [i + 1, i + 2], [i + 2, i + 3]
+                    ],
+                    [
+                        [-i, -i + 1], [-i - 1, -i], [-i - 2, -i - 1]
+                    ],
+                    [
+                        [100 * i, 100 * i + i], [100 * i + 1, 100 * i + i],
+                        [100 * i + 2, 100 * i + i]
+                    ],
+                    [
+                        [0, 1], [1, 2], [3, 4]
+                    ]
+                ],
+                "some_other_key": [
+                    "string" + str(i), "string" + str(i + 1)
+                ]
+            })
+
         dtype = np.dtype([('x', "(4,3,2)int32"), ('some_other_key', '2S10')])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('some_other_key', '2S10'), ('x', "(4,3,2)int32")])
@@ -122,10 +138,10 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_subarray2_mixed1(self):
         # 3d subarray
-        docs = [{"x": [[i, i+1, i+2],
-                       [-i, -i-1, -i-2],
-                       [100*i, 100*i+1, 100*i+2]],
-                 "y": 100-i} for i in range(2)]
+        docs = [{"x": [[i, i + 1, i + 2],
+                       [-i, -i - 1, -i - 2],
+                       [100 * i, 100 * i + 1, 100 * i + 2]],
+                 "y": 100 - i} for i in range(2)]
         dtype = np.dtype([('x', "(3,3)int32"), ('y', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', np.int32), ('x', "(3,3)int32")])
@@ -133,18 +149,19 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_flexible_mixed(self):
-        docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase)*11, "z": {"a": i}} for i in range(10)]
+        docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase) * 11,
+                 "z": {"a": i}} for i in range(10)]
         dtype = np.dtype([('x', '2int32'), ('y', 'S11'), ('z', 'V12')])
-        self.make_mixed_collection_test(docs, dtype);
+        self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('z', 'V12'), ('x', '2int32'), ('y', 'S11')])
-        self.make_mixed_collection_test(docs, dtype);
+        self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', 'S11'), ('x', '2int32'), ('z', 'V12')])
-        self.make_mixed_collection_test(docs, dtype);
+        self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
     def test_collection_sub1(self):
         # nested documents
-        docs = [{'x': {'y': 100+i}} for i in range(10)]
+        docs = [{'x': {'y': 100 + i}} for i in range(10)]
         dtype = np.dtype([('y', np.int32)])
         dtype_sub = np.dtype([('x', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -152,7 +169,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub2(self):
         # sub-doc has multiple fields
-        docs = [{'x': {'y': 100+i, 'z': i}} for i in range(10)]
+        docs = [{'x': {'y': 100 + i, 'z': i}} for i in range(10)]
         dtype = np.dtype([('y', np.int32), ('z', np.int32)])
         dtype_sub = np.dtype([('x', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -160,7 +177,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub3(self):
         # doc has multiple fields
-        docs = [{'x': {'y': 100+i}, 'q': {'y': -i}} for i in range(10)]
+        docs = [{'x': {'y': 100 + i}, 'q': {'y': -i}} for i in range(10)]
         dtype = np.dtype([('y', np.int32)])
         dtype_sub = np.dtype([('x', dtype), ('q', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -168,7 +185,8 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub4(self):
         # doc and subdoc have multiple fields
-        docs = [{'x': {'y': 100+i, 'z': i}, 'q': {'y': -i, 'z': 100-i}} for i in range(10)]
+        docs = [{'x': {'y': 100 + i, 'z': i}, 'q': {'y': -i, 'z': 100 - i}} for
+                i in range(10)]
         dtype = np.dtype([('y', np.int32), ('z', np.int32)])
         dtype_sub = np.dtype([('x', dtype), ('q', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -178,7 +196,8 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_sub4_mixed(self):
-        docs = [{'x': {'y': str(10+i)*i, 'z': i}, 'q': {'y': str(i)*i, 'z': 100-i}} for i in range(10)]
+        docs = [{'x': {'y': str(10 + i) * i, 'z': i},
+                 'q': {'y': str(i) * i, 'z': 100 - i}} for i in range(10)]
         dtype = np.dtype([('y', 'S110'), ('z', np.int32)])
         dtype_sub = np.dtype([('x', dtype), ('q', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -188,7 +207,10 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_sub_subarrays(self):
-        docs = [{'x': {'y': [100+i, 100, i], 'y1': (i+1)*10}, 'x1': i+5} for i in range(10)]
+        docs = [
+            {'x': {'y': [100 + i, 100, i], 'y1': (i + 1) * 10}, 'x1': i + 5}
+            for i in range(10)]
+
         dtype = np.dtype([('y', '3int32'), ('y1', 'int32')])
         dtype_sub = np.dtype([('x', dtype), ('x1', 'int32')])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -198,8 +220,9 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_sub_subarrays2(self):
-        docs = [{'x': {'y': [[100+i, 100, i],
-                             [i, i+1, i+2]], 'y1': (i+1)*10}, 'x1': i+5} for i in range(10)]
+        docs = [{'x': {'y': [[100 + i, 100, i],
+                             [i, i + 1, i + 2]], 'y1': (i + 1) * 10},
+                 'x1': i + 5} for i in range(10)]
         dtype = np.dtype([('y', '(2,3)int32'), ('y1', 'int32')])
         dtype_sub = np.dtype([('x', dtype), ('x1', 'int32')])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -209,9 +232,11 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_sub_subarrays3(self):
-        docs = [{'x': {'y': [[100+i, 100, i],
-                             [i, i+1, i+2]], 'y1': (i+1)*10}, 'x1': [[[i+5, i+6], [i+7, i+8]],
-                                                                     [[i+9, i+10], [i+11, i+12]]]} for i in range(10)]
+        docs = [{'x': {'y': [[100 + i, 100, i],
+                             [i, i + 1, i + 2]], 'y1': (i + 1) * 10},
+                 'x1': [[[i + 5, i + 6], [i + 7, i + 8]],
+                        [[i + 9, i + 10], [i + 11, i + 12]]]} for i in
+                range(10)]
         dtype = np.dtype([('y', '(2,3)int32'), ('y1', 'int32')])
         dtype_sub = np.dtype([('x', dtype), ('x1', '(2,2,2)int32')])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -221,12 +246,13 @@ class TestCollection2Ndarray(unittest.TestCase):
 
     @client_context.require_connected
     def test_collection_sub_subarrays4(self):
-        docs = [{'x': {'y': [[100+i, 100, i],
-                             [i, i+1, i+2]],
-                       'y1': (i+1)*10,
-                       'y2': random.choice(string.ascii_lowercase)*i},
-                 'x1': [[[i+5, i+6], [i+7, i+8]],
-                        [[i+9, i+10], [i+11, i+12]]]} for i in range(10)]
+        docs = [{'x': {'y': [[100 + i, 100, i],
+                             [i, i + 1, i + 2]],
+                       'y1': (i + 1) * 10,
+                       'y2': random.choice(string.ascii_lowercase) * i},
+                 'x1': [[[i + 5, i + 6], [i + 7, i + 8]],
+                        [[i + 9, i + 10], [i + 11, i + 12]]]} for i in
+                range(10)]
         dtype = np.dtype([('y', '(2,3)int32'), ('y1', 'int32'), ('y2', 'S12')])
         dtype_sub = np.dtype([('x', dtype), ('x1', '(2,2,2)int32')])
         self.make_mixed_collection_test(docs, dtype_sub)
@@ -237,7 +263,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub4(self):
         # 3x nested documents
-        docs = [{'x': {'y': {'z': 100+i}}} for i in range(10)]
+        docs = [{'x': {'y': {'z': 100 + i}}} for i in range(10)]
         dtype0 = np.dtype([('z', np.int32)])
         dtype1 = np.dtype([('y', dtype0)])
         dtype = np.dtype([('x', dtype1)])
@@ -246,7 +272,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub4_array(self):
         # 3x nested documents
-        docs = [{'x': {'y': {'z': [100+i, 100-i]}}} for i in range(10)]
+        docs = [{'x': {'y': {'z': [100 + i, 100 - i]}}} for i in range(10)]
         dtype0 = np.dtype([('z', '2int32')])
         dtype1 = np.dtype([('y', dtype0)])
         dtype = np.dtype([('x', dtype1)])
@@ -255,10 +281,11 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub4_array(self):
         # 3x nested documents
-        docs = [{'x': {'y': {'z': [[100+i, 100-i, 100],
-                                   [1*i, 2*i, 3*i],
-                                   [4*i, 5*i, 6*i],
-                                   [7*i, 8*i, 9*i]]}}} for i in range(10)]
+        docs = [{'x': {'y': {'z': [
+            [100 + i, 100 - i, 100],
+            [1 * i, 2 * i, 3 * i],
+            [4 * i, 5 * i, 6 * i],
+            [7 * i, 8 * i, 9 * i]]}}} for i in range(10)]
         dtype0 = np.dtype([('z', '(4,3)int32')])
         dtype1 = np.dtype([('y', dtype0)])
         dtype = np.dtype([('x', dtype1)])
@@ -267,13 +294,13 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_sub4_array2(self):
         # 3x nested documents
-        docs = [{'x': {'y': {'z': [[100+i, 100-i, 100],
-                                   [1*i, 2*i, 3*i],
-                                   [4*i, 5*i, 6*i],
-                                   [7*i, 8*i, 9*i]],
+        docs = [{'x': {'y': {'z': [[100 + i, 100 - i, 100],
+                                   [1 * i, 2 * i, 3 * i],
+                                   [4 * i, 5 * i, 6 * i],
+                                   [7 * i, 8 * i, 9 * i]],
                              'z2': "this is a string!"},
                        'y2': {'a': "a different doc string"}},
-                 'x2': [1,2,3]} for i in range(10)]
+                 'x2': [1, 2, 3]} for i in range(10)]
         dtype2 = np.dtype([('a', 'S26')])
         dtype0 = np.dtype([('z', '(4,3)int32'), ('z2', 'S17')])
         dtype1 = np.dtype([('y', dtype0), ('y2', dtype2)])
@@ -311,30 +338,35 @@ class TestCollection2Ndarray(unittest.TestCase):
             letter_index = 2
             for letter in string.ascii_lowercase:
                 doc[letter] = {}
-                subarray = [[letter for _ in range(letter_index)] for _ in range(letter_index)]
+                subarray = [[letter for _ in range(letter_index)] for _ in
+                            range(letter_index)]
                 doc[letter + '1'] = subarray
                 doc[letter + '2'] = letter * random.randint(0, 100)
                 doc = doc[letter]
                 letter_index += 1
-            doc['LOWEST'] = [1*i + 99, 2*i + 98, 3*i + 97]
+            doc['LOWEST'] = [1 * i + 99, 2 * i + 98, 3 * i + 97]
             doc['LOWEST2'] = i
             doc['LOWEST3'] = 'another long string'
 
-        dt = np.dtype([('LOWEST', '3int32'), ('LOWEST2', np.int32), ('LOWEST3', 'S20')])
+        dt = np.dtype(
+            [('LOWEST', '3int32'), ('LOWEST2', np.int32), ('LOWEST3', 'S20')])
         letter_index = len(string.ascii_lowercase) + 1
         for letter in string.ascii_lowercase[::-1]:
-            type_name = '(' + str(letter_index) + ',' + str(letter_index) + ')S2'
-            dt = np.dtype([(letter, dt), (letter+'2', 'S100'), (letter + '1', type_name)])
-            letter_index -=1
+            type_name = '(' + str(letter_index) + ',' + str(
+                letter_index) + ')S2'
+            dt = np.dtype([(letter, dt), (letter + '2', 'S100'),
+                           (letter + '1', type_name)])
+            letter_index -= 1
 
-        self.make_mixed_collection_test(docs, dt) # OMG this works!!
+        self.make_mixed_collection_test(docs, dt)  # OMG this works!!
 
     @client_context.require_connected
     def test_collection_not_flexible(self):
-        # TODO: determine what to do when user doesn't give a flexible type for documents. Doc order?
-        docs = [{"x": [i, i-1], "y": [10-i, 9-i]} for i in range(10)]
+        # TODO: determine what to do when user doesn't give a flexible type for
+        # documents. Doc order?
+        docs = [{"x": [i, i - 1], "y": [10 - i, 9 - i]} for i in range(10)]
         dtype = np.dtype("(2, 2)int32")
         # self.make_mixed_collection_test(docs, dtype)
-        docs = [{"x": i, "y": 10-i} for i in range(10)]
+        docs = [{"x": i, "y": 10 - i} for i in range(10)]
         dtype = np.dtype("2int32")
         # self.make_mixed_collection_test(docs, dtype)

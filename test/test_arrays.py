@@ -1,7 +1,6 @@
 import bson
-import numpy as np
-
 import bsonnumpy
+import numpy as np
 
 from test import TestFromBSON
 
@@ -126,7 +125,8 @@ class TestFromBSONArrays(TestFromBSON):
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         self.assertEqual(dtype.subdtype[0], result.dtype)
         for b in range(len(result)):
-            self.assertTrue(np.array_equal(expected_document[str(b)], result[b]))
+            self.assertTrue(
+                np.array_equal(expected_document[str(b)], result[b]))
 
         document = bson.SON(
             [("0", [[[[99]]], [[[88]]]])])

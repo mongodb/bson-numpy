@@ -3,10 +3,9 @@ import sys
 from functools import wraps
 
 import bson
+import bsonnumpy
 import numpy as np
 import pymongo
-
-import bsonnumpy
 
 if sys.version_info[:2] == (2, 6):
     import unittest2 as unittest
@@ -27,6 +26,7 @@ class ClientContext(object):
     ClientContext from PyMongo test suite. May eventually need more _require
     functions, but for now only care if we have a server connection.
     """
+
     def __init__(self):
         try:
             client = pymongo.MongoClient(host, port,
@@ -50,11 +50,13 @@ class ClientContext(object):
                 if condition:
                     return f(*args, **kwargs)
                 raise SkipTest(msg)
+
             return wrap
 
         if func is None:
             def decorate(f):
                 return make_wrapper(f)
+
             return decorate
         return make_wrapper(func)
 
@@ -62,6 +64,7 @@ class ClientContext(object):
         return self._require(self.connected,
                              "Cannot connect to MongoDB on %s" % pair,
                              func=func)
+
 
 client_context = ClientContext()
 
