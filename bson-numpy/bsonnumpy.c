@@ -18,9 +18,6 @@ is_debug_mode ()
     return NULL != getenv ("BSON_NUMPY_DEBUG");
 }
 
-static int _load_scalar_from_np() {
-    
-}
 
 static PyObject*
 ndarray_to_bson(PyObject* self, PyObject* args) /* Stub to test passing ndarrays. */
