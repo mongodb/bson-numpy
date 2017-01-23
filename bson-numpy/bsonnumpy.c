@@ -46,8 +46,8 @@ ndarray_to_bson(PyObject *self, PyObject *args)
     }
     dtype = PyArray_DTYPE(ndarray);
 
-    npy_intp num_dims = PyArray_NDIM(ndarray);
-    npy_intp *shape = PyArray_SHAPE(ndarray);
+    /* npy_intp num_dims = PyArray_NDIM(ndarray);
+    npy_intp *shape = PyArray_SHAPE(ndarray); */
     npy_intp num_documents = PyArray_DIM(ndarray, 0);
 
     debug = is_debug_mode();
