@@ -380,11 +380,16 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
         /* PyObject_Print(ordered_names, stdout, 0); printf(" fields="); PyObject_Print(dtype->fields, stdout, 0); */
         Py_ssize_t number_fields = PyTuple_Size(ordered_names);
         /* printf(" len(fields)=%li\n", number_fields); */
-        fields = dtype->fields; /* A field is described by a tuple composed of another data- type-descriptor and a byte offset. */
+        /* A field is described by a tuple composed of another data-type
+         * descriptor and a byte offset. */
+        fields = dtype->fields;
         if (!PyDict_Check(fields)) {
-            PyErr_SetString(BsonNumpyError, "in _load_flexible_from_bson: dtype.fields was not a dictionary?");
+            PyErr_SetString(
+                BsonNumpyError,
+                "in _load_flexible_from_bson: dtype.fields not a dict");
             return 0;
         }
+
         pos = 0;
         PyArray_Descr *sub_dtype;
         PyObject *sub_dtype_obj, *offset_obj;
@@ -592,7 +597,8 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     /* printf("dimension_lengths=%i, number_dimensions=%i\n", num_documents, number_dimensions); */
     Py_INCREF(dtype);
 
-    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); /* This function steals a reference to dtype? */
+    /* This function steals a reference to dtype? */
+    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
     PyArray_OutputConverter(array_obj, &ndarray);
 
     npy_intp *coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));
@@ -615,10 +621,15 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         /* printf("\nDOCUMENT: %s, dtype->fields dict:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n"); */
         npy_intp *sub_coordinates = calloc(100, sizeof(npy_intp));
 
-        if (_load_flexible_from_bson(document, coordinates, ndarray, PyArray_DTYPE(ndarray), 1, NULL, sub_coordinates, 0, 0, debug)
-            == 0) { /* Don't need to pass key to first layer */
+        /* Don't need to pass key to first layer */
+        if (!_load_flexible_from_bson(document, coordinates, ndarray,
+                                     PyArray_DTYPE(ndarray), 1, NULL,
+                                     sub_coordinates, 0, 0, debug)) {
             return NULL; /* error set by _load_flexible_from_bson */
         }
+
+    /* Py_INCREF(array_obj); */
+    return array_obj;
         free(document);
         coordinates[0] = ++row;
         /* Reset coordinates to zero */
@@ -628,8 +639,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     }
     free(dimension_lengths);
     free(coordinates);
-    /* Py_INCREF(array_obj); */
-    return array_obj;
 
 }
 
