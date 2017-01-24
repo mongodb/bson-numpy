@@ -628,18 +628,42 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
             return NULL; /* error set by _load_flexible_from_bson */
         }
 
-    /* Py_INCREF(array_obj); */
-    return array_obj;
         free(document);
         coordinates[0] = ++row;
+        if (row >= num_documents) {
+            break;
+        }
+
         /* Reset coordinates to zero */
         for (int p = 1; p < number_dimensions; p++) {
             coordinates[p] = 0;
         }
     }
+
+    if (row < num_documents) {
+        PyObject *none_obj;
+        PyArray_Dims newshape = { dimension_lengths, number_dimensions };
+        if (debug) {
+            printf("resizing from %d to %d\n", num_documents, row);
+        }
+
+        dimension_lengths[0] = row;
+        /* returns None or NULL */
+        none_obj = PyArray_Resize((PyArrayObject *)array_obj, &newshape,
+                                  false /* refcheck */, NPY_CORDER);
+
+        Py_XDECREF(none_obj);
+    }
+
     free(dimension_lengths);
     free(coordinates);
 
+    if (PyErr_Occurred()) {
+        Py_DECREF(array_obj);
+        return NULL;
+    }
+
+    return array_obj;
 }
 
 

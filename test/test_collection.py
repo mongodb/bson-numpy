@@ -370,3 +370,33 @@ class TestCollection2Ndarray(unittest.TestCase):
         docs = [{"x": i, "y": 10 - i} for i in range(10)]
         dtype = np.dtype("2int32")
         # self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_wrong_count(self):
+        dtype = np.dtype([('_id', np.int32)])
+        docs = [{"_id": 1}, {"_id": 2}]
+        self.client.bsonnumpy_test.coll.delete_many({})
+        self.client.bsonnumpy_test.coll.insert_many(docs)
+        raw_coll = self.client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+
+        cursor = raw_coll.find()
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            (doc.raw for doc in cursor), dtype, 2)
+
+        self.assertEqual(2, len(ndarray))
+        cursor.rewind()
+
+        # Undercount.
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            (doc.raw for doc in cursor), dtype, 1)
+
+        self.assertEqual(1, len(ndarray))
+        cursor.rewind()
+
+        # Overcount.
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            (doc.raw for doc in cursor), dtype, 30)
+
+        self.assertEqual(2, len(ndarray))

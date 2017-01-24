@@ -65,6 +65,10 @@ API
     BSON document and what NumPy type to convert it to.
   - `length`: An integer, the number of items in `iterator`.
 
+  Returns an :class:`~numpy.ndarray`. If the length of `iterator` is not the same
+  as the `length` argument to :func:`sequence_to_ndarray`, the returned array's
+  length is the shorter of the two.
+
 Installing
 ----------
 
