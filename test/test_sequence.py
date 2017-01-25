@@ -78,6 +78,12 @@ class TestSequence2Ndarray(unittest.TestCase):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
+    def test_collection_flexible_bool(self):
+        docs = [{"x": True}, {"x": False}]
+        dtype = np.dtype([('x', np.bool)])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
     def test_collection_flexible_double(self):
         docs = [{"x": math.pi}, {"x": math.pi ** 2}]
         dtype = np.dtype([('x', np.double)])
