@@ -210,6 +210,13 @@ class TestFromBSONScalars(TestFromBSON):
             self.assertEqual(bson.regex.Regex(pattern, str(flags)),
                              document[str(b)])
 
+    def test_null(self):
+        data = bson._dict_to_bson({"0": None}, True, bson.DEFAULT_CODEC_OPTIONS)
+        with self.assertRaises(bsonnumpy.error) as context:
+            bsonnumpy.bson_to_ndarray(data, np.dtype([('x', '<V10')]))
+
+        self.assertIn("unsupported BSON type: null", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

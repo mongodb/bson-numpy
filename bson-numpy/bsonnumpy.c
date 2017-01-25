@@ -251,6 +251,9 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
             copy = 0;
             success = 1;
             break;
+        case BSON_TYPE_NULL:
+            PyErr_SetString(BsonNumpyError, "unsupported BSON type: null");
+            return false;
         default:
             if (debug) {
                 printf("bson type %i raw copy\n", value->value_type);

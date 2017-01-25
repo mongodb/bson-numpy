@@ -416,3 +416,13 @@ class TestSequence2Ndarray(unittest.TestCase):
             (doc.raw for doc in cursor), dtype, 30)
 
         self.assertEqual(2, len(ndarray))
+
+    def test_null(self):
+        data = bson._dict_to_bson({"x": None}, True, bson.DEFAULT_CODEC_OPTIONS)
+        with self.assertRaises(bsonnumpy.error) as context:
+            bsonnumpy.sequence_to_ndarray(iter([data]),
+                                          np.dtype([('x', '<V10')]),
+                                          1)
+
+        self.assertIn("unsupported BSON type: null", str(context.exception))
+
