@@ -342,7 +342,13 @@ bson_to_ndarray(PyObject *self, PyObject *args)
 
     /* printf("PYARRAY_ZEROS(1, %i, ", (int)dimension_lengths[0]); PyObject_Print((PyObject*)dtype, stdout, 0); printf(", 0)\n"); */
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0); /* This function steals a reference to dtype? */
-    PyArray_OutputConverter(array_obj, &ndarray);
+    if (!array_obj) {
+        return NULL;
+    }
+
+    if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
+        return NULL;
+    }
 
     npy_intp *coordinates = calloc(number_dimensions + 1, sizeof(npy_intp));
     for (npy_intp i = 0; i < dimension_lengths[0]; i++) {
@@ -551,9 +557,9 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 static PyObject *
 sequence_to_ndarray(PyObject *self, PyObject *args)
 {
+    PyObject *array_obj = NULL;
     PyObject *iterator_obj;
     PyObject *dtype_obj;
-    PyObject *array_obj;
     PyObject *binary_doc;
 
     PyArray_Descr *dtype;
@@ -561,8 +567,8 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     int num_documents;
     int number_dimensions;
-    npy_intp *dimension_lengths;
-
+    npy_intp *dimension_lengths = NULL;
+    npy_intp *coordinates = NULL;
     bool debug;
 
     if (!PyArg_ParseTuple(args, "OOi", &iterator_obj, &dtype_obj, &num_documents)) {
@@ -602,9 +608,15 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     /* This function steals a reference to dtype? */
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
-    PyArray_OutputConverter(array_obj, &ndarray);
+    if (!array_obj) {
+        goto done;
+    }
 
-    npy_intp *coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));
+    if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
+        goto done;
+    }
+
+    coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));
 
     size_t err_offset;
     int row = 0;
@@ -658,11 +670,12 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         Py_XDECREF(none_obj);
     }
 
+done:
     free(dimension_lengths);
     free(coordinates);
 
     if (PyErr_Occurred()) {
-        Py_DECREF(array_obj);
+        Py_XDECREF(array_obj);
         return NULL;
     }
 
