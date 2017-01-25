@@ -563,7 +563,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     bool debug;
 
     if (!PyArg_ParseTuple(args, "OOi", &iterator_obj, &dtype_obj, &num_documents)) {
-        PyErr_SetNone(PyExc_TypeError);
         return NULL;
     }
     if (!PyIter_Check(iterator_obj)) {
