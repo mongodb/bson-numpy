@@ -16,29 +16,30 @@ class TestCollection2Ndarray(unittest.TestCase):
     def setUpClass(cls):
         cls.client = client_context.client
 
-    def compare_elements(self, expected, actual, is_binary=False):
-        # print("comparing:", type(actual))
-        # print(actual)
-        # print(expected)
-        if is_binary:
-            doc = BSON(actual).decode()
-            self.assertEqual(doc, expected)
-            return
-
-        if isinstance(expected, dict):  # need to loop through
+    def compare_elements(self, expected, actual, dtype):
+        if isinstance(expected, dict):
             for key, value in expected.items():
-                self.compare_elements(value, actual[key])
-        elif isinstance(actual, np.ndarray):
-            self.assertTrue(
-                isinstance(expected, list) or isinstance(expected, np.ndarray))
-            self.assertEqual(len(actual), len(expected))
-            for i in range(len(actual)):
-                self.compare_elements(expected[i], actual[i])
-            pass
+                self.compare_elements(value, actual[key],
+                                      dtype=dtype.fields[key][0])
 
-        elif isinstance(actual, np.bytes_):
-            expected = b(expected)
-            self.assertEqual(expected, actual)
+        elif isinstance(expected, list):
+            self.assertEqual(len(actual), len(expected))
+
+            # If an array's shape is (3,2), its subarrays' shapes are (2,).
+            subdtype, shape = dtype.subdtype
+            self.assertGreaterEqual(len(shape), 1)
+            subarray_dtype = np.dtype((subdtype, shape[1:]))
+            for i in range(len(expected)):
+                self.compare_elements(expected[i], actual[i], subarray_dtype)
+
+        elif dtype.kind == 'V':
+            self.assertEqual(bytes(expected.ljust(dtype.itemsize, b'\0')),
+                             bytes(actual))
+
+        elif dtype.kind == 'S':
+            # NumPy only stores bytes, not str.
+            self.assertEqual(expected, actual.decode('utf-8'))
+
         else:
             self.assertEqual(expected, actual)
 
@@ -48,9 +49,9 @@ class TestCollection2Ndarray(unittest.TestCase):
         self.assertEqual(expected.count(), len(actual))
         for act in actual:
             exp = next(expected)
-            for desc in dtype.descr:
-                name = desc[0]
-                self.compare_elements(exp[name], act[name], "V" in desc[1])
+            for name in dtype.names:
+                self.compare_elements(exp[name], act[name],
+                                      dtype=dtype.fields[name][0])
 
     def make_mixed_collection_test(self, docs, dtype):
         self.client.drop_database("bsonnumpy_test")
@@ -62,7 +63,8 @@ class TestCollection2Ndarray(unittest.TestCase):
 
         ndarray = bsonnumpy.sequence_to_ndarray(
             (doc.raw for doc in cursor), dtype, raw_coll.count())
-        self.compare_results(dtype, self.client.bsonnumpy_test.coll.find(),
+        self.compare_results(np.dtype(dtype),
+                             self.client.bsonnumpy_test.coll.find(),
                              ndarray)
 
     @client_context.require_connected
@@ -150,7 +152,7 @@ class TestCollection2Ndarray(unittest.TestCase):
     @client_context.require_connected
     def test_collection_flexible_mixed(self):
         docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase) * 11,
-                 "z": {"a": i}} for i in range(10)]
+                 "z": bson.Binary(b'foobar')} for i in range(10)]
         dtype = np.dtype([('x', '2int32'), ('y', 'S11'), ('z', 'V12')])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('z', 'V12'), ('x', '2int32'), ('y', 'S11')])

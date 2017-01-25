@@ -139,9 +139,8 @@ class TestFromBSONScalars(TestFromBSON):
         dtype = np.dtype("<V15")
         result = bsonnumpy.bson_to_ndarray(utf8, dtype)
         for b in range(len(result)):
-            # TODO: trailing null chars
-            pass
-            # self.assertEqual(str(document[str(b)]), str(result[b]))
+            self.assertEqual(bytes(document['0'].ljust(15, b'\0')),
+                             bytes(result[0]))
 
     def test_datetime(self):
         document = bson.SON([("0", datetime.datetime(1970, 1, 1)),

@@ -71,9 +71,9 @@ client_context = ClientContext()
 
 class TestFromBSON(unittest.TestCase):
     def compare_results(self, np_type, document, compare_to):
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        data = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype(np_type)
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
+        result = bsonnumpy.bson_to_ndarray(data, dtype)
         self.assertEqual(result.dtype, dtype)
         for i in range(len(result)):
             self.assertEqual(compare_to[str(i)], result[i],
