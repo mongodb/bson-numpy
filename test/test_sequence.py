@@ -13,7 +13,7 @@ from bson.raw_bson import RawBSONDocument
 from test import client_context, unittest
 
 
-class TestCollection2Ndarray(unittest.TestCase):
+class TestSequence2Ndarray(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = client_context.client
