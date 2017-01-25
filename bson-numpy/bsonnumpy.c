@@ -466,8 +466,9 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
                     /* TODO: if sub_dtype->elsize==0, then it is a flexible type */
-                    success = _load_scalar_from_bson(&bsonit, ndarray, offset
-                                                                       + offset_long, coordinates, current_depth, sub_dtype, debug);
+                    success = _load_scalar_from_bson(
+                        &bsonit, ndarray, offset + offset_long, coordinates,
+                        current_depth, sub_dtype, debug);
                     if (!success) {
                         return 0;
                     }
