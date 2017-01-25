@@ -7,3 +7,4 @@ build/
 *.idea
 bsonenv
 cmake-build-debug/
+/doc/_build
