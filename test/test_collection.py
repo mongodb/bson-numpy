@@ -1,6 +1,8 @@
+import math
 import random
 import string
 
+import bson
 import bsonnumpy
 import numpy as np
 from bson import BSON
@@ -73,6 +75,18 @@ class TestCollection2Ndarray(unittest.TestCase):
         dtype = np.dtype([('x', np.int32), ('y', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', np.int32), ('x', np.int32)])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_double(self):
+        docs = [{"x": math.pi}, {"x": math.pi ** 2}]
+        dtype = np.dtype([('x', np.double)])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_binary(self):
+        docs = [{"x": bson.Binary(b"asdf")}]
+        dtype = np.dtype([('x', np.dtype("<V10"))])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
