@@ -7,7 +7,6 @@ import bson
 import bsonnumpy
 import numpy as np
 from bson.codec_options import CodecOptions
-from bson.py3compat import b
 from bson.raw_bson import RawBSONDocument
 
 from test import client_context, millis, unittest
