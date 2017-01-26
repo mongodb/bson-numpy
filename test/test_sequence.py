@@ -481,3 +481,16 @@ class TestSequence2Ndarray(unittest.TestCase):
 
         self.assertIn("unsupported BSON type: null", str(context.exception))
 
+    def test_extra_fields(self):
+        data = bson._dict_to_bson({"x": 12, "y": 13}, True,
+                                  bson.DEFAULT_CODEC_OPTIONS)
+
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("y", np.int)]),
+                                                1)
+
+        self.assertEqual(1, len(ndarray))
+        self.assertEqual(13, ndarray[0]["y"])
+
+        with self.assertRaises(ValueError):
+            ndarray[0]["x"]
