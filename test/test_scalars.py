@@ -157,17 +157,6 @@ class TestFromBSONScalars(TestFromBSON):
         for b in range(len(result)):
             self.assertEqual(data[b], document[str(b)])
 
-    def test_documents(self):
-        document = bson.SON(
-            [("0", bson.SON([("a", 1)])), ("1", bson.SON([("b", 2)])),
-             ("2", bson.SON([("c", 3)]))])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("<V12")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        for b in range(len(result)):
-            doc = bson.BSON(result[b]).decode()
-            self.assertEqual(dict(document[str(b)]), doc)
-
 
 # Test all the unsupported types.
 def _make_test_fn(value, type_name):
@@ -189,6 +178,7 @@ def _make_test_fn(value, type_name):
 for value_, type_name_ in [
     (bson.Code(""), "code"),
     (bson.Code("", {}), "code with scope"),
+    ({}, "subdocument"),
     (bson.MinKey(), "min key"),
     (bson.MaxKey(), "max key"),
     (bson.regex.Regex("pattern"), "regex"),

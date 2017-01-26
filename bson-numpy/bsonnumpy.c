@@ -214,13 +214,6 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
             data_ptr = value->value.v_binary.data;
             bson_item_len = value->value.v_binary.data_len;
             break;
-        case BSON_TYPE_DOCUMENT:
-            /* TODO: what about V lengths that are longer than the doc? */
-            /* TODO: check for flexible dtype with dtype.fields */
-            data_ptr = value->value.v_doc.data;
-            bson_item_len = value->value.v_doc.data_len;
-            break;
-
         /* Have to special case for timestamp bc there's no np equiv */
         case BSON_TYPE_TIMESTAMP:
             memcpy(pointer, &value->value.v_timestamp.timestamp,
@@ -238,6 +231,10 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
         case BSON_TYPE_CODEWSCOPE:
             PyErr_SetString(BsonNumpyError,
                             "unsupported BSON type: code with scope");
+            return false;
+        case BSON_TYPE_DOCUMENT:
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: subdocument");
             return false;
         case BSON_TYPE_MINKEY:
             PyErr_SetString(BsonNumpyError,
