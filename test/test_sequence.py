@@ -86,6 +86,25 @@ class TestSequence2Ndarray(unittest.TestCase):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
+    def test_collection_flexible_objectid(self):
+        docs = [{"x": bson.ObjectId()} for _ in range(10)]
+        dtype = np.dtype([('x', '<V12')])
+
+        self.client.bsonnumpy_test.coll.delete_many({})
+        self.client.bsonnumpy_test.coll.insert_many(docs)
+        raw_coll = self.client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+
+        cursor = raw_coll.find()
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            (doc.raw for doc in cursor), dtype, raw_coll.count())
+
+        for i, row in enumerate(ndarray):
+            document = docs[i]
+            self.assertEqual(document["x"].binary, row["x"].tobytes())
+
+    @client_context.require_connected
     def test_collection_flexible_bool(self):
         docs = [{"x": True}, {"x": False}]
         dtype = np.dtype([('x', np.bool)])
