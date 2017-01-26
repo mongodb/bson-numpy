@@ -56,7 +56,7 @@ class TestSequence2Ndarray(unittest.TestCase):
                                       dtype=dtype.fields[name][0])
 
     def make_mixed_collection_test(self, docs, dtype):
-        self.client.drop_database("bsonnumpy_test")
+        self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
@@ -90,7 +90,7 @@ class TestSequence2Ndarray(unittest.TestCase):
                 {"x": datetime.datetime(1990, 1, 1)}]
         dtype = np.dtype([('x', np.int64)])
 
-        self.client.drop_database("bsonnumpy_test")
+        self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
