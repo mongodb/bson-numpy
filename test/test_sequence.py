@@ -1,3 +1,4 @@
+import datetime
 import math
 import random
 import string
@@ -5,12 +6,11 @@ import string
 import bson
 import bsonnumpy
 import numpy as np
-from bson import BSON
 from bson.codec_options import CodecOptions
 from bson.py3compat import b
 from bson.raw_bson import RawBSONDocument
 
-from test import client_context, unittest
+from test import client_context, millis, unittest
 
 
 class TestSequence2Ndarray(unittest.TestCase):
@@ -82,6 +82,29 @@ class TestSequence2Ndarray(unittest.TestCase):
         docs = [{"x": True}, {"x": False}]
         dtype = np.dtype([('x', np.bool)])
         self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_flexible_datetime(self):
+        docs = [{"x": datetime.datetime(1970, 1, 1)},
+                {"x": datetime.datetime(1980, 1, 1)},
+                {"x": datetime.datetime(1990, 1, 1)}]
+        dtype = np.dtype([('x', np.int64)])
+
+        self.client.drop_database("bsonnumpy_test")
+        self.client.bsonnumpy_test.coll.insert_many(docs)
+        raw_coll = self.client.get_database(
+            'bsonnumpy_test',
+            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
+
+        cursor = raw_coll.find()
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            (doc.raw for doc in cursor), dtype, raw_coll.count())
+
+        for i, row in enumerate(ndarray):
+            document = docs[i]
+            self.assertEqual(
+                millis(document["x"] - datetime.datetime(1970, 1, 1)),
+                row["x"])
 
     @client_context.require_connected
     def test_collection_flexible_double(self):

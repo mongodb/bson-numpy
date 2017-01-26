@@ -5,16 +5,7 @@ import bson
 import bsonnumpy
 import numpy as np
 
-from test import TestFromBSON, unittest
-
-
-def millis(delta):
-    if hasattr(delta, 'total_seconds'):
-        return delta.total_seconds() * 1000
-
-    # Python 2.6.
-    return ((delta.days * 86400 + delta.seconds) * 1000 +
-            delta.microseconds / 1000.0)
+from test import TestFromBSON, millis, unittest
 
 
 class TestToBSONScalars(unittest.TestCase):

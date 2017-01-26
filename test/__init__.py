@@ -79,3 +79,12 @@ class TestFromBSON(unittest.TestCase):
             self.assertEqual(compare_to[str(i)], result[i],
                              "Comparison failed for type %s: %s != %s" % (
                                  dtype, compare_to[str(i)], result[i]))
+
+
+def millis(delta):
+    if hasattr(delta, 'total_seconds'):
+        return delta.total_seconds() * 1000
+
+    # Python 2.6.
+    return ((delta.days * 86400 + delta.seconds) * 1000 +
+            delta.microseconds / 1000.0)
