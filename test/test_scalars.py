@@ -168,42 +168,34 @@ class TestFromBSONScalars(TestFromBSON):
             doc = bson.BSON(result[b]).decode()
             self.assertEqual(dict(document[str(b)]), doc)
 
-    def test_code(self):
-        document = bson.SON([("0",
-                              bson.code.Code("this is some code")),
-                             ("1",
-                              bson.code.Code("this is some more code")),
-                             ("2",
-                              bson.code.Code("this is some even more code"))])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("<S35")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        for b in range(len(result)):
-            self.assertEqual(str(document[str(b)]), result[b].decode('utf-8'))
 
-    def test_regex(self):
-        document = bson.SON([("0",
-                              bson.regex.Regex('pattern', flags='i')),
-                             ("1",
-                              bson.regex.Regex('abcdef', flags='iiii')),
-                             ("2",
-                              bson.regex.Regex('123abc', flags='iiiiii'))])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype("<S35")
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        data = [r.split(b'\x00') for r in result]
-        for b in range(len(document)):
-            self.assertEqual(2, len(data[b]), "Bad regex=%s" % data[b])
-            pattern, flags = data[b]
-            self.assertEqual(bson.regex.Regex(pattern, str(flags)),
-                             document[str(b)])
+# Test all the unsupported types.
+def _make_test_fn(value, type_name):
+    def test(self):
+        data = bson._dict_to_bson({"0": value},
+                                  True,  # check_keys
+                                  bson.DEFAULT_CODEC_OPTIONS)
 
-    def test_null(self):
-        data = bson._dict_to_bson({"0": None}, True, bson.DEFAULT_CODEC_OPTIONS)
         with self.assertRaises(bsonnumpy.error) as context:
-            bsonnumpy.bson_to_ndarray(data, np.dtype([('x', '<V10')]))
+            # dtype doesn't matter.
+            bsonnumpy.bson_to_ndarray(data, np.dtype([('x', '<V99')]))
 
-        self.assertIn("unsupported BSON type: null", str(context.exception))
+        self.assertIn("unsupported BSON type: %s" % type_name,
+                      str(context.exception))
+
+    return test
+
+
+for value_, type_name_ in [
+    (bson.Code(""), "code"),
+    (bson.Code("", {}), "code with scope"),
+    (bson.MinKey(), "min key"),
+    (bson.MaxKey(), "max key"),
+    (bson.regex.Regex("pattern"), "regex"),
+    (None, "null"),
+]:
+    test_name = "test_unsupported_%s" % type_name_
+    setattr(TestFromBSONScalars, test_name, _make_test_fn(value_, type_name_))
 
 
 if __name__ == "__main__":

@@ -214,14 +214,6 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
             data_ptr = value->value.v_binary.data;
             bson_item_len = value->value.v_binary.data_len;
             break;
-        case BSON_TYPE_SYMBOL: /* deprecated */
-            data_ptr = value->value.v_symbol.symbol;
-            bson_item_len = value->value.v_symbol.len;
-            break;
-        case BSON_TYPE_CODE:
-            data_ptr = value->value.v_code.code;
-            bson_item_len = value->value.v_code.code_len;
-            break;
         case BSON_TYPE_DOCUMENT:
             /* TODO: what about V lengths that are longer than the doc? */
             /* TODO: check for flexible dtype with dtype.fields */
@@ -229,7 +221,7 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
             bson_item_len = value->value.v_doc.data_len;
             break;
 
-        /* Have to special case for timestamp and regex bc there's no np equiv */
+        /* Have to special case for timestamp bc there's no np equiv */
         case BSON_TYPE_TIMESTAMP:
             memcpy(pointer, &value->value.v_timestamp.timestamp,
                    sizeof(int32_t));
@@ -239,20 +231,33 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
             copy = 0;
             success = 1;
             break;
+        case BSON_TYPE_CODE:
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: code");
+            return false;
+        case BSON_TYPE_CODEWSCOPE:
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: code with scope");
+            return false;
+        case BSON_TYPE_MINKEY:
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: min key");
+            return false;
+        case BSON_TYPE_MAXKEY:
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: max key");
+            return false;
         case BSON_TYPE_REGEX:
-            bson_item_len = (int) strlen(value->value.v_regex.regex);
-            memcpy(pointer, value->value.v_regex.regex, bson_item_len);
-            memset(pointer + bson_item_len, '\0', 1);
-            memcpy(pointer + bson_item_len
-                   + 1, value->value.v_regex.options,
-                   (int) strlen(value->value.v_regex.options));
-            bson_item_len =
-                bson_item_len + (int) strlen(value->value.v_regex.options) + 1;
-            copy = 0;
-            success = 1;
-            break;
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: regex");
+            return false;
+        case BSON_TYPE_SYMBOL:
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: symbol");
+            return false;
         case BSON_TYPE_NULL:
-            PyErr_SetString(BsonNumpyError, "unsupported BSON type: null");
+            PyErr_SetString(BsonNumpyError,
+                            "unsupported BSON type: null");
             return false;
         default:
             if (debug) {
