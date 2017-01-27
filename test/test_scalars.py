@@ -142,21 +142,6 @@ class TestFromBSONScalars(TestFromBSON):
                 millis(document[str(b)] - datetime.datetime(1970, 1, 1)),
                 result[b])
 
-    def test_timestamp(self):
-        document = bson.SON([("0",
-                              bson.timestamp.Timestamp(time=00000, inc=77)),
-                             ("1",
-                              bson.timestamp.Timestamp(time=11111, inc=88)),
-                             ("2",
-                              bson.timestamp.Timestamp(time=22222, inc=99))])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype('uint64')
-        result = bsonnumpy.bson_to_ndarray(utf8, dtype)
-        data = [bson.timestamp.Timestamp(
-            *struct.unpack("<ii", ts)) for ts in result]
-        for b in range(len(result)):
-            self.assertEqual(data[b], document[str(b)])
-
 
 # Test all the unsupported types.
 def _make_test_fn(value, type_name):
@@ -182,6 +167,7 @@ for value_, type_name_ in [
     (bson.MinKey(), "MinKey"),
     (bson.MaxKey(), "MaxKey"),
     (bson.regex.Regex("pattern"), "Regular Expression"),
+    (bson.timestamp.Timestamp(0, 0), "Timestamp"),
     (None, "Null"),
 ]:
     test_name = "test_unsupported_%s" % type_name_

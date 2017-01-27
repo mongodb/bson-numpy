@@ -226,6 +226,110 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
     }
 }
 
+static int
+_load_utf8_from_bson(const bson_value_t *value, void *dst, PyArray_Descr *dtype)
+{
+    npy_intp itemsize;
+    npy_intp bson_item_len;
+
+    bson_item_len = value->value.v_utf8.len;
+    itemsize = dtype->elsize;
+
+    if (bson_item_len > itemsize) {
+        /* truncate data that's too long */
+        bson_item_len = itemsize;
+    }
+
+    memcpy(dst, value->value.v_utf8.str, bson_item_len);
+    /* zero-pad data that's too short */
+    memset(dst + bson_item_len, '\0', itemsize - bson_item_len);
+
+    return 1;
+}
+
+
+static int
+_load_binary_from_bson(const bson_value_t *value, void *dst,
+                       PyArray_Descr *dtype)
+{
+    npy_intp itemsize;
+    npy_intp bson_item_len;
+
+    bson_item_len = value->value.v_binary.data_len;
+    itemsize = dtype->elsize;
+
+    if (bson_item_len > itemsize) {
+        /* truncate data that's too long */
+        bson_item_len = itemsize;
+    }
+
+    memcpy(dst, value->value.v_binary.data, bson_item_len);
+    /* zero-pad data that's too short */
+    memset(dst + bson_item_len, '\0', itemsize - bson_item_len);
+
+    return 1;
+}
+
+
+static int
+_load_oid_from_bson(const bson_value_t *value, void *dst,
+                    PyArray_Descr *dtype)
+{
+    /* TODO: check dtype length == sizeof oid */
+    memcpy(dst, value->value.v_oid.bytes, sizeof value->value.v_oid.bytes);
+    return 1;
+}
+
+
+static int
+_load_int32_from_bson(const bson_value_t *value, void *dst,
+                      PyArray_Descr *dtype)
+{
+    /* TODO: check dtype length >= sizeof int32 */
+    memcpy(dst, &value->value.v_int32, sizeof value->value.v_int32);
+    return 1;
+}
+
+
+static int
+_load_int64_from_bson(const bson_value_t *value, void *dst,
+                      PyArray_Descr *dtype)
+{
+    /* TODO: check dtype length >= sizeof int64 */
+    memcpy(dst, &value->value.v_int64, sizeof value->value.v_int64);
+    return 1;
+}
+
+
+static int
+_load_double_from_bson(const bson_value_t *value, void *dst,
+                      PyArray_Descr *dtype)
+{
+    /* TODO: check dtype length >= sizeof double */
+    memcpy(dst, &value->value.v_double, sizeof value->value.v_double);
+    return 1;
+}
+
+
+static int
+_load_bool_from_bson(const bson_value_t *value, void *dst,
+                     PyArray_Descr *dtype)
+{
+    /* TODO: check dtype length >= sizeof bool */
+    memcpy(dst, &value->value.v_bool, sizeof value->value.v_bool);
+    return 1;
+}
+
+
+static int
+_load_date_time_from_bson(const bson_value_t *value, void *dst,
+                          PyArray_Descr *dtype)
+{
+    /* TODO: check dtype length >= sizeof date_time */
+    memcpy(dst, &value->value.v_datetime, sizeof value->value.v_datetime);
+    return 1;
+}
+
 
 /* TODO: elsize won't work for flexible types */
 static int
@@ -233,96 +337,37 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
                        npy_intp *coordinates, int current_depth,
                        PyArray_Descr *dtype, bool debug)
 {
-    npy_intp dimensions = PyArray_NDIM(ndarray);
-    npy_intp itemsize;
+    void *pointer;
+    const bson_value_t *value;
 
-    if (current_depth < dimensions) { /* If we are within a flexible type */
-        itemsize = PyArray_STRIDE(ndarray, current_depth);
-        /* printf("\tsetting itemsize using strides: %li\n", itemsize); */
-    } else {
-        itemsize = dtype->elsize; /* Not sure about this */
-    }
-    npy_intp bson_item_len = itemsize;
-    int success = 0;
-    int copy = 1;
+    value = bson_iter_value(bsonit);
+    pointer = PyArray_GetPtr(ndarray, coordinates) + offset;
 
-    /* printf("\tin load_scalar_from_bson, dimensions=%i, current_depth=%i, "
-                "offset=%i, itemsize=%i ", (int)dimensions, current_depth, "
-                "(int)offset, (int)itemsize); */
-    /* printf("coordinates=[");
-       for (int i=0; i < dimensions; i++) {
-           printf("%i,", (int)coordinates[i]);
-       }
-       printf("]\n"); */
-    void *pointer = PyArray_GetPtr(ndarray, coordinates);
-    pointer += offset;
-
-    if (BSON_ITER_HOLDS_ARRAY(bsonit)) {
-
-    }
-    const bson_value_t *value = bson_iter_value(bsonit);
-    void *data_ptr = (void *) &value->value;
-
-    /* printf("\t- switching on %i\n", value->value_type); */
     switch (value->value_type) {
         case BSON_TYPE_ARRAY:
             return _load_array_from_bson(bsonit, ndarray, offset, coordinates,
                                          current_depth, dtype, debug);
+        case BSON_TYPE_DOUBLE:
+            return _load_double_from_bson(value, pointer, dtype);
         case BSON_TYPE_UTF8:
-            data_ptr = value->value.v_utf8.str;
-            bson_item_len = value->value.v_utf8.len;
-            break;
-        case BSON_TYPE_INT32:
-            data_ptr = (void *) &value->value.v_int32;
-            bson_item_len = sizeof(value->value.v_int32);
-            break;
-        case BSON_TYPE_INT64:
-            data_ptr = (void *) &value->value.v_int64;
-            bson_item_len = sizeof(value->value.v_int64);
-            break;
+            return _load_utf8_from_bson(value, pointer, dtype);
         case BSON_TYPE_BINARY:
-            data_ptr = value->value.v_binary.data;
-            bson_item_len = value->value.v_binary.data_len;
-            break;
-            /* Have to special case for timestamp bc there's no np equiv */
-        case BSON_TYPE_TIMESTAMP:
-            memcpy(pointer, &value->value.v_timestamp.timestamp, sizeof(int32_t));
-            memcpy((pointer
-                    + sizeof(int32_t)), &value->value.v_timestamp.increment, sizeof(int32_t));
-            copy = 0;
-            success = 1;
-            break;
-        case BSON_TYPE_CODE:
-        case BSON_TYPE_CODEWSCOPE:
-        case BSON_TYPE_DOCUMENT:
-        case BSON_TYPE_MINKEY:
-        case BSON_TYPE_MAXKEY:
-        case BSON_TYPE_REGEX:
-        case BSON_TYPE_SYMBOL:
-        case BSON_TYPE_NULL:
+            return _load_binary_from_bson(value, pointer, dtype);
+        case BSON_TYPE_OID:
+            return _load_oid_from_bson(value, pointer, dtype);
+        case BSON_TYPE_BOOL:
+            return _load_bool_from_bson(value, pointer, dtype);
+        case BSON_TYPE_DATE_TIME:
+            return _load_date_time_from_bson(value, pointer, dtype);
+        case BSON_TYPE_INT32:
+            return _load_int32_from_bson(value, pointer, dtype);
+        case BSON_TYPE_INT64:
+            return _load_int64_from_bson(value, pointer, dtype);
+        
+        default:
             PyErr_Format(BsonNumpyError, "unsupported BSON type: %s", _bson_type_name(value->value_type));
             return false;
-        default:
-            if (debug) {
-                printf("bson type %i raw copy\n", value->value_type);
-            }
     }
-
-    /* Commented out because PyArray_SETITEM fails for flexible types, but memcpy works.
-       TODO: use macros whenever possible, better to handle errors. Can check how far off by GETITEM address w coordinates vs. pointer
-       PyObject* data = PyArray_Scalar(data_ptr, dtype, NULL);
-       success = PyArray_SETITEM(ndarray, pointer, data);
-     */
-    if (copy) {
-        if (bson_item_len > itemsize) {
-            bson_item_len = itemsize; /* truncate data that's too big */
-        }
-        memcpy(pointer, data_ptr, bson_item_len);
-        memset(pointer + bson_item_len, '\0', itemsize - bson_item_len);
-        success = 1;
-    }
-    /* printf("\t\tEND OF LOAD SCALAR:"); PyObject_Print((PyObject*)ndarray, stdout, 0); printf("\n"); */
-    return success;
 }
 
 

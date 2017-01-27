@@ -494,3 +494,28 @@ class TestSequence2Ndarray(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             ndarray[0]["x"]
+
+    def test_string_length(self):
+        data = bson._dict_to_bson({"x": "abc"}, True,
+                                  bson.DEFAULT_CODEC_OPTIONS)
+
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V1")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"a")
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V2")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"ab")
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V3")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"abc")
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V4")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"abc\0")
