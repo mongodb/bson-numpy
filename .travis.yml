@@ -14,6 +14,7 @@ env:
 install:
 - echo $BSON_DIR
 - echo $LD_LIBRARY_PATH
+- echo $TRAVIS_PYTHON_VERSION
 - sudo apt-get install git-core automake autoconf libtool gcc
 - git clone git://github.com/mongodb/libbson.git
 - cd libbson/
@@ -24,6 +25,7 @@ install:
 - cd ..
 - pip install numpy
 - pip install pymongo
+- pip install sphinx
 
 
 python:
@@ -32,5 +34,7 @@ python:
   - "3.4"
   - "3.5"
 
-script: python setup.py test
+script:
+  - python setup.py test
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.5' ]]; cd doc && PYTHONPATH=.. make doctest; fi
 
