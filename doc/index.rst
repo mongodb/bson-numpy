@@ -152,6 +152,36 @@ An embedded array in BSON becomes an additional dimension in NumPy:
     array([([1, 2, 3],)],
           dtype=[('a', '<i4', (3,))])
 
+Nested documents
+^^^^^^^^^^^^^^^^
+
+Access fields of nested BSON documents by declaring a nested dtype:
+
+.. doctest::
+
+    >>> data = bson.BSON().encode({'a': {'b': 1, 'c': 3.14}})
+    >>> dtype = np.dtype([('a',
+    ...                    np.dtype([('b', 'i'), ('c', 'f8')]))])
+    >>> array = bsonnumpy.sequence_to_ndarray(iter([data]), dtype, 1)
+    >>> array
+    array([((1,  3.14),)],
+          dtype=[('a', [('b', '<i4'), ('c', '<f8')])])
+
+The values can be retrieved by name or by position:
+
+.. doctest::
+
+    >>> array[0]
+    ((1,  3.14),)
+    >>> array[0]['a']
+    (1,  3.14)
+    >>> array[0]['a']['b']
+    1
+    >>> array[0]['a']['c']
+    3.1400000000000001
+    >>> array[0][0][1]
+    3.1400000000000001
+
 Binary
 ^^^^^^
 
@@ -245,7 +275,6 @@ File an issue if you need support for any of the following BSON types.
 * Max Key
 * Null
 * Regular Expression
-* Subdocument
 * Symbol
 * Timestamp
 * Undefined
