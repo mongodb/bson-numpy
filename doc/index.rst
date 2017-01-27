@@ -91,6 +91,12 @@ library libbson yourself, then install BSON-NumPy with pip.
 - `Install libbson <http://mongoc.org/libbson/current/installing.html>`_
 - ``python -m pip install git+github.com/aherlihy/numpy-bson.git``
 
+If you get ``'bson.h' file not found``, try setting the ``BSON_DIR`` environment
+variable to a directory path containing these subdirectories:
+
+- include/libbson-1.0/
+- lib/
+
 Here are more detailed instructions for a few platforms.
 
 Debian or Ubuntu
