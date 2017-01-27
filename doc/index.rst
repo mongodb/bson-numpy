@@ -84,9 +84,9 @@ API
 Installing
 ----------
 
-BSON-NumPy is supported on Linux and Mac OS X, with Python 2.6 and later.
-Installation is in two steps: first install the C library libbson yourself,
-then install BSON-NumPy with pip.
+BSON-NumPy is supported on Linux and Mac OS X, with Python 2.6 and later,
+on Intel architectures. Installation is in two steps: first install the C
+library libbson yourself, then install BSON-NumPy with pip.
 
 - `Install libbson <http://mongoc.org/libbson/current/installing.html>`_
 - ``python -m pip install git+github.com/aherlihy/numpy-bson.git``
