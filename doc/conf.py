@@ -78,6 +78,13 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+# Add NORMALIZE_WHITESPACE flag.
+import doctest
+
+doctest_default_flags = (doctest.NORMALIZE_WHITESPACE |
+                         doctest.ELLIPSIS |
+                         doctest.IGNORE_EXCEPTION_DETAIL |
+                         doctest.DONT_ACCEPT_TRUE_FOR_1)
 
 # -- Options for HTML output ----------------------------------------------
 
