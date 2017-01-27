@@ -479,7 +479,7 @@ class TestSequence2Ndarray(unittest.TestCase):
                                           np.dtype([('x', '<V10')]),
                                           1)
 
-        self.assertIn("unsupported BSON type: null", str(context.exception))
+        self.assertIn("unsupported BSON type: Null", str(context.exception))
 
     def test_extra_fields(self):
         data = bson._dict_to_bson({"x": 12, "y": 13}, True,

@@ -12,6 +12,11 @@
 
 static PyObject *BsonNumpyError;
 
+static int
+_load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
+                       npy_intp *coordinates, int current_depth,
+                       PyArray_Descr *dtype, bool debug);
+
 
 static bool
 is_debug_mode()
@@ -117,13 +122,117 @@ ndarray_to_bson(PyObject *self, PyObject *args)
  */
 
 
+static const char *
+_bson_type_name(bson_type_t t)
+{
+    switch (t) {
+        case BSON_TYPE_DOUBLE:
+            return "Double";
+        case BSON_TYPE_UTF8:
+            return "UTF-8 string";
+        case BSON_TYPE_DOCUMENT:
+            return "Sub-document";
+        case BSON_TYPE_ARRAY:
+            return "Array";
+        case BSON_TYPE_BINARY:
+            return "Binary";
+        case BSON_TYPE_UNDEFINED:
+            return "Undefined";
+        case BSON_TYPE_OID:
+            return "ObjectId";
+        case BSON_TYPE_BOOL:
+            return "Bool";
+        case BSON_TYPE_DATE_TIME:
+            return "Datetime";
+        case BSON_TYPE_NULL:
+            return "Null";
+        case BSON_TYPE_REGEX:
+            return "Regular Expression";
+        case BSON_TYPE_DBPOINTER:
+            return "DBPointer";
+        case BSON_TYPE_CODE:
+            return "Code";
+        case BSON_TYPE_SYMBOL:
+            return "Symbol";
+        case BSON_TYPE_CODEWSCOPE:
+            return "Code with Scope";
+        case BSON_TYPE_INT32:
+            return "Int32";
+        case BSON_TYPE_TIMESTAMP:
+            return "Timestamp";
+        case BSON_TYPE_INT64:
+            return "Int64";
+        case BSON_TYPE_DECIMAL128:
+            return "Decimal128";
+        case BSON_TYPE_MAXKEY:
+            return "MaxKey";
+        case BSON_TYPE_MINKEY:
+            return "MinKey";
+        default:
+            return "unknown";
+    }
+}
+
+
+static int
+_load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
+                      npy_intp *coordinates, int current_depth,
+                      PyArray_Descr *dtype, bool debug)
+{
+    npy_intp dimensions = PyArray_NDIM(ndarray);
+    bson_iter_t sub_it;
+
+    /* printf("\t\tFound subarray\n"); */
+    /* Get length of array */
+    bson_iter_recurse(it, &sub_it);
+    int count = 0;
+    while (bson_iter_next(&sub_it)) {
+        count++;
+    }
+    bson_iter_recurse(it, &sub_it);
+    if (count == 1) {
+        bson_iter_next(&sub_it);
+
+        /* printf("\t\t-ignoring array of len 1\n"); */
+        /* Array is of length 1, therefore we treat it like a number */
+        return _load_scalar_from_bson(&sub_it, ndarray, offset, coordinates,
+                                      current_depth, dtype, debug);
+    } else {
+
+        int i = 0;
+        while (bson_iter_next(&sub_it)) {
+            PyArray_Descr *sub_dtype = dtype->subarray ? dtype->subarray->base
+                                                       : dtype;
+
+            /* If we're recurring after the end of dtype's dimensions, we have
+             * a flexible type subarray */
+            long new_offset = offset;
+            if (current_depth + 1 < dimensions) {
+                coordinates[current_depth + 1] = i;
+            } else {
+                PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
+                return 0;
+            }
+            int ret = _load_scalar_from_bson(&sub_it, ndarray, new_offset,
+                                             coordinates,
+                                             current_depth
+                                             + 1, sub_dtype, debug);
+            if (ret == 0) {
+                return 0;
+            };
+            i++;
+        }
+        return 1;
+    }
+}
+
+
 /* TODO: elsize won't work for flexible types */
 static int
 _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
                        npy_intp *coordinates, int current_depth,
                        PyArray_Descr *dtype, bool debug)
 {
-    bson_iter_t sub_it;
     npy_intp dimensions = PyArray_NDIM(ndarray);
     npy_intp itemsize;
 
@@ -150,56 +259,17 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
 
     if (BSON_ITER_HOLDS_ARRAY(bsonit)) {
 
-        /* printf("\t\tFound subarray\n"); */
-        /* Get length of array */
-        bson_iter_recurse(bsonit, &sub_it);
-        int count = 0;
-        while (bson_iter_next(&sub_it)) {
-            count++;
-        }
-        bson_iter_recurse(bsonit, &sub_it);
-        if (count == 1) {
-            bson_iter_next(&sub_it);
-
-            /* printf("\t\t-ignoring array of len 1\n"); */
-            /* Array is of length 1, therefore we treat it like a number */
-            return _load_scalar_from_bson(&sub_it, ndarray, offset, coordinates, current_depth, dtype, debug); /* arrays of length 1 have the same dtype as element */
-        } else {
-
-            int i = 0;
-            while (bson_iter_next(&sub_it)) {
-                PyArray_Descr *sub_dtype = dtype->subarray
-                                           ? dtype->subarray->base : dtype;
-
-                /* If we're recurring after the end of dtype's dimensions, we have a flexible type subarray */
-                long new_offset = offset;
-                if (current_depth + 1 < dimensions) {
-                    coordinates[current_depth + 1] = i;
-                } else {
-                    PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
-                    return 0;
-                }
-                /* printf("\t\t-->new dtype="); PyObject_Print((PyObject*)sub_dtype, stdout, 0); */
-                /* printf(" new depth=%i, dimensions=%i, index=%i\n", current_depth + 1, (int)dimensions, i); */
-                /* printf("\t\t-->recurring on load_scalar_from_bson: new coordinates= ["); for(int i=0;i<dimensions;i++) { printf("%i,", (int)coordinates[i]); }printf("]\n"); */
-                int ret = _load_scalar_from_bson(&sub_it, ndarray, new_offset, coordinates,
-                                                 current_depth
-                                                 + 1, sub_dtype, debug);
-                if (ret == 0) {
-                    return 0;
-                };
-                i++;
-            }
-            return 1;
-        }
     }
     const bson_value_t *value = bson_iter_value(bsonit);
     void *data_ptr = (void *) &value->value;
 
     /* printf("\t- switching on %i\n", value->value_type); */
     switch (value->value_type) {
+        case BSON_TYPE_ARRAY:
+            return _load_array_from_bson(bsonit, ndarray, offset, coordinates,
+                                         current_depth, dtype, debug);
         case BSON_TYPE_UTF8:
-            data_ptr = value->value.v_utf8.str; /* Unclear why using value->value doesn't work */
+            data_ptr = value->value.v_utf8.str;
             bson_item_len = value->value.v_utf8.len;
             break;
         case BSON_TYPE_INT32:
@@ -214,47 +284,23 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
             data_ptr = value->value.v_binary.data;
             bson_item_len = value->value.v_binary.data_len;
             break;
-        /* Have to special case for timestamp bc there's no np equiv */
+            /* Have to special case for timestamp bc there's no np equiv */
         case BSON_TYPE_TIMESTAMP:
-            memcpy(pointer, &value->value.v_timestamp.timestamp,
-                   sizeof(int32_t));
+            memcpy(pointer, &value->value.v_timestamp.timestamp, sizeof(int32_t));
             memcpy((pointer
-                    + sizeof(int32_t)), &value->value.v_timestamp.increment,
-                   sizeof(int32_t));
+                    + sizeof(int32_t)), &value->value.v_timestamp.increment, sizeof(int32_t));
             copy = 0;
             success = 1;
             break;
         case BSON_TYPE_CODE:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: code");
-            return false;
         case BSON_TYPE_CODEWSCOPE:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: code with scope");
-            return false;
         case BSON_TYPE_DOCUMENT:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: subdocument");
-            return false;
         case BSON_TYPE_MINKEY:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: min key");
-            return false;
         case BSON_TYPE_MAXKEY:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: max key");
-            return false;
         case BSON_TYPE_REGEX:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: regex");
-            return false;
         case BSON_TYPE_SYMBOL:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: symbol");
-            return false;
         case BSON_TYPE_NULL:
-            PyErr_SetString(BsonNumpyError,
-                            "unsupported BSON type: null");
+            PyErr_Format(BsonNumpyError, "unsupported BSON type: %s", _bson_type_name(value->value_type));
             return false;
         default:
             if (debug) {
@@ -395,9 +441,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
          * descriptor and a byte offset. */
         fields = dtype->fields;
         if (!PyDict_Check(fields)) {
-            PyErr_SetString(
-                BsonNumpyError,
-                "in _load_flexible_from_bson: dtype.fields not a dict");
+            PyErr_SetString(BsonNumpyError, "in _load_flexible_from_bson: dtype.fields not a dict");
             return 0;
         }
 
@@ -477,9 +521,8 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
                     /* TODO: if sub_dtype->elsize==0, then it is a flexible type */
-                    success = _load_scalar_from_bson(
-                        &bsonit, ndarray, offset + offset_long, coordinates,
-                        current_depth, sub_dtype, debug);
+                    success = _load_scalar_from_bson(&bsonit, ndarray, offset
+                                                                       + offset_long, coordinates, current_depth, sub_dtype, debug);
                     if (!success) {
                         return 0;
                     }
@@ -639,9 +682,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         npy_intp *sub_coordinates = calloc(100, sizeof(npy_intp));
 
         /* Don't need to pass key to first layer */
-        if (!_load_flexible_from_bson(document, coordinates, ndarray,
-                                     PyArray_DTYPE(ndarray), 1, NULL,
-                                     sub_coordinates, 0, 0, debug)) {
+        if (!_load_flexible_from_bson(document, coordinates, ndarray, PyArray_DTYPE(ndarray), 1, NULL, sub_coordinates, 0, 0, debug)) {
             return NULL; /* error set by _load_flexible_from_bson */
         }
 
@@ -659,20 +700,19 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     if (row < num_documents) {
         PyObject *none_obj;
-        PyArray_Dims newshape = { dimension_lengths, number_dimensions };
+        PyArray_Dims newshape = {dimension_lengths, number_dimensions};
         if (debug) {
             printf("resizing from %d to %d\n", num_documents, row);
         }
 
         dimension_lengths[0] = row;
         /* returns None or NULL */
-        none_obj = PyArray_Resize((PyArrayObject *)array_obj, &newshape,
-                                  false /* refcheck */, NPY_CORDER);
+        none_obj = PyArray_Resize((PyArrayObject *) array_obj, &newshape, false /* refcheck */, NPY_CORDER);
 
         Py_XDECREF(none_obj);
     }
 
-done:
+    done:
     free(dimension_lengths);
     free(coordinates);
 

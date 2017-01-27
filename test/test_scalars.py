@@ -176,13 +176,13 @@ def _make_test_fn(value, type_name):
 
 
 for value_, type_name_ in [
-    (bson.Code(""), "code"),
-    (bson.Code("", {}), "code with scope"),
-    ({}, "subdocument"),
-    (bson.MinKey(), "min key"),
-    (bson.MaxKey(), "max key"),
-    (bson.regex.Regex("pattern"), "regex"),
-    (None, "null"),
+    (bson.Code(""), "Code"),
+    (bson.Code("", {}), "Code with Scope"),
+    ({}, "Sub-document"),
+    (bson.MinKey(), "MinKey"),
+    (bson.MaxKey(), "MaxKey"),
+    (bson.regex.Regex("pattern"), "Regular Expression"),
+    (None, "Null"),
 ]:
     test_name = "test_unsupported_%s" % type_name_
     setattr(TestFromBSONScalars, test_name, _make_test_fn(value_, type_name_))
