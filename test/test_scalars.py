@@ -73,9 +73,7 @@ class TestToBSONScalars(unittest.TestCase):
 class TestFromBSONScalars(TestFromBSON):
     def test_integer32_types(self):
         document = bson.SON([("0", 99), ("1", 88), ("2", 77), ("3", 66)])
-        for np_type in [np.int8,
-                        np.int16, np.int32,
-                        np.uint8, np.uint16, np.uint32]:
+        for np_type in [np.int32, np.uint32]:
             self.compare_results(np_type, document, document)
 
     def test_integer64_types(self):
