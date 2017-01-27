@@ -36,5 +36,5 @@ python:
 
 script:
   - python setup.py test
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.5' ]]; cd doc && PYTHONPATH=.. make doctest; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.5' ]]; then cd doc && PYTHONPATH=.. make doctest; fi
 
