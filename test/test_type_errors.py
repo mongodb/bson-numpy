@@ -26,7 +26,13 @@ class TestTypeErrors(unittest.TestCase):
         for code in codes:
             dtype = np.dtype([('x', code)])
             expected = "cannot convert %s to dtype" % bson_type_name
-            with self.assertRaisesRegex(bsonnumpy.error, expected):
+
+            if hasattr(self, 'assertRaisesRegex'):
+                asserter = self.assertRaisesRegex
+            else:
+                asserter = self.assertRaisesRegexp
+
+            with asserter(bsonnumpy.error, expected):
                 bsonnumpy.sequence_to_ndarray(iter([data]), dtype, 1)
 
     def test_utf8(self):
