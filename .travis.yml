@@ -23,7 +23,8 @@ install:
 - make
 - make install
 - cd ..
-- pip install -U numpy pymongo sphinx
+- if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
+- pip install -U pymongo sphinx
 
 
 python:
