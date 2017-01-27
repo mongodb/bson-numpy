@@ -211,7 +211,7 @@ Convert BSON UTF-8 strings the same as binary, with type "V" or "S" and a
 fixed length. As with binary data, BSON-NumPy truncates or zero-extends the
 input data to match the dtype length:
 
-... doctest::
+.. doctest::
 
     >>> data = bson.BSON().encode({'x': 'to be or not to be'})
     >>> bsonnumpy.sequence_to_ndarray(iter([data]), np.dtype([('x', 'S5')]), 1)
