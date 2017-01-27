@@ -23,9 +23,7 @@ install:
 - make
 - make install
 - cd ..
-- pip install numpy
-- pip install pymongo
-- pip install sphinx
+- pip install -U numpy pymongo sphinx
 
 
 python:
