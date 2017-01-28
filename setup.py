@@ -27,6 +27,12 @@ if sys.version_info[:2] == (2, 6):
     setup_requires = ["numpy==1.11.2"]
     tests_require = ["pymongo", "unittest2"]
     test_suite = "unittest2.collector"
+
+    # Your favorite and mine, http://bugs.python.org/issue15881
+    try:
+        import multiprocessing
+    except ImportError:
+        pass
 else:
     setup_requires = ["numpy"]
     tests_require = ["pymongo"]
