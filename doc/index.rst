@@ -265,7 +265,8 @@ data or byte strings:
 Not supported
 ^^^^^^^^^^^^^
 
-File an issue if you need support for any of the following BSON types.
+`File an issue <https://github.com/aherlihy/numpy-bson/issues>`_
+if you need support for any of the following BSON types.
 
 * Code
 * Code with scope
