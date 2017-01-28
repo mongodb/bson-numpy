@@ -8,7 +8,7 @@
 /* #include <numpy/npy_common.h> */
 #include <numpy/ndarrayobject.h>
 
-#include "bson.h"
+#include "libbson-1.0/bson.h"
 
 static PyObject *BsonNumpyError;
 
@@ -19,7 +19,7 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
 
 
 static bool
-is_debug_mode()
+is_debug_mode(void)
 {
     return NULL != getenv("BSON_NUMPY_DEBUG");
 }
@@ -34,6 +34,7 @@ ndarray_to_bson(PyObject *self, PyObject *args)
     PyArrayObject *ndarray;
     bson_t document;
     bool debug;
+    npy_intp i;
 
     if (!PyArg_ParseTuple(args, "O", &array_obj)) {
         PyErr_SetNone(PyExc_TypeError);
@@ -61,7 +62,7 @@ ndarray_to_bson(PyObject *self, PyObject *args)
 
     /* TODO: could use array iterator API but potentially better to recur
      * ourselves */
-    for (npy_intp i = 0; i < num_documents; i++) {
+    for (i = 0; i < num_documents; i++) {
         void *pointer = PyArray_GETPTR1(ndarray, i);
         PyObject *result = PyArray_GETITEM(ndarray, pointer);
         PyObject *type = PyObject_Type(result);
@@ -146,7 +147,6 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
     npy_intp dimensions = PyArray_NDIM(ndarray);
     bson_iter_t sub_it;
 
-    /* printf("\t\tFound subarray\n"); */
     /* Get length of array */
     bson_iter_recurse(it, &sub_it);
     int count = 0;
@@ -157,7 +157,6 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
     if (count == 1) {
         bson_iter_next(&sub_it);
 
-        /* printf("\t\t-ignoring array of len 1\n"); */
         /* Array is of length 1, therefore we treat it like a number */
         return _load_scalar_from_bson(&sub_it, ndarray, offset, coordinates,
                                       current_depth, dtype, debug);
@@ -408,6 +407,8 @@ bson_to_ndarray(PyObject *self, PyObject *args)
     bson_t *document;
     size_t err_offset;
     bool debug;
+    npy_intp *coordinates;
+    npy_intp i;
 
     if (!PyArg_ParseTuple(args, "SO", &binary_doc, &dtype_obj)) {
         PyErr_SetNone(PyExc_TypeError);
@@ -423,8 +424,6 @@ bson_to_ndarray(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    /* char* str = bson_as_json(document, (size_t*)&bytes_len); */
-    /* printf("DOCUMENT: %s\n", str); */
     /* Convert dtype */
     if (!PyArray_DescrCheck(dtype_obj)) {
         PyErr_SetNone(PyExc_TypeError);
@@ -453,9 +452,7 @@ bson_to_ndarray(PyObject *self, PyObject *args)
 
     Py_INCREF(dtype);
 
-    /* printf("PYARRAY_ZEROS(1, %i, ", (int)dimension_lengths[0]); PyObject_Print((PyObject*)dtype, stdout, 0); printf(", 0)\n"); */
-    array_obj = PyArray_Zeros(1, dimension_lengths, dtype,
-                              0); /* This function steals a reference to dtype? */
+    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
     if (!array_obj) {
         return NULL;
     }
@@ -464,8 +461,8 @@ bson_to_ndarray(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    npy_intp *coordinates = calloc(number_dimensions + 1, sizeof(npy_intp));
-    for (npy_intp i = 0; i < dimension_lengths[0]; i++) {
+    coordinates = calloc(number_dimensions + 1, sizeof(npy_intp));
+    for (i = 0; i < dimension_lengths[0]; i++) {
         bson_iter_next(&bsonit);
         coordinates[0] = i;
         int success = _load_scalar_from_bson(&bsonit, ndarray, 0, coordinates,
@@ -493,36 +490,32 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 {
     PyObject *fields, *key, *value = NULL;
     int number_dimensions = PyArray_NDIM(ndarray);
-    Py_ssize_t pos = 0;
+    Py_ssize_t pos;
     bson_iter_t bsonit;
+    PyArray_Descr *sub_dtype;
+    PyObject *sub_dtype_obj, *offset_obj;
+    int success;
+    Py_ssize_t i;
 
-    /* printf("    in _load_flexible_from_bson: KEY=%s, SUB_COORDINATES=[", key_str);for (int i = 0; i < sub_coordinates_length; i++) { printf("%i,", (int) sub_coordinates[i]); } printf("]\n"); */
-    /* printf(" DTYPE IS "); */
     if (dtype->fields != NULL && dtype->fields != Py_None) {
-        /* printf("FLEXIBLE\n\tnames="); */
         PyObject *ordered_names = PyArray_FieldNames(dtype->fields);
-        /* PyObject_Print(ordered_names, stdout, 0); printf(" fields="); PyObject_Print(dtype->fields, stdout, 0); */
         Py_ssize_t number_fields = PyTuple_Size(ordered_names);
-        /* printf(" len(fields)=%li\n", number_fields); */
         /* A field is described by a tuple composed of another data-type
          * descriptor and a byte offset. */
         fields = dtype->fields;
         if (!PyDict_Check(fields)) {
             PyErr_SetString(BsonNumpyError,
-                            "in _load_flexible_from_bson: dtype.fields not a dict");
+                            "in _load_flexible_from_bson: dtype.fields not a"
+                            " dict");
             return 0;
         }
 
         pos = 0;
-        PyArray_Descr *sub_dtype;
-        PyObject *sub_dtype_obj, *offset_obj;
-        int success;
 
-        for (Py_ssize_t i = 0; i < number_fields; i++) {
+        for (i = 0; i < number_fields; i++) {
             key = PyTuple_GetItem(ordered_names, i);
             value = PyDict_GetItem(fields, key);
 
-            /* printf("    -->looping through fields: key="); PyObject_Print(key, stdout, 0); printf(" value="); PyObject_Print(value, stdout, 0); printf("\n"); */
             if (!PyTuple_Check(value)) {
                 PyErr_SetString(BsonNumpyError,
                                 "dtype in fields is not a tuple");
@@ -541,15 +534,14 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             key_str = PyBytes_AsString(key);
             sub_dtype_obj = PyTuple_GetItem(value, 0);
 
-            if (!PyArray_DescrConverter(sub_dtype_obj,
-                                        &sub_dtype)) { /* Convert from python object to numpy dtype object */
+            /* Convert from python object to numpy dtype object */
+            if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) {
                 PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
                 return 0;
             }
 
             int sub_depth = current_depth - number_dimensions;
             if (sub_dtype->subarray) {
-                /* printf("\t Recurring with SUBARRAY\n"); */
                 sub_coordinates[sub_depth] = i;
                 _load_flexible_from_bson(document, coordinates, ndarray,
                                          sub_dtype, current_depth + 1, key_str,
@@ -558,12 +550,12 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                                          debug);
 
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
-                /* printf("\t Recurring with FIELDS: sub_dtype="); PyObject_Print(sub_dtype->fields, stdout, 0); printf("\n"); */
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
                     if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
                         PyErr_SetString(BsonNumpyError,
-                                        "Expected list from dtype, got other type");
+                                        "Expected list from dtype, got other"
+                                        " type");
                         return 0;
                     }
 
@@ -575,7 +567,6 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                     sub_document = bson_new_from_data(document_buffer,
                                                       document_len);
 
-                    /* printf("\t setting sub_coordinates at %i to %i\n", sub_depth, i); */
                     sub_coordinates[sub_depth] = i;
 
                     _load_flexible_from_bson(sub_document, coordinates, ndarray,
@@ -588,11 +579,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                     PyErr_SetString(BsonNumpyError,
                                     "Error: expected key from dtype in document, not found");
                 }
-                /* PyErr_SetString(BsonNumpyError, "TODO: not implemented"); */
-                /* return 0; */
             } else {
-                /* printf("\tLOADING VAL: key="); PyObject_Print(key, stdout, 0); printf(" dtype="); PyObject_Print((PyObject *) sub_dtype, stdout, 0); */
-                /* printf(" offset=%i, coordinates: [", (int) offset_long); for (int i = 0; i < number_dimensions; i++) { printf("%i,", (int) coordinates[i]); } printf("]\n"); */
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
                     /* TODO: if sub_dtype->elsize==0, then it is a flexible type */
@@ -604,23 +591,32 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                         return 0;
                     }
                 } else {
+                    /* TODO: nicer error message */
                     PyErr_SetString(BsonNumpyError,
-                                    "document does not match dtype."); /* TODO: nicer error message */
+                                    "document does not match dtype.");
                     return 0;
                 }
             }
             pos++;
         }
     } else if (dtype->subarray) {
-        /* printf("ARRAY\n"); */
         PyObject *shape = dtype->subarray->shape;
         PyArray_Descr *sub_descr = dtype->subarray->base;
+        void *ptr;
+        PyObject *subndarray_tuple;
+        PyObject *length_obj;
+        long length_long;
 
-        /* printf("\tdtype="); PyObject_Print((PyObject*)sub_descr, stdout, 0); printf(" shape="); PyObject_Print(shape, stdout, 0); printf("\n"); */
         bson_iter_init(&bsonit, document);
 
         Py_ssize_t dims_subarray = PyTuple_Size(shape);
         if (bson_iter_find(&bsonit, key_str)) {
+            npy_intp i;
+            int sub_i;
+            PyArrayObject *subndarray;
+            npy_intp *subarray_coordinates;
+            bson_iter_t sub_it;
+
             if (!BSON_ITER_HOLDS_ARRAY(&bsonit)) {
                 PyErr_SetString(BsonNumpyError,
                                 "Expected list from dtype, got other type");
@@ -628,42 +624,36 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             }
 
             /* Get subarray as ndarray */
-            void *ptr = PyArray_GetPtr(ndarray, coordinates);
-            PyObject *subndarray_tuple = PyArray_GETITEM(ndarray, ptr);
-            /* printf("curr depth=%i, num_dims=%i: STARTING TUPLE=", current_depth, number_dimensions); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n"); */
-            for (int sub_i = 0;
+            ptr = PyArray_GetPtr(ndarray, coordinates);
+            subndarray_tuple = PyArray_GETITEM(ndarray, ptr);
+            for (sub_i = 0;
                  sub_i < current_depth - number_dimensions; sub_i++) {
                 npy_intp offset = sub_coordinates[sub_i];
-                /* printf("\t offset=%i\n", offset); */
                 subndarray_tuple = PyTuple_GetItem(subndarray_tuple, offset);
-                /* printf("\t SUB TUPLE="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n"); */
             }
-            /* printf("OBJ="); PyObject_Print(subndarray_tuple, stdout, 0); printf("\n"); */
-            PyArrayObject *subndarray;
             if (!PyArray_OutputConverter(subndarray_tuple, &subndarray)) {
                 PyErr_SetString(BsonNumpyError,
                                 "Expected subarray, got other type");
                 return 0;
             }
+
             /* Get length of top-level array */
-            PyObject *length_obj = PyTuple_GetItem(shape, 0);
-            long length_long = PyLong_AsLong(length_obj);
+            length_obj = PyTuple_GetItem(shape, 0);
+            length_long = PyLong_AsLong(length_obj);
 
             /* Create coordinates for subtype */
-            npy_intp *subarray_coordinates = calloc(dims_subarray + 1,
-                                                    sizeof(npy_intp));
+            subarray_coordinates = calloc(dims_subarray + 1, sizeof(npy_intp));
 
             /* Loop through array and load sub-arrays */
-            /* printf("looping through top-level array, len=%li\n", length_long); */
-            bson_iter_t sub_it;
             bson_iter_recurse(&bsonit, &sub_it);
-            for (npy_intp i = 0; i < length_long; i++) {
-                /* printf("\t(SUB)START COORDINATES="); for (int i = 0; i < dims_subarray; i++) { printf("%i,", (int) subarray_coordinates[i]); } printf("]\n"); */
+            for (i = 0; i < length_long; i++) {
+                int success;
+
                 bson_iter_next(&sub_it);
                 subarray_coordinates[0] = i;
-                int success = _load_scalar_from_bson(&sub_it, subndarray, 0,
-                                                     subarray_coordinates, 0,
-                                                     sub_descr, debug);
+                success = _load_scalar_from_bson(&sub_it, subndarray, 0,
+                                                 subarray_coordinates, 0,
+                                                 sub_descr, debug);
                 if (success == 0) {
                     return 0;
                 }
@@ -675,7 +665,8 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
     } else {
         PyErr_SetString(BsonNumpyError,
-                        "TODO: constant loaded with _load_dcument, shouldn't happen");
+                        "TODO: constant loaded with _load_dcument, shouldn't"
+                        " happen");
         return 0;
     }
     return 1;
@@ -698,6 +689,9 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     npy_intp *dimension_lengths = NULL;
     npy_intp *coordinates = NULL;
     bool debug;
+
+    size_t err_offset;
+    int row = 0;
 
     if (!PyArg_ParseTuple(args, "OOi", &iterator_obj, &dtype_obj,
                           &num_documents)) {
@@ -748,29 +742,30 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     coordinates = calloc(1 + number_dimensions, sizeof(npy_intp));
 
-    size_t err_offset;
-    int row = 0;
-    while ((binary_doc = PyIter_Next(iterator_obj))) { /* For each row */
-        /* printf("START COORDINATES: ["); for(int q = 0; q < number_dimensions; q++) { printf("%i,", (int)coordinates[q]);} printf("]\n"); */
+    /* For each row */
+    while ((binary_doc = PyIter_Next(iterator_obj))) {
+        npy_intp *sub_coordinates;
+        int p;
+
         /* Get BSON document */
         const char *bytes_str = PyBytes_AS_STRING(binary_doc);
         Py_ssize_t bytes_len = PyBytes_GET_SIZE(binary_doc);
         bson_t *document = bson_new_from_data((uint8_t *) bytes_str, bytes_len);
+
         if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
             /* TODO: validate in a reasonable way, now segfaults if bad */
             PyErr_SetString(BsonNumpyError, "Document failed validation");
             return 0;
         }
 
-        /* char* str = bson_as_json(document, (size_t*)&bytes_len); */
-        /* printf("\nDOCUMENT: %s, dtype->fields dict:", str); PyObject_Print(dtype->fields, stdout, 0); printf("\n"); */
-        npy_intp *sub_coordinates = calloc(100, sizeof(npy_intp));
+        sub_coordinates = calloc(100, sizeof(npy_intp));
 
         /* Don't need to pass key to first layer */
         if (!_load_flexible_from_bson(document, coordinates, ndarray,
                                       PyArray_DTYPE(ndarray), 1, NULL,
                                       sub_coordinates, 0, 0, debug)) {
-            return NULL; /* error set by _load_flexible_from_bson */
+            /* error set by _load_flexible_from_bson */
+            return NULL;
         }
 
         free(document);
@@ -780,7 +775,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         }
 
         /* Reset coordinates to zero */
-        for (int p = 1; p < number_dimensions; p++) {
+        for (p = 1; p < number_dimensions; p++) {
             coordinates[p] = 0;
         }
     }
@@ -800,7 +795,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         Py_XDECREF(none_obj);
     }
 
-    done:
+done:
     free(dimension_lengths);
     free(coordinates);
 
@@ -816,7 +811,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_bson",     ndarray_to_bson,     METH_VARARGS, "Convert an ndarray into a BSON byte string"},
                                          {"bson_to_ndarray",     bson_to_ndarray,     METH_VARARGS, "Convert BSON byte string into an ndarray"},
                                          {"sequence_to_ndarray", sequence_to_ndarray, METH_VARARGS, "Convert an iterator containing BSON documents into an ndarray"},
-                                         {NULL, NULL, 0, NULL}        /* Sentinel */
+                                         {NULL,                  NULL,                0,            NULL}        /* Sentinel */
 };
 
 #if PY_MAJOR_VERSION >= 3

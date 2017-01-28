@@ -8,11 +8,12 @@ branches:
 services:
   - mongodb
 
-env:
-  - BSON_DIR=`pwd`/libbson/bson-build LD_LIBRARY_PATH=$BSON_DIR/lib:$LD_LIBRARY_PATH
-
 install:
-- echo $BSON_DIR
+- export C_INCLUDE_PATH=`pwd`/libbson/bson-build/include
+- export LIBRARY_PATH=`pwd`/libbson/bson-build/lib
+- export LD_LIBRARY_PATH=`pwd`/libbson/bson-build/lib:$LD_LIBRARY_PATH
+- echo $C_INCLUDE_PATH
+- echo $LIBRARY_PATH
 - echo $LD_LIBRARY_PATH
 - echo $TRAVIS_PYTHON_VERSION
 - sudo apt-get install git-core automake autoconf libtool gcc
