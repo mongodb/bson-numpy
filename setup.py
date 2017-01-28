@@ -4,9 +4,6 @@ import sys
 import setuptools
 from setuptools.command.build_ext import build_ext as _build_ext
 
-bson_src = os.getenv('BSON_DIR', os.path.join("/usr", "local"))
-libraries = ["bson-1.0"]
-
 
 # See http://stackoverflow.com/questions/19919905, we need to install NumPy
 # during setup before building bsonnumpy.so, then use its get_include().
@@ -21,24 +18,18 @@ class build_ext(_build_ext):
 
 bsonnumpymodule = setuptools.Extension(
     'bsonnumpy',
-    define_macros=[('MAJOR_VERSION', '0'), ('MINOR_VERSION', '1')],
-    include_dirs=[os.path.join(bson_src, "include", "libbson-1.0"),
-                  "/usr/include/libbson-1.0"],
-    library_dirs=[os.path.join(bson_src, "lib")],
-    libraries=libraries,
-    extra_compile_args=['-g', '-O0', '-std=c99'],
-    extra_link_args=['-g', '-O0'],
+    libraries=["bson-1.0"],
     sources=[os.path.join("bson-numpy", "bsonnumpy.c")])
 
 
 if sys.version_info[:2] == (2, 6):
-    # NumPy 1.12 dropped Python 2.6. NumPy 1.11 requires nose even to install.
-    setup_requires = ["numpy>=1.11,<1.12", "nose"]
-    tests_require = ["unittest2", "nose"]
+    # NumPy 1.12 dropped Python 2.6.
+    setup_requires = ["numpy==1.11.2"]
+    tests_require = ["pymongo", "unittest2"]
     test_suite = "unittest2.collector"
 else:
     setup_requires = ["numpy"]
-    tests_require = []
+    tests_require = ["pymongo"]
     test_suite = "test"
 
 
@@ -54,6 +45,5 @@ setuptools.setup(
     test_suite=test_suite,
     tests_require=tests_require,
     setup_requires=setup_requires,
-    install_requires=['pymongo'],
     cmdclass={'build_ext': build_ext},
 )
