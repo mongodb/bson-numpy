@@ -9,7 +9,7 @@ services:
   - mongodb
 
 install:
-- export C_INCLUDE_PATH=`pwd`/libbson/bson-build/include/libbson-1.0
+- export C_INCLUDE_PATH=`pwd`/libbson/bson-build/include
 - export LIBRARY_PATH=`pwd`/libbson/bson-build/lib
 - export LD_LIBRARY_PATH=`pwd`/libbson/bson-build/lib:$LD_LIBRARY_PATH
 - echo $C_INCLUDE_PATH
