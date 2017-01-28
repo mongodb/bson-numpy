@@ -33,12 +33,6 @@ if sys.version_info[:2] == (2, 6):
         import multiprocessing
     except ImportError:
         pass
-elif sys.version_info[:2] == (2, 7):
-    setup_requires = ["numpy"]
-
-    # Avoid assertRaisesRegex/Regexp imbroglio in Python 2.7.
-    tests_require = ["pymongo", "unittest2"]
-    test_suite = "unittest2.collector"
 else:
     setup_requires = ["numpy"]
     tests_require = ["pymongo"]
