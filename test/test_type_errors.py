@@ -19,6 +19,11 @@ bytes_codes = ['S5', 'V10', 'U13']
 
 
 class TestTypeErrors(unittest.TestCase):
+    if hasattr(unittest.TestCase, 'assertRaisesRegex'):
+        assertRaisesPattern = unittest.TestCase.assertRaisesRegex
+    else:
+        assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
+
     def _test_error(self, value, bson_type_name, codes):
         data = bson._dict_to_bson({'x': value}, True,
                                   bson.DEFAULT_CODEC_OPTIONS)
@@ -27,12 +32,7 @@ class TestTypeErrors(unittest.TestCase):
             dtype = np.dtype([('x', code)])
             expected = "cannot convert %s to dtype" % bson_type_name
 
-            if hasattr(self, 'assertRaisesRegex'):
-                asserter = self.assertRaisesRegex
-            else:
-                asserter = self.assertRaisesRegexp
-
-            with asserter(bsonnumpy.error, expected):
+            with self.assertRaisesPattern(bsonnumpy.error, expected):
                 bsonnumpy.sequence_to_ndarray(iter([data]), dtype, 1)
 
     def test_utf8(self):
@@ -64,3 +64,10 @@ class TestTypeErrors(unittest.TestCase):
         return self._test_error(datetime.utcnow(), "Datetime",
                                 float_codes + complex_codes + bytes_codes
                                 + tinies + shorts + words)
+
+    def test_no_fieldname(self):
+        data = bson._dict_to_bson({'x': 1}, True, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype('i')
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      "must include field names"):
+            bsonnumpy.sequence_to_ndarray([data], dtype, 1)

@@ -670,8 +670,8 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
     } else {
         PyErr_SetString(BsonNumpyError,
-                        "TODO: constant loaded with _load_dcument, shouldn't"
-                        " happen");
+                        "dtype must include field names, like"
+                        " dtype([('fieldname', numpy.int)])");
         return 0;
     }
     return 1;
