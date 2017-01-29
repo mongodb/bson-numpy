@@ -67,7 +67,7 @@ API
 
   Parameters:
 
-  - `iterator`: An :ref:`iterator object <typeiter>` representing a sequence
+  - `iterator`: A :ref:`sequence <typesseq>` or :ref:`iterator <typeiter>` representing a sequence
     of :class:`bytes` objects containing BSON documents.
   - `dtype`: A :class:`numpy.dtype` listing the fields to extract from each
     BSON document and what NumPy type to convert it to.
@@ -174,7 +174,7 @@ BSON numeric types convert naturally:
 
     >>> data = bson.BSON().encode({'pi': 3.14159, 'answer': 42, 'big': 2**63-1})
     >>> dtype = np.dtype([('pi', np.double), ('answer', np.int32), ('big', np.int64)])
-    >>> bsonnumpy.sequence_to_ndarray(iter([data]), dtype, 1)
+    >>> bsonnumpy.sequence_to_ndarray([data], dtype, 1)
     array([( 3.14159, 42, 9223372036854775807)],
           dtype=[('pi', '<f8'), ('answer', '<i4'), ('big', '<i8')])
 
@@ -186,7 +186,7 @@ An embedded array in BSON becomes an additional dimension in NumPy:
 .. doctest::
 
     >>> data = bson.BSON().encode({'a': [1, 2, 3]})
-    >>> bsonnumpy.sequence_to_ndarray(iter([data]),
+    >>> bsonnumpy.sequence_to_ndarray([data],
     ...                               np.dtype([('a', '3i')]),
     ...                               1)
     array([([1, 2, 3],)],
@@ -202,7 +202,7 @@ Access fields of nested BSON documents by declaring a nested dtype:
     >>> data = bson.BSON().encode({'a': {'b': 1, 'c': 3.14}})
     >>> dtype = np.dtype([('a',
     ...                    np.dtype([('b', 'i'), ('c', 'f8')]))])
-    >>> array = bsonnumpy.sequence_to_ndarray(iter([data]), dtype, 1)
+    >>> array = bsonnumpy.sequence_to_ndarray([data], dtype, 1)
     >>> array
     array([((1,  3.14),)],
           dtype=[('a', [('b', '<i4'), ('c', '<f8')])])
@@ -232,7 +232,7 @@ fixed length:
 
     >>> doc1 = bson.BSON().encode({'a': bson.Binary(b'binary data')})
     >>> doc2 = bson.BSON().encode({'a': bson.Binary(b'short')})
-    >>> array = bsonnumpy.sequence_to_ndarray(iter([doc1, doc2]),
+    >>> array = bsonnumpy.sequence_to_ndarray([doc1, doc2],
     ...                                       np.dtype([('a', 'V10')]),
     ...                                       2)
     >>> array[0][0].tobytes()
@@ -254,7 +254,7 @@ input data to match the dtype length:
 .. doctest::
 
     >>> data = bson.BSON().encode({'x': 'to be or not to be'})
-    >>> bsonnumpy.sequence_to_ndarray(iter([data]), np.dtype([('x', 'S5')]), 1)
+    >>> bsonnumpy.sequence_to_ndarray([data], np.dtype([('x', 'S5')]), 1)
     array([(b'to be',)],
           dtype=[('x', 'S5')])
 
@@ -266,7 +266,7 @@ Convert BSON bools to NumPy bools with the "b" specifier:
 .. doctest::
 
     >>> data = bson.BSON().encode({'x': True, 'y': False})
-    >>> bsonnumpy.sequence_to_ndarray(iter([data]),
+    >>> bsonnumpy.sequence_to_ndarray([data],
     ...                               np.dtype([('x', 'b'), ('y', 'b')]),
     ...                               1)
     array([(1, 0)],
@@ -282,7 +282,7 @@ BSON datetimes become 64-bit Unix timestamps (milliseconds since January 1,
 
     >>> from datetime import datetime
     >>> data = bson.BSON().encode({'when': datetime(2017, 1, 1)})
-    >>> bsonnumpy.sequence_to_ndarray(iter([data]),
+    >>> bsonnumpy.sequence_to_ndarray([data],
     ...                               np.dtype([('when', np.int64)]),
     ...                               1)
     array([(1483228800000,)],
@@ -298,7 +298,7 @@ data or byte strings:
 
     >>> oid = bson.ObjectId('588a6aefa08bff08f62a66c7')
     >>> data = bson.BSON().encode({'_id': oid})
-    >>> bsonnumpy.sequence_to_ndarray(iter([data]), np.dtype([('_id', 'S12')]), 1)
+    >>> bsonnumpy.sequence_to_ndarray([data], np.dtype([('_id', 'S12')]), 1)
     array([(b'X\x8aj\xef\xa0\x8b\xff\x08\xf6*f\xc7',)],
           dtype=[('_id', 'S12')])
 

@@ -485,7 +485,7 @@ class TestSequence2Ndarray(unittest.TestCase):
         data = bson._dict_to_bson({"x": 12, "y": 13}, True,
                                   bson.DEFAULT_CODEC_OPTIONS)
 
-        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+        ndarray = bsonnumpy.sequence_to_ndarray([data],
                                                 np.dtype([("y", np.int)]),
                                                 1)
 
@@ -519,3 +519,13 @@ class TestSequence2Ndarray(unittest.TestCase):
                                                 1)
 
         self.assertEqual(ndarray[0]["x"].tobytes(), b"abc\0")
+
+    def test_iterable(self):
+        # sequence_to_ndarray accepts an iterable, same as an iterator
+        data = bson._dict_to_bson({"x": 1}, True, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype([("x", "i")])
+
+        # No iter() call.
+        ndarray = bsonnumpy.sequence_to_ndarray([data], dtype, 1)
+        self.assertEqual(1, len(ndarray))
+        self.compare_elements({'x': 1}, ndarray[0], dtype)

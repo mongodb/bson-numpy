@@ -515,6 +515,8 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
         pos = 0;
 
         for (i = 0; i < number_fields; i++) {
+            long offset_long;
+            int sub_depth;
             key = PyTuple_GetItem(ordered_names, i);
             value = PyDict_GetItem(fields, key);
 
@@ -532,7 +534,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 return 0;
             }
             offset_obj = PyTuple_GetItem(value, 1);
-            long offset_long = PyLong_AsLong(offset_obj);
+            offset_long = PyLong_AsLong(offset_obj);
             key_str = PyBytes_AsString(key);
             sub_dtype_obj = PyTuple_GetItem(value, 0);
 
@@ -542,7 +544,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 return 0;
             }
 
-            int sub_depth = current_depth - number_dimensions;
+            sub_depth = current_depth - number_dimensions;
             if (sub_dtype->subarray) {
                 sub_coordinates[sub_depth] = i;
                 _load_flexible_from_bson(document, coordinates, ndarray,
@@ -554,6 +556,10 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
+                    bson_t *sub_document;
+                    uint32_t document_len;
+                    const uint8_t *document_buffer;
+
                     if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
                         PyErr_SetString(BsonNumpyError,
                                         "Expected list from dtype, got other"
@@ -561,9 +567,6 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                         return 0;
                     }
 
-                    bson_t *sub_document;
-                    uint32_t document_len;
-                    const uint8_t *document_buffer;
                     bson_iter_document(&bsonit, &document_len,
                                        &document_buffer);
                     sub_document = bson_new_from_data(document_buffer,
@@ -679,6 +682,7 @@ static PyObject *
 sequence_to_ndarray(PyObject *self, PyObject *args)
 {
     PyObject *array_obj = NULL;
+    PyObject *iterable_obj;
     PyObject *iterator_obj;
     PyObject *dtype_obj;
     PyObject *binary_doc;
@@ -700,9 +704,16 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         return NULL;
     }
     if (!PyIter_Check(iterator_obj)) {
-        PyErr_SetString(BsonNumpyError,
-                        "sequence_to_ndarray expects an iterator");
-        return NULL;
+        /* it's not an iterator, maybe it's iterable? */
+        iterable_obj = iterator_obj;
+        Py_INCREF(iterable_obj);
+        iterator_obj = PyObject_GetIter (iterable_obj);
+        if (!iterator_obj) {
+            Py_DECREF(iterable_obj);
+            PyErr_SetString(BsonNumpyError,
+                            "sequence_to_ndarray expects an iterator");
+            return NULL;
+        }
     }
     if (!PyArray_DescrCheck(dtype_obj)) {
         PyErr_SetNone(PyExc_TypeError);
