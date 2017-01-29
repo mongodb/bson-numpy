@@ -28,6 +28,7 @@ class build_ext(_build_ext):
 bsonnumpymodule = setuptools.Extension(
     'bsonnumpy',
     libraries=["bson-1.0"],
+    include_dirs=["/usr/include/libbson-1.0", "/usr/local/include/libbson-1.0"],
     sources=[os.path.join("bson-numpy", "bsonnumpy.c")])
 
 
@@ -37,7 +38,7 @@ if sys.version_info[:2] == (2, 6):
     tests_require = ["pymongo", "unittest2"]
     test_suite = "unittest2.collector"
 else:
-    setup_requires = ["numpy>=1.12.0"]
+    setup_requires = ["numpy>=1.11.0"]
     tests_require = ["pymongo"]
     test_suite = "test"
 
