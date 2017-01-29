@@ -85,11 +85,16 @@ Installing
 ----------
 
 BSON-NumPy is supported on Linux and Mac OS X, with Python 2.6 and later,
-on Intel architectures. Installation is in two steps: first install the C
-library libbson yourself, then install BSON-NumPy with pip. The package
-depends on NumPy 1.11 or greater.
+on Intel architectures. It requires NumPy 1.11 or greater.
+
+Installation is in two steps: first install the C library libbson yourself, then
+install BSON-NumPy with pip.
 
 - `Install libbson <http://mongoc.org/libbson/current/installing.html>`_
+- ``python3 -m pip install git+github.com/aherlihy/numpy-bson.git``
+
+Or: 
+
 - ``python -m pip install git+github.com/aherlihy/numpy-bson.git``
 
 Here are more detailed instructions for a few platforms.
@@ -97,29 +102,63 @@ Here are more detailed instructions for a few platforms.
 Debian or Ubuntu
 ^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+Install with Python 3::
 
-  $ sudo apt-get install -y libbson-dev python-dev python-numpy
+  $ sudo apt-get install -y libbson-dev python3-dev python3-numpy python3-pip
+  $ python3 -m pip install git+git://github.com/aherlihy/numpy-bson.git
+
+Or Python 2::
+
+  $ sudo apt-get install -y libbson-dev python-dev python-numpy python-pip
   $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
 
 Fedora or RedHat
 ^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+With Python3::
 
-  $ sudo apt-get install -y libbson-devel python-devel numpy
+  $ sudo yum install -y libbson-devel python3-devel python3-numpy python3-pip
+  $ python3 -m pip install git+git://github.com/aherlihy/numpy-bson.git
+
+Or Python 2::
+
+  $ sudo yum install -y libbson-devel python-devel numpy python-pip
   $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
 
 Mac OS X
 ^^^^^^^^
 
-The easiest way to install libbson is with Homebrew. `Install Homebrew
-<http://brew.sh/>`_, then:
+The easiest way to install libbson is with Homebrew.
 
-.. code-block:: none
+* `Install Homebrew <http://brew.sh/>`_
+
+Then::
 
   $ brew install mongo-c-driver
+
+macOS comes with an outdated version of NumPy, too old to work with BSON-NumPy.
+We recommend you don't use the macOS system Python at all, and install your own
+Python with ``brew install python3`` or ``brew install python``, or `download
+Python from python.org <https://www.python.org/downloads/>`_. Then::
+
+  $ python3 -m pip install git+git://github.com/aherlihy/numpy-bson.git
+
+Or with Python 2::
+
   $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
+
+Mac OS X with the system Python
+'''''''''''''''''''''''''''''''
+
+If you must use the system interpreter, upgrade NumPy and then install
+BSON-NumPy::
+
+  $ sudo easy_install --upgrade numpy
+  $ sudo easy_install git+git://github.com/aherlihy/numpy-bson.git
+
+Finally, install BSON-NumPy::
+
+  $ sudo easy_install git+git://github.com/aherlihy/numpy-bson.git
 
 Converting BSON to NumPy
 ------------------------
