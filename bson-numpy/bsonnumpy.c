@@ -127,8 +127,10 @@ _bson_type_name(bson_type_t t)
             return "Timestamp";
         case BSON_TYPE_INT64:
             return "Int64";
+#ifdef BSON_TYPE_DECIMAL128
         case BSON_TYPE_DECIMAL128:
             return "Decimal128";
+#endif
         case BSON_TYPE_MAXKEY:
             return "MaxKey";
         case BSON_TYPE_MINKEY:
