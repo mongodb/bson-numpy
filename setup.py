@@ -34,7 +34,7 @@ if sys.version_info[:2] == (2, 6):
     tests_require = ["pymongo", "unittest2"]
     test_suite = "unittest2.collector"
 else:
-    setup_requires = ["numpy"]
+    setup_requires = ["numpy>=1.12.0"]
     tests_require = ["pymongo"]
     test_suite = "test"
 
