@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# NumPy-BSON documentation build configuration file, created by
+# BSON-NumPy documentation build configuration file, created by
 # sphinx-quickstart on Mon Jan 16 09:23:29 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -47,7 +47,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'NumPy-BSON'
+project = u'BSON-NumPy'
 copyright = u'2017, Anna Herlihy and A. Jesse Jiryu Davis'
 author = u'Anna Herlihy and A. Jesse Jiryu Davis'
 
@@ -108,7 +108,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'NumPy-BSONdoc'
+htmlhelp_basename = 'BSON-NumPydoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -135,7 +135,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'NumPy-BSON.tex', u'NumPy-BSON Documentation',
+    (master_doc, 'BSON-NumPy.tex', u'BSON-NumPy Documentation',
      u'Anna Herlihy and A. Jesse Jiryu Davis', 'manual'),
 ]
 
@@ -145,7 +145,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'numpy-bson', u'NumPy-BSON Documentation',
+    (master_doc, 'bson-numpy', u'BSON-NumPy Documentation',
      [author], 1)
 ]
 
@@ -156,8 +156,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'NumPy-BSON', u'NumPy-BSON Documentation',
-     author, 'NumPy-BSON', 'One line description of project.',
+    (master_doc, 'BSON-NumPy', u'BSON-NumPy Documentation',
+     author, 'BSON-NumPy', 'One line description of project.',
      'Miscellaneous'),
 ]
 

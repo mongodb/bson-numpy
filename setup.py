@@ -50,7 +50,7 @@ setuptools.setup(
                 ' and vice versa',
     author='Anna Herlihy',
     author_email='anna@mongodb',
-    url='https://github.com/aherlihy/numpy-bson',
+    url='https://github.com/aherlihy/bson-numpy',
     ext_modules=[bsonnumpymodule],
     test_suite=test_suite,
     tests_require=tests_require,

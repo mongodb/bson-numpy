@@ -91,11 +91,11 @@ Installation is in two steps: first install the C library libbson yourself, then
 install BSON-NumPy with pip.
 
 - `Install libbson <http://mongoc.org/libbson/current/installing.html>`_
-- ``python3 -m pip install git+github.com/aherlihy/numpy-bson.git``
+- ``python3 -m pip install git+github.com/aherlihy/bson-numpy.git``
 
 Or: 
 
-- ``python -m pip install git+github.com/aherlihy/numpy-bson.git``
+- ``python -m pip install git+github.com/aherlihy/bson-numpy.git``
 
 Here are more detailed instructions for a few platforms.
 
@@ -105,12 +105,12 @@ Debian or Ubuntu
 Install with Python 3::
 
   $ sudo apt-get install -y libbson-dev python3-dev python3-numpy python3-pip
-  $ python3 -m pip install git+git://github.com/aherlihy/numpy-bson.git
+  $ python3 -m pip install git+git://github.com/aherlihy/bson-numpy.git
 
 Or Python 2::
 
   $ sudo apt-get install -y libbson-dev python-dev python-numpy python-pip
-  $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
+  $ python -m pip install git+git://github.com/aherlihy/bson-numpy.git
 
 Fedora or RedHat
 ^^^^^^^^^^^^^^^^
@@ -118,12 +118,12 @@ Fedora or RedHat
 With Python3::
 
   $ sudo yum install -y libbson-devel python3-devel python3-numpy python3-pip
-  $ python3 -m pip install git+git://github.com/aherlihy/numpy-bson.git
+  $ python3 -m pip install git+git://github.com/aherlihy/bson-numpy.git
 
 Or Python 2::
 
   $ sudo yum install -y libbson-devel python-devel numpy python-pip
-  $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
+  $ python -m pip install git+git://github.com/aherlihy/bson-numpy.git
 
 Mac OS X
 ^^^^^^^^
@@ -141,11 +141,11 @@ We recommend you don't use the macOS system Python at all, and install your own
 Python with ``brew install python3`` or ``brew install python``, or `download
 Python from python.org <https://www.python.org/downloads/>`_. Then::
 
-  $ python3 -m pip install git+git://github.com/aherlihy/numpy-bson.git
+  $ python3 -m pip install git+git://github.com/aherlihy/bson-numpy.git
 
 Or with Python 2::
 
-  $ python -m pip install git+git://github.com/aherlihy/numpy-bson.git
+  $ python -m pip install git+git://github.com/aherlihy/bson-numpy.git
 
 Mac OS X with the system Python
 '''''''''''''''''''''''''''''''
@@ -154,11 +154,11 @@ If you must use the system interpreter, upgrade NumPy and then install
 BSON-NumPy::
 
   $ sudo easy_install --upgrade numpy
-  $ sudo easy_install git+git://github.com/aherlihy/numpy-bson.git
+  $ sudo easy_install git+git://github.com/aherlihy/bson-numpy.git
 
 Finally, install BSON-NumPy::
 
-  $ sudo easy_install git+git://github.com/aherlihy/numpy-bson.git
+  $ sudo easy_install git+git://github.com/aherlihy/bson-numpy.git
 
 Converting BSON to NumPy
 ------------------------
@@ -305,7 +305,7 @@ data or byte strings:
 Not supported
 ^^^^^^^^^^^^^
 
-`File an issue <https://github.com/aherlihy/numpy-bson/issues>`_
+`File an issue <https://github.com/aherlihy/bson-numpy/issues>`_
 if you need support for any of the following BSON types.
 
 * Code
