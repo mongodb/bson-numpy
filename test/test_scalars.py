@@ -160,7 +160,7 @@ def _make_test_fn(value, type_name):
 
 for value_, type_name_ in [
     (bson.Code(""), "Code"),
-    (bson.Code("", {}), "Code with Scope"),
+    (bson.Code("", {'scope': 1}), "Code with Scope"),
     ({}, "Sub-document"),
     (bson.MinKey(), "MinKey"),
     (bson.MaxKey(), "MaxKey"),
