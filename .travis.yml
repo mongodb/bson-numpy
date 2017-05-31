@@ -25,7 +25,8 @@ install:
 - make install
 - cd ..
 - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
-- pip install -U pymongo sphinx
+- if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx; fi
+- pip install -U pymongo
 
 
 python:
@@ -33,8 +34,9 @@ python:
   - "2.7"
   - "3.4"
   - "3.5"
+  - "3.6"
 
 script:
   - python setup.py test
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.5' ]]; then cd doc && PYTHONPATH=.. make doctest; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then cd doc && PYTHONPATH=.. make doctest; fi
 
