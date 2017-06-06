@@ -26,7 +26,7 @@ install:
 - cd ..
 - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
 - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx; fi
-- pip install -U pymongo
+- pip install -U pymongo pandas
 
 
 python:
