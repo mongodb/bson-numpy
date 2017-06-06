@@ -57,6 +57,20 @@ We can convert these to a NumPy :class:`~numpy.ndarray` directly:
     >>> print(ndarray.dtype)
     [('_id', '<i8'), ('n', '<f8'), ('str', 'S10')]
 
+Using MongoDB with Pandas
+-------------------------
+
+The :class:`~numpy.ndarray` created above can be wrapped in a Pandas DataFrame:
+
+.. doctest::
+
+    >>> import pandas as pd
+    >>> pd.DataFrame(ndarray, index=ndarray['_id'])
+       _id    n         str
+    1    1  1.0    b'hello'
+    2    2  3.1      b'and'
+    3    3  7.7  b'goodbye'
+
 API
 ---
 
