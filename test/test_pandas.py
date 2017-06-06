@@ -31,7 +31,7 @@ class TestSequence2Pandas(unittest.TestCase):
 
         coll.delete_many({})
         coll.insert_many(docs)
-        return to_dataframe((doc.raw for doc in coll.find()),
+        return to_dataframe((doc.raw for doc in coll.find().sort('_id')),
                             dtype, coll.count())
 
     @client_context.require_connected
