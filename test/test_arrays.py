@@ -2,10 +2,10 @@ import bson
 import bsonnumpy
 import numpy as np
 
-from test import TestFromBSON
+from test import TestToNdarray
 
 
-class TestFromBSONArrays(TestFromBSON):
+class TestFromBSONArrays(TestToNdarray):
     def test_constant(self):
         document = bson.SON([("0", 99),
                              ("1", 88),

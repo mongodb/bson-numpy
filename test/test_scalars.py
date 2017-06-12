@@ -5,7 +5,7 @@ import bson
 import bsonnumpy
 import numpy as np
 
-from test import TestFromBSON, millis, unittest
+from test import TestToNdarray, millis, unittest
 
 
 class TestToBSONScalars(unittest.TestCase):
@@ -70,27 +70,27 @@ class TestToBSONScalars(unittest.TestCase):
         #     bsonnumpy.ndarray_to_bson(array)
 
 
-class TestFromBSONScalars(TestFromBSON):
+class TestFromBSONScalars(TestToNdarray):
     def test_integer32_types(self):
         document = bson.SON([("0", 99), ("1", 88), ("2", 77), ("3", 66)])
         for np_type in [np.int32, np.uint32]:
-            self.compare_results(np_type, document, document)
+            self.compare_array_results(np_type, document, document)
 
     def test_integer64_types(self):
         document = bson.SON(
             [("0", 99), ("1", 88), ("2", 77)])
         for np_type in [np.int_, np.intc, np.intp, np.uint64, np.int64]:
-            self.compare_results(np_type, document, document)
+            self.compare_array_results(np_type, document, document)
 
     def test_bool(self):
         document = bson.SON([("0", True), ("1", False), ("2", True)])
-        self.compare_results(np.bool_, document, document)
+        self.compare_array_results(np.bool_, document, document)
 
     def test_float64_types(self):
         document = bson.SON(
             [("0", 99.99), ("1", 88.88), ("2", 77.77)])
         for np_type in [np.float_, np.float64]:
-            self.compare_results(np_type, document, document)
+            self.compare_array_results(np_type, document, document)
 
     def TODO_num_types(self):
         # np_types = [np.complex_, np.complex64, np.complex128, np.float32 ]
@@ -111,11 +111,11 @@ class TestFromBSONScalars(TestFromBSON):
     def test_string(self):
         document = bson.SON(
             [("0", b"string_0"), ("1", b"str1"), ("2", b"utf8-2")])
-        self.compare_results('<S10', document, document)
+        self.compare_array_results('<S10', document, document)
         document2 = bson.SON(
             [("0", b"st"), ("1", b"st"), ("2", b"ut")])
-        self.compare_results('<S2', document, document2)
-        self.compare_results('<S2', document2, document2)
+        self.compare_array_results('<S2', document, document2)
+        self.compare_array_results('<S2', document2, document2)
 
     def test_binary(self):
         document = bson.SON(

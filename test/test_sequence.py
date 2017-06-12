@@ -9,65 +9,10 @@ import numpy as np
 from bson.codec_options import CodecOptions
 from bson.raw_bson import RawBSONDocument
 
-from test import client_context, millis, unittest
+from test import client_context, millis, unittest, TestToNdarray
 
 
-class TestSequence2Ndarray(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.client = client_context.client
-
-    def compare_elements(self, expected, actual, dtype):
-        if isinstance(expected, dict):
-            for key, value in expected.items():
-                self.compare_elements(value, actual[key],
-                                      dtype=dtype.fields[key][0])
-
-        elif isinstance(expected, list):
-            self.assertEqual(len(actual), len(expected))
-
-            # If an array's shape is (3,2), its subarrays' shapes are (2,).
-            subdtype, shape = dtype.subdtype
-            self.assertGreaterEqual(len(shape), 1)
-            subarray_dtype = np.dtype((subdtype, shape[1:]))
-            for i in range(len(expected)):
-                self.compare_elements(expected[i], actual[i], subarray_dtype)
-
-        elif dtype.kind == 'V':
-            self.assertEqual(bytes(expected.ljust(dtype.itemsize, b'\0')),
-                             bytes(actual))
-
-        elif dtype.kind == 'S':
-            # NumPy only stores bytes, not str.
-            self.assertEqual(expected, actual.decode('utf-8'))
-
-        else:
-            self.assertEqual(expected, actual)
-
-    # TODO: deal with both name and title in dtype
-    def compare_results(self, dtype, expected, actual):
-        self.assertEqual(dtype, actual.dtype)
-        self.assertEqual(expected.count(), len(actual))
-        for act in actual:
-            exp = next(expected)
-            for name in dtype.names:
-                self.compare_elements(exp[name], act[name],
-                                      dtype=dtype.fields[name][0])
-
-    def make_mixed_collection_test(self, docs, dtype):
-        self.client.bsonnumpy_test.coll.delete_many({})
-        self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
-
-        ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
-        self.compare_results(np.dtype(dtype),
-                             self.client.bsonnumpy_test.coll.find(),
-                             ndarray)
-
+class TestSequence2Ndarray(TestToNdarray):
     @client_context.require_connected
     def test_collection_flexible_int32(self):
         docs = [{"x": i, "y": 10 - i} for i in range(10)]
