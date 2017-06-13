@@ -1,4 +1,5 @@
 import math
+import sys
 import timeit
 
 import pymongo
@@ -29,13 +30,26 @@ def _teardown():
     db.collection.drop()
 
 
-def traditional_func():
+bench_fns = {}
+
+
+def bench(name):
+    def assign_name(fn):
+        bench_fns[name] = fn
+        return fn
+
+    return assign_name
+
+
+@bench('conventional')
+def conventional_func():
     collection = db.collection
     cursor = collection.find()
     dtype = np.dtype([('_id', np.int64), ('x', np.float64)])
     np.array([(doc['_id'], doc['x']) for doc in cursor], dtype=dtype)
 
 
+@bench('bson-numpy')
 def bson_numpy_func():
     raw_coll = db.get_collection(
             'collection',
@@ -49,8 +63,15 @@ def bson_numpy_func():
 
 _setup()
 
-for func in traditional_func, bson_numpy_func:
-    duration = timeit.timeit(bson_numpy_func, number=N_TRIALS)
-    print("%s: %.2f" % (func.__name__, duration / N_TRIALS))
+for name in sys.argv[1:]:
+    if name not in bench_fns:
+        sys.stderr.write("Unknown function \"%s\"\n" % name)
+        sys.stderr.write("Available functions:\n%s\n" % ("\n".join(bench_fns)))
+        sys.exit(1)
+
+for name, fn in bench_fns.items():
+    if not sys.argv[1:] or name in sys.argv[1:]:
+        duration = timeit.timeit(bson_numpy_func, number=N_TRIALS)
+        print("%s: %.2f" % (name, duration / N_TRIALS))
 
 _teardown()
