@@ -755,12 +755,16 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     /* This function steals a reference to dtype? */
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
     if (!array_obj) {
+        debug("PyArray_Zeros failed with dtype", dtype_obj);
         PyErr_SetString(BsonNumpyError,
                         "ndarray initialization failed");
         goto done;
     }
 
     if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
+        PyErr_SetString(BsonNumpyError,
+                        "ndarray initialization failed");
+        debug("PyArray_OutputConverter failed with array object", array_obj);
         PyErr_SetString(BsonNumpyError,
                         "ndarray initialization failed");
         goto done;
@@ -777,10 +781,15 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         const char *bytes_str = PyBytes_AS_STRING(binary_doc);
         Py_ssize_t bytes_len = PyBytes_GET_SIZE(binary_doc);
         bson_t *document = bson_new_from_data((uint8_t *) bytes_str, bytes_len);
+        if (!document) {
+            debug("binary document failed bson_new_from_document", binary_doc);
+            PyErr_SetString(BsonNumpyError, "document from sequence failed validation");
+            return 0;
+        }
 
         if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
-            /* TODO: validate in a reasonable way, now segfaults if bad */
-            PyErr_SetString(BsonNumpyError, "Document failed validation");
+            debug("binary document failed bson_validate", binary_doc);
+            PyErr_SetString(BsonNumpyError, "document from sequence failed validation");
             return 0;
         }
 

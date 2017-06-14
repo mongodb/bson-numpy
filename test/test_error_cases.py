@@ -5,7 +5,7 @@ import numpy as np
 from test import client_context, TestToNdarray, unittest
 
 
-class TestSequenceToNdarray(TestToNdarray):
+class TestErrors(TestToNdarray):
     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
     docs = [{"x": i, "y": 10 - i} for i in range(10)]
     if hasattr(unittest.TestCase, 'assertRaisesRegex'):
@@ -18,12 +18,11 @@ class TestSequenceToNdarray(TestToNdarray):
 
         with self.assertRaisesPattern(TypeError, r'.'):
             bsonnumpy.sequence_to_ndarray(None, None, None)
-
         with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires an iterator'):
             bsonnumpy.sequence_to_ndarray(0, 0, 0)
-
         with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
             bsonnumpy.sequence_to_ndarray(self.docs, None, 10)
+        with self.assertRaisesPattern(TypeError, r'function takes exactly 3 arguments \(4 given\)'):
             bsonnumpy.sequence_to_ndarray(self.dtype, self.docs, 10, 10)
 
 
@@ -41,12 +40,13 @@ class TestSequenceToNdarray(TestToNdarray):
             self.assertEqual(res.size, 0)
 
         # Non-BSON documents
-        # print bsonnumpy.sequence_to_ndarray(self.docs, self.dtype, 10)
-        # print bsonnumpy.sequence_to_ndarray(({} for _ in range(10)), self.dtype, 10)
-        # print bsonnumpy.sequence_to_ndarray((None for _ in range(10)), self.dtype, 10)
+        with self.assertRaisesPattern(bsonnumpy.error, r'document from sequence failed validation'):
+            bsonnumpy.sequence_to_ndarray(self.docs, self.dtype, 10)
+        with self.assertRaisesPattern(bsonnumpy.error, r'document from sequence failed validation'):
+            bsonnumpy.sequence_to_ndarray((None for _ in range(10)), self.dtype, 10)
+        with self.assertRaisesPattern(bsonnumpy.error, r'document from sequence failed validation'):
+            bsonnumpy.sequence_to_ndarray(({} for _ in range(10)), self.dtype, 10)
 
-
-        # Test iterator of invalid BSON
 
     # def test_incorrect_dtype(self):
     #     print bsonnumpy.sequence_to_ndarray(None, dtype, 10)
