@@ -48,13 +48,27 @@ class TestErrors(TestToNdarray):
             bsonnumpy.sequence_to_ndarray(({} for _ in range(10)), self.dtype, 10)
 
 
-    # def test_incorrect_dtype(self):
-    #     print bsonnumpy.sequence_to_ndarray(None, dtype, 10)
-    #     # Dtype is named, but does not match documents
-    #     # Dtype is not named
-    #     # Dtype is null or empty
-    #     pass
-    #
+    def test_incorrect_dtype(self):
+        document = bson.SON([("x", 99),
+                             ("y", 88)])
+        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype([('a', np.int32), ('b', np.int32)])
+
+        # Dtype is named, but does not match documents
+        with self.assertRaisesPattern(bsonnumpy.error, r'document does not match dtype'):
+            bsonnumpy.sequence_to_ndarray([utf8], dtype, 1)
+
+        # Dtype is not named
+        with self.assertRaisesPattern(bsonnumpy.error, r'dtype must include field names, like dtype\(\[\(\'fieldname\', numpy.int\)\]\)'):
+            bsonnumpy.sequence_to_ndarray([utf8], np.dtype(np.int32), 1)
+
+        # Dtype is null or empty
+        with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
+            bsonnumpy.sequence_to_ndarray([utf8], None, 1)
+
+
+
+
     # def test_incorrect_count(self):
     #     # Count is greater than iterator
     #     # Count is smaller than iterator

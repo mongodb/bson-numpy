@@ -603,7 +603,9 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                         return 0;
                     }
                 } else {
-                    /* TODO: nicer error message */
+                    char buffer [100];
+                    snprintf(buffer, 100, "Could not find key \"%s\" in document %s\n", key_str, bson_as_json(document, NULL));
+                    debug(buffer, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "document does not match dtype.");
                     return 0;
