@@ -7,7 +7,10 @@ from test import client_context, TestToNdarray, unittest
 
 class TestErrors(TestToNdarray):
     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
-    docs = [{"x": i, "y": 10 - i} for i in range(10)]
+    bson_docs = [bson._dict_to_bson(
+        doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [bson.SON(
+        [("x", i), ("y", -i)]) for i in range(10)]]
+    ndarray = np.array([(i, -i) for i in range(10)], dtype=dtype)
     if hasattr(unittest.TestCase, 'assertRaisesRegex'):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegex
     else:
@@ -15,22 +18,29 @@ class TestErrors(TestToNdarray):
 
     def test_incorrect_arguments(self):
         # Expects iterator, dtype, count
-
-        with self.assertRaisesPattern(TypeError, r'.'):
+        with self.assertRaisesPattern(TypeError, r'\binteger\b'):
             bsonnumpy.sequence_to_ndarray(None, None, None)
-        with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires an iterator'):
+        with self.assertRaisesPattern(
+                TypeError, r'sequence_to_ndarray requires an iterator'):
             bsonnumpy.sequence_to_ndarray(0, 0, 0)
-        with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
-            bsonnumpy.sequence_to_ndarray(self.docs, None, 10)
-        with self.assertRaisesPattern(TypeError, r'function takes exactly 3 arguments \(4 given\)'):
-            bsonnumpy.sequence_to_ndarray(self.dtype, self.docs, 10, 10)
+        with self.assertRaisesPattern(
+                TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
+            bsonnumpy.sequence_to_ndarray(self.bson_docs, None, 10)
+        with self.assertRaisesPattern(
+                TypeError, r'sequence_to_ndarray requires an iterator'):
+            bsonnumpy.sequence_to_ndarray(self.dtype, self.bson_docs, 10)
+        with self.assertRaisesPattern(
+                TypeError, r'function takes exactly 3 arguments \(4 given\)'):
+            bsonnumpy.sequence_to_ndarray(self.dtype, self.bson_docs, 10, 10)
 
 
     @client_context.require_connected
     def test_incorrect_sequence(self):
+        docs = [{"x": i, "y": -i} for i in range(10)]
 
         # Non-iterator sequence
-        with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires an iterator'):
+        with self.assertRaisesPattern(
+                TypeError, r'sequence_to_ndarray requires an iterator'):
             bsonnumpy.sequence_to_ndarray(None, self.dtype, 10)
 
         # Empty iterator
@@ -40,42 +50,56 @@ class TestErrors(TestToNdarray):
             self.assertEqual(res.size, 0)
 
         # Non-BSON documents
-        with self.assertRaisesPattern(bsonnumpy.error, r'document from sequence failed validation'):
-            bsonnumpy.sequence_to_ndarray(self.docs, self.dtype, 10)
-        with self.assertRaisesPattern(bsonnumpy.error, r'document from sequence failed validation'):
-            bsonnumpy.sequence_to_ndarray((None for _ in range(10)), self.dtype, 10)
-        with self.assertRaisesPattern(bsonnumpy.error, r'document from sequence failed validation'):
-            bsonnumpy.sequence_to_ndarray(({} for _ in range(10)), self.dtype, 10)
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'document from sequence failed validation'):
+            bsonnumpy.sequence_to_ndarray(docs, self.dtype, 10)
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'document from sequence failed validation'):
+            bsonnumpy.sequence_to_ndarray(
+                (None for _ in range(10)), self.dtype, 10)
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'document from sequence failed validation'):
+            bsonnumpy.sequence_to_ndarray(
+                ({} for _ in range(10)), self.dtype, 10)
 
 
     def test_incorrect_dtype(self):
-        document = bson.SON([("x", 99),
-                             ("y", 88)])
-        utf8 = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
         dtype = np.dtype([('a', np.int32), ('b', np.int32)])
 
         # Dtype is named, but does not match documents
-        with self.assertRaisesPattern(bsonnumpy.error, r'document does not match dtype'):
-            bsonnumpy.sequence_to_ndarray([utf8], dtype, 1)
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'document does not match dtype'):
+            bsonnumpy.sequence_to_ndarray(self.bson_docs, dtype, 10)
 
         # Dtype is not named
-        with self.assertRaisesPattern(bsonnumpy.error, r'dtype must include field names, like dtype\(\[\(\'fieldname\', numpy.int\)\]\)'):
-            bsonnumpy.sequence_to_ndarray([utf8], np.dtype(np.int32), 1)
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                r'dtype must include field names, like dtype\(\[\(\'fieldname\', numpy.int\)\]\)'):
+            bsonnumpy.sequence_to_ndarray(
+                self.bson_docs, np.dtype(np.int32), 10)
 
         # Dtype is null or empty
-        with self.assertRaisesPattern(TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
-            bsonnumpy.sequence_to_ndarray([utf8], None, 1)
+        with self.assertRaisesPattern(
+                TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
+            bsonnumpy.sequence_to_ndarray(self.bson_docs, None, 1)
 
 
+    def test_incorrect_count(self):
+        self.assertTrue(
+            np.array_equal(
+                bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, 100),
+                self.ndarray))
+        self.assertTrue(
+            np.array_equal(
+                bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, 5),
+                self.ndarray[:5]))
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'count argument was negative'):
+            bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, -10)
+        with self.assertRaisesPattern(TypeError, r'\binteger\b'):
+            bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, None)
 
 
-    # def test_incorrect_count(self):
-    #     # Count is greater than iterator
-    #     # Count is smaller than iterator
-    #     # Count is negative
-    #     # Count is null
-    #     pass
-    #
     # def test_sub_named_fields(self):
     #     # dtype.fields is not a dict
     #     # "expected list from dtype, got other type"
@@ -99,45 +123,4 @@ class TestErrors(TestToNdarray):
     #     # TODO: unhandled case
     #     pass
 
-    # def test_mismatched_dtype1(self):
-    #     docs = [{"x": [1, i ,3], "y": 10 - i} for i in range(10)]
-    #     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
-    #
-    #     coll = self.get_cursor_sequence(docs)
-    #
-    #     bsonnumpy.sequence_to_ndarray(
-    #         (doc.raw for doc in coll.find()), dtype, coll.count())
-    #
-    # def test_mismatched_dtype1(self):
-    #     docs = [{"y": 10 - i} for i in range(10)]
-    #     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
-    #
-    #     coll = self.get_cursor_sequence(docs)
-    #
-    #     bsonnumpy.sequence_to_ndarray(
-    #         (doc.raw for doc in coll.find()), dtype, coll.count())
-    #
-    # def test_unnamed_dtype(self):
-    #     docs = [{"y": 10 - i} for i in range(10)]
-    #     dtype = np.dtype('10int32')
-    #
-    #     coll = self.get_cursor_sequence(docs)
-    #
-    #     bsonnumpy.sequence_to_ndarray(
-    #         (doc.raw for doc in coll.find()), dtype, coll.count())
-    #
-    #
     # def test_wrong_count(self):
-    #     docs = [{"x": i, "y": 10 - i} for i in range(10)]
-    #     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
-    #
-    #     coll = self.get_cursor_sequence(docs)
-    #     ndarray = bsonnumpy.sequence_to_ndarray(
-    #         (doc.raw for doc in coll.find()), dtype, 8)
-    #     print ndarray
-    #
-    #
-    #     coll = self.get_cursor_sequence(docs)
-    #     ndarray = bsonnumpy.sequence_to_ndarray(
-    #         (doc.raw for doc in coll.find()), dtype, 12)
-    #     print ndarray

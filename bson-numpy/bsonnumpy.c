@@ -735,6 +735,11 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
                         "dtype argument was invalid");
         return NULL;
     }
+    if (num_documents < 0) {
+        PyErr_SetString(BsonNumpyError,
+                        "count argument was negative");
+        return NULL;
+    }
 
     dimension_lengths = malloc(1 * sizeof(npy_intp));
     dimension_lengths[0] = num_documents;
