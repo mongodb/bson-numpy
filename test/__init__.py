@@ -123,16 +123,19 @@ class TestToNdarray(unittest.TestCase):
                 self.compare_elements(exp[name], act[name],
                                       dtype=dtype.fields[name][0])
 
-    def make_mixed_collection_test(self, docs, dtype):
+    def get_cursor_sequence(self, docs):
         self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
         raw_coll = self.client.get_database(
             'bsonnumpy_test',
             codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        cursor = raw_coll.find()
+        return raw_coll
+
+    def make_mixed_collection_test(self, docs, dtype):
+        raw_coll = self.get_cursor_sequence(docs)
 
         ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
+            (doc.raw for doc in raw_coll.find()), dtype, raw_coll.count())
         self.compare_results(np.dtype(dtype),
                              self.client.bsonnumpy_test.coll.find(),
                              ndarray)
