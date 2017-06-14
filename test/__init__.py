@@ -140,6 +140,7 @@ class TestToNdarray(unittest.TestCase):
                              self.client.bsonnumpy_test.coll.find(),
                              ndarray)
 
+
 def millis(delta):
     if hasattr(delta, 'total_seconds'):
         return delta.total_seconds() * 1000

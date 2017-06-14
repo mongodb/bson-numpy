@@ -8,8 +8,8 @@ from test import client_context, TestToNdarray, unittest
 class TestErrors(TestToNdarray):
     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
     bson_docs = [bson._dict_to_bson(
-        doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [bson.SON(
-        [("x", i), ("y", -i)]) for i in range(10)]]
+        doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [
+        bson.SON([("x", i), ("y", -i)]) for i in range(10)]]
     ndarray = np.array([(i, -i) for i in range(10)], dtype=dtype)
     if hasattr(unittest.TestCase, 'assertRaisesRegex'):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegex
@@ -33,8 +33,6 @@ class TestErrors(TestToNdarray):
                 TypeError, r'function takes exactly 3 arguments \(4 given\)'):
             bsonnumpy.sequence_to_ndarray(self.dtype, self.bson_docs, 10, 10)
 
-
-    @client_context.require_connected
     def test_incorrect_sequence(self):
         docs = [{"x": i, "y": -i} for i in range(10)]
 
@@ -62,7 +60,6 @@ class TestErrors(TestToNdarray):
             bsonnumpy.sequence_to_ndarray(
                 ({} for _ in range(10)), self.dtype, 10)
 
-
     def test_incorrect_dtype(self):
         dtype = np.dtype([('a', np.int32), ('b', np.int32)])
 
@@ -74,7 +71,8 @@ class TestErrors(TestToNdarray):
         # Dtype is not named
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                r'dtype must include field names, like dtype\(\[\(\'fieldname\', numpy.int\)\]\)'):
+                r'dtype must include field names,'
+                r' like dtype\(\[\(\'fieldname\', numpy.int\)\]\)'):
             bsonnumpy.sequence_to_ndarray(
                 self.bson_docs, np.dtype(np.int32), 10)
 
@@ -82,7 +80,6 @@ class TestErrors(TestToNdarray):
         with self.assertRaisesPattern(
                 TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, None, 1)
-
 
     def test_incorrect_count(self):
         self.assertTrue(
@@ -99,7 +96,6 @@ class TestErrors(TestToNdarray):
         with self.assertRaisesPattern(TypeError, r'\binteger\b'):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, None)
 
-
     # def test_sub_named_fields(self):
     #     # dtype.fields is not a dict
     #     # "expected list from dtype, got other type"
@@ -108,11 +104,13 @@ class TestErrors(TestToNdarray):
     #
     # def test_named_scalar_load(self):
     #     # within named dtype, scalar value has sub_dtype->elsize
-    #     # within named dtype, scalar value does not match dtype specificed key ("document does not match dtype")
+    #     # within named dtype, scalar value does not match dtype specificed
+            # key ("document does not match dtype")
     #     pass
     #
     # def test_sub_array(self):
-    #     # dtype expects list, document does not contain array ("expected list from dtype, got another type")
+    #     # dtype expects list, document does not contain array ("expected list
+            #  from dtype, got another type")
     #     # "expected subarray, got other type"
     #     # "key from dtype not found"
     #     pass

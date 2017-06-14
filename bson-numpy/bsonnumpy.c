@@ -586,8 +586,9 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                                              offset + offset_long);
 
                 } else {
-                    PyErr_SetString(BsonNumpyError,
-                                    "Error: expected key from dtype in document, not found");
+                    PyErr_SetString(
+                            BsonNumpyError,
+                            "Error: expected key from dtype in document, not found");
                 }
             } else {
                 /* If the current key's value is a leaf */
@@ -604,7 +605,9 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                     }
                 } else {
                     char buffer [100];
-                    snprintf(buffer, 100, "Could not find key \"%s\" in document %s\n", key_str, bson_as_json(document, NULL));
+                    snprintf(buffer, 100,
+                             "Could not find key \"%s\" in document %s\n",
+                             key_str, bson_as_json(document, NULL));
                     debug(buffer, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "document does not match dtype.");

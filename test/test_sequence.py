@@ -418,7 +418,8 @@ class TestSequence2Ndarray(TestToNdarray):
         self.assertEqual(2, len(ndarray))
 
     def test_null(self):
-        data = bson._dict_to_bson({"x": None}, True, bson.DEFAULT_CODEC_OPTIONS)
+        data = bson._dict_to_bson(
+            {"x": None}, True, bson.DEFAULT_CODEC_OPTIONS)
         with self.assertRaises(bsonnumpy.error) as context:
             bsonnumpy.sequence_to_ndarray(iter([data]),
                                           np.dtype([('x', '<V10')]),
