@@ -20,17 +20,19 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
 static bool debug_mode;
 
 static void
-debug(char* message, PyObject* object)
+debug(char* message, PyObject* object, bson_t* doc)
 {
     if (NULL != getenv("BSON_NUMPY_DEBUG")) {
+        printf("%s", message);
         if (object) {
-            PyObject* repr = PyObject_Repr(object);
-            const char* obj_str = PyBytes_AS_STRING(repr);
-            printf("%s: %s\n", message, obj_str);
-
-        } else {
-            printf("%s\n", message);
+            printf(": ");
+            PyObject_Print(object, stdout, 0);
         }
+        if (doc) {
+            printf(": %s", bson_as_json(doc, NULL));
+
+        }
+        printf("\n");
     }
 }
 
@@ -510,9 +512,9 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
          * descriptor and a byte offset. */
         fields = dtype->fields;
         if (!PyDict_Check(fields)) {
+            debug("dtype->fields is not a dict", fields, NULL);
             PyErr_SetString(BsonNumpyError,
-                            "in _load_flexible_from_bson: dtype.fields not a"
-                            " dict");
+                            "invalid dtype: dtype.fields is not a dict");
             return 0;
         }
 
@@ -525,16 +527,18 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             value = PyDict_GetItem(fields, key);
 
             if (!PyTuple_Check(value)) {
-                PyErr_SetString(BsonNumpyError,
-                                "dtype in fields is not a tuple");
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid dtype: sub dtype is invalid");
                 return 0;
             }
             if (PyUnicode_Check(key)) {
                 key = PyUnicode_AsASCIIString(key);
             }
             if (!PyBytes_Check(key)) {
-                PyErr_SetString(BsonNumpyError,
-                                "bson string error in key names");
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid document: bson string error in key name");
                 return 0;
             }
             offset_obj = PyTuple_GetItem(value, 1);
@@ -544,7 +548,11 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
             /* Convert from python object to numpy dtype object */
             if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) {
-                PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+                debug("dtype->fields sub dtype is invalid",
+                      sub_dtype_obj, NULL);
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid dtype: sub dtype is invalid");
                 return 0;
             }
 
@@ -552,10 +560,13 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             if (sub_dtype->subarray) {
                 /* If the current key's value is a subarray */
                 sub_coordinates[sub_depth] = i;
-                _load_flexible_from_bson(document, coordinates, ndarray,
+                if(!_load_flexible_from_bson(document, coordinates, ndarray,
                                          sub_dtype, current_depth + 1, key_str,
                                          sub_coordinates,
-                                         sub_coordinates_length + 1, offset);
+                                         sub_coordinates_length + 1, offset)) {
+                    /* error set by _load_flexible_from_bson */
+                   return 0;
+                }
 
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
                 /* If the current key's value is a subdocument */
@@ -566,9 +577,11 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                     const uint8_t *document_buffer;
 
                     if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
+                        debug("the document that does not match dtype is",
+                              NULL, document);
                         PyErr_SetString(BsonNumpyError,
-                                        "Expected list from dtype, got other"
-                                        " type");
+                                        "invalid document: expected subdoc "
+                                                "from dtype, got other type");
                         return 0;
                     }
 
@@ -579,22 +592,30 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
                     sub_coordinates[sub_depth] = i;
 
-                    _load_flexible_from_bson(sub_document, coordinates, ndarray,
+                    if (!_load_flexible_from_bson(sub_document, coordinates, ndarray,
                                              sub_dtype, current_depth + 1, NULL,
                                              sub_coordinates,
                                              sub_coordinates_length + 1,
-                                             offset + offset_long);
+                                             offset + offset_long)) {
+                        /* error set by _load_flexible_from_bson */
+                        return 0;
+                    }
 
                 } else {
+
+                    char buffer [100];
+                    snprintf(buffer, 100,
+                             "could not find key \"%s\" in sub document", key_str);
+                    debug(buffer, NULL, document);
                     PyErr_SetString(
                             BsonNumpyError,
-                            "Error: expected key from dtype in document, not found");
+                            "dtype does not match document");
+                    return 0;
                 }
             } else {
                 /* If the current key's value is a leaf */
                 bson_iter_init(&bsonit, document);
                 if (bson_iter_find(&bsonit, key_str)) {
-                    /* TODO: if sub_dtype->elsize==0, then it is a flexible type */
                     success = _load_scalar_from_bson(&bsonit, ndarray,
                                                      offset + offset_long,
                                                      coordinates, current_depth,
@@ -606,9 +627,8 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 } else {
                     char buffer [100];
                     snprintf(buffer, 100,
-                             "Could not find key \"%s\" in document %s\n",
-                             key_str, bson_as_json(document, NULL));
-                    debug(buffer, NULL);
+                             "could not find key \"%s\" in document", key_str);
+                    debug(buffer, NULL, document);
                     PyErr_SetString(BsonNumpyError,
                                     "document does not match dtype.");
                     return 0;
@@ -733,7 +753,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         return NULL;
     }
     if (!PyArray_DescrConverter(dtype_obj, &dtype)) {
-        debug("invalid dtype object", dtype_obj);
+        debug("invalid dtype object", dtype_obj, NULL);
         PyErr_SetString(BsonNumpyError,
                         "dtype argument was invalid");
         return NULL;
@@ -752,7 +772,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     if (dtype->subarray != NULL) {
         PyObject *shape = dtype->subarray->shape;
         if (!PyTuple_Check(shape)) {
-            debug("invalid dtype->subarray->shape", shape);
+            debug("invalid dtype->subarray->shape", shape, NULL);
             PyErr_SetString(BsonNumpyError,
                             "dtype argument had invalid subarray");
             return NULL;
@@ -765,7 +785,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     /* This function steals a reference to dtype? */
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
     if (!array_obj) {
-        debug("PyArray_Zeros failed with dtype", dtype_obj);
+        debug("PyArray_Zeros failed with dtype", dtype_obj, NULL);
         PyErr_SetString(BsonNumpyError,
                         "ndarray initialization failed");
         goto done;
@@ -774,7 +794,8 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
         PyErr_SetString(BsonNumpyError,
                         "ndarray initialization failed");
-        debug("PyArray_OutputConverter failed with array object", array_obj);
+        debug("PyArray_OutputConverter failed with array object",
+              array_obj, NULL);
         PyErr_SetString(BsonNumpyError,
                         "ndarray initialization failed");
         goto done;
@@ -792,14 +813,17 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         Py_ssize_t bytes_len = PyBytes_GET_SIZE(binary_doc);
         bson_t *document = bson_new_from_data((uint8_t *) bytes_str, bytes_len);
         if (!document) {
-            debug("binary document failed bson_new_from_document", binary_doc);
-            PyErr_SetString(BsonNumpyError, "document from sequence failed validation");
+            debug("binary document failed bson_new_from_document",
+                  binary_doc, NULL);
+            PyErr_SetString(BsonNumpyError,
+                            "document from sequence failed validation");
             return 0;
         }
 
         if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
-            debug("binary document failed bson_validate", binary_doc);
-            PyErr_SetString(BsonNumpyError, "document from sequence failed validation");
+            debug("binary document failed bson_validate", binary_doc, NULL);
+            PyErr_SetString(BsonNumpyError,
+                            "document from sequence failed validation");
             return 0;
         }
 
@@ -828,9 +852,9 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     if (row < num_documents) {
         PyObject *none_obj;
         PyArray_Dims newshape = {dimension_lengths, number_dimensions};
-        if (debug_mode) {
+//        if (debug_mode) {
             printf("resizing from %d to %d\n", num_documents, row);
-        }
+//        }
 
         dimension_lengths[0] = row;
         /* returns None or NULL */
