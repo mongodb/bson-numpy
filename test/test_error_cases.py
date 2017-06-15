@@ -114,43 +114,55 @@ class TestErrors(TestToNdarray):
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype_sub, 10)
         self.assertTrue(np.array_equal(ndarray, res))
 
+        # Top document missing key
+        bad_doc = bson.SON(
+            [("bad", bson.SON([("y", 0), ("z", 0)])),
+             ("q", bson.SON([("y", 0), ("z", 0)]))])
+
+        bad_raw_docs = raw_docs[:9]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      "document does not match dtype"):
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype_sub, 10)
+
         # Sub document missing key
         bad_doc = bson.SON(
             [("x", bson.SON([("bad", 0), ("z", 0)])),
              ("q", bson.SON([("y", 0), ("z", 0)]))])
 
-        raw_docs2 = raw_docs[:9]
-        raw_docs2.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs = raw_docs[:9]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(bsonnumpy.error,
                                       "document does not match dtype"):
-            bsonnumpy.sequence_to_ndarray(raw_docs2, dtype_sub, 10)
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype_sub, 10)
 
         # Sub document not a document
         bad_doc = bson.SON(
             [("x", bson.SON([("y", 0), ("z", 0)])),
              ("q", 10)])
 
-        raw_docs2 = raw_docs[:9]
-        raw_docs2.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs = raw_docs[:9]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(
                 bsonnumpy.error,
                 "invalid document: expected subdoc from dtype, got other type"):
-            bsonnumpy.sequence_to_ndarray(raw_docs2, dtype_sub, 10)
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype_sub, 10)
 
         # Sub document not a document
         bad_doc = bson.SON(
             [("x", bson.SON([("y", 0), ("z", 0)])),
              ("q", [10, 11, 12])])
 
-        raw_docs2 = raw_docs[:9]
-        raw_docs2.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs = raw_docs[:9]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(
                 bsonnumpy.error,
                 "invalid document: expected subdoc from dtype, got other type"):
-            bsonnumpy.sequence_to_ndarray(raw_docs2, dtype_sub, 10)
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype_sub, 10)
 
         # Sub document extra key
         dtype2 = np.dtype([('y', np.int32), ('z', np.int32)])
@@ -186,33 +198,197 @@ class TestErrors(TestToNdarray):
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
-        # bad_doc = bson.SON(
-        #     [("x", [['q', 'qq', 'qqq'], ['qqqq', 'qqqqq', 'qqqqqq']]),
-        #      ("y", [['r', 'rr', 'rrr'], ['rrrr', 'rrrrr', 'rrrrrr']])])
 
-        # Dtype array not array
+        # Top document missing key
         bad_doc = bson.SON(
-            [("x", [['q', 'qq', 'qqq'], 'not an array']),
-             ("y", [['r', 'rr', 'rrr'], ['rrrr', 'rrrrr', 'rrrrrr']])])
-        raw_docs2 = raw_docs[:3]
-        raw_docs2.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+            [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
+             ("bad_key", [['d'*7, 'd'*7, 'd'*9], ['d'*10, 'd'*11, 'd'*12]])])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      "document does not match dtype"):
+
+             bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+
+        # Top-level array not array
+        bad_doc = bson.SON(
+            [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
+             ("y", 'not an array')])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                "invalid document: expected list from dtype, got other type"):
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+
+        #TODO: not checking type
+        # Sub array not array
+        bad_doc = bson.SON(
+            [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
+             ("y", ['not an array', ['d'*10, 'd'*11, 'd'*12]])])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         # with self.assertRaisesPattern(bsonnumpy.error,
         #                               "document does not match dtype"):
-        print bsonnumpy.sequence_to_ndarray(raw_docs2, dtype, 4)
+        # print bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+
+        # Top-level array too long
+        bad_doc = bson.SON(
+            [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6], ['d'*4, 'd'*5, 'd'*6]]),
+             ("y", [['d'*7, 'd'*8, 'd'*9], ['d'*10, 'd'*11, 'd'*12], ['d'*10, 'd'*11, 'd'*12]])])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+        self.assertTrue(np.array_equal(ndarray, res))
+
+        # Sub array too long
+        bad_doc = bson.SON(
+            [("x", [['d'*1, 'd'*2, 'd'*3, 'd'*3], ['d'*4, 'd'*5, 'd'*6, 'd'*3]]),
+             ("y", [['d'*7, 'd'*8, 'd'*9, 'd'*3], ['d'*10, 'd'*11, 'd'*12, 'd'*3]])])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+        self.assertTrue(np.array_equal(ndarray, res))
+
+        # TODO: segfaults
+        # Top-level array too short
+        bad_doc = bson.SON(
+            [("x", [['d'*1, 'd'*2, 'd'*3]]),
+             ("y", [['d'*7, 'd'*8, 'd'*9]])])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        # print bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+
+        # TODO: currently just leaves last element empty
+        # Sub array too short
+        bad_doc = bson.SON(
+            [("x", [['d'*1, 'd'*2], ['d'*4, 'd'*5]]),
+             ("y", [['d'*7, 'd'*8], ['d'*10, 'd'*11]])])
+        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+        # self.assertTrue(np.array_equal(ndarray, res))
+
+    def test_array_scalar_load1(self):
+        # Test arrays with documents as elements
+
+        son_docs = [
+            bson.SON(
+                [('x', [
+                    bson.SON([('a', i), ('b', i)]),
+                    bson.SON([('a', -i), ('b', -i)])
+                ])]) for i in range(10)]
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+        sub_dtype = np.dtype(([('a', 'int32'), ('b', 'int32')], 2))
+        dtype = np.dtype([('x', sub_dtype)])
+
+        ndarray = np.array([
+            ([(i, i), (-i, -i)],)
+            for i in range(10)], dtype)
+
+        print ndarray
+
+        # Correct dtype
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
+        self.assertTrue(np.array_equal(ndarray, res))
 
 
-    # def test_sub_array(self):
-    #     # dtype expects list, document does not contain array ("expected list
-            #  from dtype, got another type")
-    #     # "expected subarray, got other type"
-    #     # "key from dtype not found"
-    #     pass
-    #
-    # def test_array_scalar_load(self):
-    #     # array within named dtype contains named dtype
-    #     # array within named dtype contains array
-    #     # TODO: unhandled case
-    #     pass
+    def test_array_scalar_load2(self):
+        # Test sub arrays with documents as elements
+        son_docs = [
+            bson.SON(
+                [('x', [
+                    [
+                        bson.SON([('a', i), ('b', i)]),
+                        bson.SON([('a', -i), ('b', -i)])
+                    ],
+                    [
+                        bson.SON([('c', i), ('d', i)]),
+                        bson.SON([('c', -i), ('d', -i)])
+                    ],
 
-    # def test_wrong_count(self):
+                ])]) for i in range(10)]
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+        sub_sub_dtype = np.dtype(([('a', 'int32'), ('b', 'int32')], 2))
+        sub_dtype = np.dtype((sub_sub_dtype, 2))
+        dtype = np.dtype([('x', sub_dtype)])
+
+        ndarray = np.array([
+            [
+                ([(i, i), (-i, -i)],),
+                ([(i, i), (-i, -i)],)
+            ] for i in range(10)], dtype)
+
+        print ndarray
+
+        # Correct dtype
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
+        self.assertTrue(np.array_equal(ndarray, res))
+
+    def test_array_scalar_load3(self):
+        # Test sub arrays with documents that have arrays
+        son_docs = [
+            bson.SON(
+                [('x', [
+                    bson.SON([('a', [i, i, i, i]), ('b', [i, i, i, i])]),
+                    bson.SON([('a', [-i, -i -i, -i]), ('b', [-i, -i, -i, -i])])
+                ])]) for i in range(10)]
+
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+        sub_dtype = np.dtype(([('a', '4int32'), ('b', '4int32')], 2))
+        dtype = np.dtype([('x', sub_dtype)])
+
+        ndarray = np.array([
+                               ([(
+                                   [i, i, i, i], [i, i, i, i]
+                               ), (
+                                   [-i, -i, -i, -i], [-i, -i, -i, -i]
+                               )],)
+                               for i in range(10)], dtype)
+
+        print ndarray
+
+        # Correct dtype
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
+        self.assertTrue(np.array_equal(ndarray, res))
+
+    def test_array_scalar_load4(self):
+        # Test documents with multiple levels of sub documents
+        son_docs = [
+            bson.SON(
+                [('x', [
+                    [
+                        bson.SON([('a', i), ('b', i)]),
+                        bson.SON([('a', -i), ('b', -i)])
+                    ],
+                    [
+                        bson.SON([('c', i), ('d', i)]),
+                        bson.SON([('c', -i), ('d', -i)])
+                    ],
+
+                ])]) for i in range(10)]
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+        sub_sub_sub_dtype = np.dtype([('q', 'int32')])
+        sub_sub_dtype = np.dtype(([('a', sub_sub_sub_dtype), ('b', sub_sub_sub_dtype)], 2))
+        sub_dtype = np.dtype((sub_sub_dtype, 2))
+        dtype = np.dtype([('x', sub_dtype)])
+
+        print dtype
+
+        print np.zeros(1, dtype)
+
+        ndarray = np.array([
+            ([[((i,), (i,)), ((-i,), (-i,))], [((i,), (i,)), ((-i,), (-i,))]],)
+         for i in range(10)], dtype)
+
+        print ndarray
+
+        # Correct dtype
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
+        self.assertTrue(np.array_equal(ndarray, res))

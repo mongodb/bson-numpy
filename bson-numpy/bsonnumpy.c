@@ -609,7 +609,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                     debug(buffer, NULL, document);
                     PyErr_SetString(
                             BsonNumpyError,
-                            "dtype does not match document");
+                            "document does not match dtype");
                     return 0;
                 }
             } else {
@@ -627,10 +627,11 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 } else {
                     char buffer [100];
                     snprintf(buffer, 100,
-                             "could not find key \"%s\" in document", key_str);
+                             "could not find key \"%s\" in document."
+                                     " dtype expects a sub document", key_str);
                     debug(buffer, NULL, document);
                     PyErr_SetString(BsonNumpyError,
-                                    "document does not match dtype.");
+                                    "document does not match dtype");
                     return 0;
                 }
             }
@@ -656,8 +657,11 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             bson_iter_t sub_it;
 
             if (!BSON_ITER_HOLDS_ARRAY(&bsonit)) {
+                debug("the document that does not match dtype is",
+                      NULL, document);
                 PyErr_SetString(BsonNumpyError,
-                                "Expected list from dtype, got other type");
+                                "invalid document: expected list from dtype,"
+                                        " got other type");
                 return 0;
             }
 
@@ -670,8 +674,12 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 subndarray_tuple = PyTuple_GetItem(subndarray_tuple, offset);
             }
             if (!PyArray_OutputConverter(subndarray_tuple, &subndarray)) {
+                // TODO: not sure how to test this
+                debug("PyArray_OutputConverter failed for the subarray"
+                              " retrieved from the ndarray",
+                      subndarray_tuple, NULL);
                 PyErr_SetString(BsonNumpyError,
-                                "Expected subarray, got other type");
+                                "Dimension mismatch");
                 return 0;
             }
 
@@ -685,6 +693,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             /* Loop through array and load sub-arrays */
             bson_iter_recurse(&bsonit, &sub_it);
             for (i = 0; i < length_long; i++) {
+                //TODO: error is happening because the type is never checked before calling load_scalar
                 int success;
 
                 bson_iter_next(&sub_it);
@@ -697,7 +706,12 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
                 }
             }
         } else {
-            PyErr_SetString(BsonNumpyError, "key from dtype not found");
+            char buffer [100];
+            snprintf(buffer, 100,
+                     "could not find key \"%s\" in document", key_str);
+            debug(buffer, NULL, document);
+            PyErr_SetString(BsonNumpyError,
+                            "document does not match dtype.");
             return 0;
         }
 
