@@ -487,6 +487,289 @@ bson_to_ndarray(PyObject *self, PyObject *args)
     return array_obj;
 }
 
+static int
+_load_farray_from_bson(bson_iter_t *bsonit, npy_intp *coordinates,
+        PyArrayObject *ndarray, PyArray_Descr *dtype,
+        int current_depth) {
+    debug("in load_farray, dtype", dtype, NULL);
+    debug("in load_farray, ndarray", ndarray, NULL);
+    printf("in load_farray, current_depth=%i\n", current_depth);
+
+//    int number_dimensions = PyArray_NDIM(ndarray);
+//    PyArray_Descr *base_dtype;
+//    PyObject* shape;
+//    PyObject* base_obj;
+//    PyObject *offset_obj;
+//    Py_ssize_t i;
+//    PyObject *subndarray_tuple;
+//    PyObject *length_obj;
+//    void *ptr;
+//    long length_long;
+
+    if (!BSON_ITER_HOLDS_ARRAY(bsonit)) {
+//      TODO: could include document in the arguments in order to provide better debug msgs
+//      debug("the document that does not match dtype is", NULL, document);
+        PyErr_SetString(BsonNumpyError,
+                        "invalid document: expected list from dtype,"
+                                " got other type");
+        return 0;
+    }
+
+    if (dtype->subarray) {
+
+        /* Get the subarray's base type and shape */
+        PyObject *shape = dtype->subarray->shape;
+        PyArray_Descr *base_dtype = dtype->subarray->base;
+
+        /* Loop through array. Trying iterative instead of recursive for speed */
+
+
+        if (base_dtype->fields != NULL && base_dtype->fields != Py_None) {
+            /* The array contains documents */
+        } else {
+            /* The array contains scalars */
+            // TODO: check that BSON matches shape of dtype
+
+        }
+
+
+
+//        bson_iter_init(&bsonit, document);
+//
+//        debug("loading subarray, shape", shape, NULL);
+//
+//        Py_ssize_t dims_subarray = PyTuple_Size(shape);
+//            npy_intp i;
+//            int sub_i;
+//            PyArrayObject *subndarray;
+//            npy_intp *subarray_coordinates;
+//            bson_iter_t sub_it;
+//
+//
+//
+//            /* Get length of top-level array */
+//            length_obj = PyTuple_GetItem(shape, 0);
+//            length_long = PyLong_AsLong(length_obj);
+//
+//            /* Create coordinates for subtype */
+//            subarray_coordinates = calloc(dims_subarray + 1, sizeof(npy_intp));
+//
+//            /* Loop through array and load sub-arrays */
+//            bson_iter_recurse(&bsonit, &sub_it);
+//            for (i = 0; i < length_long; i++) {
+//                // TODO: implement
+//            }
+
+
+        return 1;
+    }
+
+    /* Called incorrectly */
+    debug("_load_farray_from_bson called with a non-array dtype",
+          (PyObject*)dtype, NULL);
+    PyErr_SetString(BsonNumpyError,
+                    "I don't think this is possible");
+    return 0;
+
+}
+
+
+static int
+_load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
+                         PyArrayObject *ndarray, PyArray_Descr *dtype,
+                         int current_depth,
+                         npy_intp *sub_coordinates,
+                         npy_intp sub_coordinates_length, npy_intp offset) {
+
+    PyObject *fields, *key, *value = NULL;
+    int number_dimensions = PyArray_NDIM(ndarray);
+    Py_ssize_t pos;
+    bson_iter_t bsonit;
+    char* key_str;
+    PyArray_Descr *sub_dtype;
+    PyObject *sub_dtype_obj, *offset_obj;
+    Py_ssize_t i;
+
+    printf("in load_fdoc, CURR_DEPTH=%i\n", current_depth);
+
+    if (dtype->fields != NULL && dtype->fields != Py_None) {
+        /* A field is described by a tuple composed of another data-type
+         * descriptor and a byte offset. */
+        fields = dtype->fields;
+
+        PyObject *ordered_names = PyArray_FieldNames(fields);
+        Py_ssize_t number_fields = PyTuple_Size(ordered_names);
+        if (!PyDict_Check(fields)) {
+            debug("dtype->fields is not a dict", fields, NULL);
+            PyErr_SetString(BsonNumpyError,
+                            "invalid dtype: dtype.fields is not a dict");
+            return 0;
+        }
+
+        pos = 0;
+
+        for (i = 0; i < number_fields; i++) {
+            long offset_long;
+            int sub_depth;
+            key = PyTuple_GetItem(ordered_names, i);
+            value = PyDict_GetItem(fields, key);
+
+            /* Get key, sub dtype, and offset for each field in dtype */
+            if (!PyTuple_Check(value)) {
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid dtype: sub dtype is invalid");
+                return 0;
+            }
+            if (PyUnicode_Check(key)) {
+                key = PyUnicode_AsASCIIString(key);
+            }
+            if (!PyBytes_Check(key)) {
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid document: bson string error in key name");
+                return 0;
+            }
+            offset_obj = PyTuple_GetItem(value, 1);
+            offset_long = PyLong_AsLong(offset_obj);
+            key_str = PyBytes_AsString(key);
+            sub_dtype_obj = PyTuple_GetItem(value, 0);
+            if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) {
+                debug("dtype->fields sub dtype is invalid",
+                      sub_dtype_obj, NULL);
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid dtype: sub dtype is invalid");
+                return 0;
+            }
+
+            /* Get subdocument from BSON document */
+            bson_iter_init(&bsonit, document);
+            if (!bson_iter_find(&bsonit, key_str)) {
+                /* BSON document is missing key specified by dtype */
+                char buffer[100];
+                snprintf(buffer, 100,
+                         "could not find key \"%s\" in sub document",
+                         key_str);
+                debug(buffer, NULL, document);
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "document does not match dtype");
+                return 0;
+            }
+
+            /* Call correct loading function for each value */
+            sub_depth = current_depth - number_dimensions;
+            sub_coordinates[sub_depth] = i;
+
+            if (sub_dtype->subarray) {
+                debug("in load_fdoc, found subarray in sub_dtype", sub_dtype, NULL);
+                /* If the current key's value is a subarray */
+                void *ptr;
+                int sub_i;
+                PyArrayObject *subndarray;
+
+                /* Get subarray as ndarray */
+                ptr = PyArray_GetPtr(ndarray, coordinates);
+                PyObject* subndarray_tuple = PyArray_GETITEM(ndarray, ptr);
+                debug("in load_fdoc, subndarray_tuple from GETITEM(coordinates)", subndarray_tuple, NULL);
+
+//                TODO: Not sure what was being done here or why
+//                PyObject* subndarray_obj;
+//                for (sub_i = 0; sub_i <= sub_depth; sub_i++) {
+//                    npy_intp offset = sub_coordinates[sub_i];
+//                    subndarray_obj = PyTuple_GetItem(subndarray_tuple, offset);
+//                    printf("\tnew offset=%i ", offset);
+//                    debug(" subndarray_obj", subndarray_obj, NULL);
+//                }
+                PyObject* subndarray_obj = PyTuple_GetItem(subndarray_tuple, 0);
+
+                if (!PyArray_OutputConverter(subndarray_obj, &subndarray)) {
+                    debug("PyArray_OutputConverter failed for the subarray"
+                                  " retrieved from the ndarray",
+                          subndarray_tuple, NULL);
+                    PyErr_SetString(BsonNumpyError,
+                                    "Dimension mismatch");
+                    return 0;
+                }
+                debug("in load_fdoc, creating new sub ndarray", subndarray, NULL);
+
+                PyObject *shape = sub_dtype->subarray->shape;
+                if (!PyTuple_Check(shape)) {
+                    debug("invalid dtype->subarray->shape", shape, NULL);
+                    PyErr_SetString(BsonNumpyError,
+                                    "dtype argument had invalid subarray");
+                    return NULL;
+                }
+                int sub_number_dimensions = (int) PyTuple_Size(shape);
+                npy_intp* new_coordinates = calloc(1 + sub_number_dimensions, sizeof(npy_intp));
+
+                /* Call load_flexible_array because sub_dtype may have fields */
+                //TODO: reset coordinates
+                if (!_load_farray_from_bson(&bsonit, new_coordinates, subndarray,
+                                            sub_dtype, 0)) { //TODO: maybe set current_depth to 1?
+                    //TODO: I think we can get rid of these arguments
+//                                             ,
+//                                            sub_coordinates,
+//                                            sub_coordinates_length + 1,
+//                                            offset)) {
+                    /* error set by _load_farray_from_bson */
+                    return 0;
+                }
+
+            } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
+                /* If the current key's value is a subdocument */
+                bson_t *sub_document;
+                uint32_t document_len;
+                const uint8_t *document_buffer;
+
+                if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
+                    debug("the document that does not match dtype is",
+                          NULL, document);
+                    PyErr_SetString(BsonNumpyError,
+                                    "invalid document: expected subdoc "
+                                            "from dtype, got other type");
+                    return 0;
+                }
+
+                bson_iter_document(&bsonit, &document_len,
+                                   &document_buffer);
+                sub_document = bson_new_from_data(document_buffer,
+                                                  document_len);
+
+
+                if (!_load_fdocument_from_bson(
+                        sub_document, coordinates, ndarray,
+                        sub_dtype, current_depth + 1,
+                        sub_coordinates, sub_coordinates_length + 1,
+                        offset + offset_long)) {
+                    /* error set by _load_fdoc_from_bson */
+                    return 0;
+                }
+            } else {
+                /* If the current key's value is a leaf */
+                if (!_load_scalar_from_bson(&bsonit, ndarray,
+                                             offset + offset_long,
+                                             coordinates, current_depth,
+                                             sub_dtype)) {
+                    /* Error set by _load_scalar_from_bson */
+                    return 0;
+                }
+            }
+            pos++;
+        }
+        return 1;
+    }
+
+    /* Called incorrectly */
+    debug("_load_fdocument_from_bson called with a non-document dtype",
+          (PyObject*)dtype, NULL);
+    PyErr_SetString(BsonNumpyError,
+                    "dtype must include field names, like"
+                            " dtype([('fieldname', numpy.int)])");
+    return 0;
+}
+
 
 static int
 _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
@@ -559,6 +842,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             sub_depth = current_depth - number_dimensions;
             if (sub_dtype->subarray) {
                 /* If the current key's value is a subarray */
+                //TODO: maybe do type check for array here?
                 sub_coordinates[sub_depth] = i;
                 if(!_load_flexible_from_bson(document, coordinates, ndarray,
                                          sub_dtype, current_depth + 1, key_str,
@@ -642,7 +926,7 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
     } else if (dtype->subarray) {
         /* If current dtype is a subarray */
         PyObject *shape = dtype->subarray->shape;
-        PyArray_Descr *sub_descr = dtype->subarray->base;
+        sub_dtype = dtype->subarray->base;
         void *ptr;
         PyObject *subndarray_tuple;
         PyObject *length_obj;
@@ -705,12 +989,34 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
                 bson_iter_next(&sub_it);
                 subarray_coordinates[0] = i;
-                success = _load_scalar_from_bson(&sub_it, subndarray, 0,
-                                                 subarray_coordinates, 0,
-                                                 sub_descr);
-                if (success == 0) {
-                    return 0;
+
+                if (sub_dtype->subarray) {
+                    /* If the current key's value is a subarray */
+                } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
+                    /* If the current key's value is a subdocument */
+                } else {
+                    /* If the current key's value is a leaf */
+//                    if (dims_subarray > 0) {
+                        /* If the array is of basic types, but multidimensional */
+//                        if (!BSON_ITER_HOLDS_ARRAY(&sub_it)) {
+//                            debug("the document that does not match dtype is",
+//                                  NULL, document);
+//                            PyErr_SetString(BsonNumpyError,
+//                                            "invalid document: expected list from dtype,"
+//                                                    " got other type");
+//                            return 0;
+//                        }
+                        if (!_load_scalar_from_bson(&sub_it, subndarray, 0,
+                                                    subarray_coordinates, 0,
+                                                    dtype)) {
+                            return 0;
+                        }
+
+//                    }
+
                 }
+
+
             }
         } else {
             char buffer [100];
@@ -848,11 +1154,10 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
         sub_coordinates = calloc(100, sizeof(npy_intp));
 
-        /* Don't need to pass key_str to top-level document */
-        if (!_load_flexible_from_bson(document, coordinates, ndarray,
-                                      PyArray_DTYPE(ndarray), 1, NULL,
+        if (!_load_fdocument_from_bson(document, coordinates, ndarray,
+                                      PyArray_DTYPE(ndarray), 1,
                                       sub_coordinates, 0, 0)) {
-            /* error set by _load_flexible_from_bson */
+            /* error set by _load_fdocument_from_bson */
             return NULL;
         }
 
