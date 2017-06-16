@@ -228,6 +228,24 @@ class TestErrors(TestToNdarray):
                 "invalid document: expected list from dtype, got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
 
+
+    @unittest.skip("not yet implemented")
+    def test_incorrect_sub_dtype2(self):
+        son_docs = [
+            bson.SON(
+                [("x", [[i, i*2, i*3], [i*4, i*5, i*6]]),
+                 ("y", [[i*7, i*8, i*9], [i*10, i*11, i*12]])])
+            for i in ['a', 'b', 'c', 'd']]
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+
+        dtype = np.dtype([('x', '2,3S13'), ('y', '2,3S13')])
+
+        ndarray = np.array(
+            [([[i, i*2, i*3], [i*4, i*5, i*6]],
+              ([[i*7, i*8, i*9], [i*10, i*11, i*12]]))
+             for i in ['a', 'b', 'c', 'd']], dtype=dtype)
+
         # Top-level array too long
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3],
@@ -253,23 +271,6 @@ class TestErrors(TestToNdarray):
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
-
-    @unittest.skip("not yet implemented")
-    def test_incorrect_sub_dtype2(self):
-        son_docs = [
-            bson.SON(
-                [("x", [[i, i*2, i*3], [i*4, i*5, i*6]]),
-                 ("y", [[i*7, i*8, i*9], [i*10, i*11, i*12]])])
-            for i in ['a', 'b', 'c', 'd']]
-        raw_docs = [bson._dict_to_bson(
-            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
-
-        dtype = np.dtype([('x', '2,3S13'), ('y', '2,3S13')])
-
-        ndarray = np.array(
-            [([[i, i*2, i*3], [i*4, i*5, i*6]],
-              ([[i*7, i*8, i*9], [i*10, i*11, i*12]]))
-             for i in ['a', 'b', 'c', 'd']], dtype=dtype)
 
         # TODO: not checking type
         # Sub array not array
