@@ -592,11 +592,12 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
                     sub_coordinates[sub_depth] = i;
 
-                    if (!_load_flexible_from_bson(sub_document, coordinates, ndarray,
-                                             sub_dtype, current_depth + 1, NULL,
-                                             sub_coordinates,
-                                             sub_coordinates_length + 1,
-                                             offset + offset_long)) {
+                    if (!_load_flexible_from_bson(
+                            sub_document, coordinates, ndarray,
+                            sub_dtype, current_depth + 1, NULL,
+                            sub_coordinates,
+                            sub_coordinates_length + 1,
+                            offset + offset_long)) {
                         /* error set by _load_flexible_from_bson */
                         return 0;
                     }
@@ -605,7 +606,8 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
 
                     char buffer [100];
                     snprintf(buffer, 100,
-                             "could not find key \"%s\" in sub document", key_str);
+                             "could not find key \"%s\" in sub document",
+                             key_str);
                     debug(buffer, NULL, document);
                     PyErr_SetString(
                             BsonNumpyError,
@@ -693,7 +695,12 @@ _load_flexible_from_bson(bson_t *document, npy_intp *coordinates,
             /* Loop through array and load sub-arrays */
             bson_iter_recurse(&bsonit, &sub_it);
             for (i = 0; i < length_long; i++) {
-                //TODO: error is happening because the type is never checked before calling load_scalar
+                /* TODO: refactor _load_flexible_type into load_doc/load_array
+                 * The type is never checked before calling load_scalar
+                 * and in this case we want to make sure that the bson document
+                 * matches the dtype. The work is started in the 'nested-fix'
+                 * branch.
+                 */
                 int success;
 
                 bson_iter_next(&sub_it);

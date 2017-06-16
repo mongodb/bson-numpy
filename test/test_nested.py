@@ -9,7 +9,7 @@ class TestNested(TestToNdarray):
     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
     bson_docs = [bson._dict_to_bson(
         doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [
-                     bson.SON([("x", i), ("y", -i)]) for i in range(10)]]
+        bson.SON([("x", i), ("y", -i)]) for i in range(10)]]
     ndarray = np.array([(i, -i) for i in range(10)], dtype=dtype)
     if hasattr(unittest.TestCase, 'assertRaisesRegex'):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegex
@@ -31,12 +31,7 @@ class TestNested(TestToNdarray):
         sub_dtype = np.dtype(([('a', 'int32'), ('b', 'int32')], 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array([
-                               ([(i, i), (-i, -i)],)
-                               for i in range(10)], dtype)
-
-        print ndarray
-
+        ndarray = np.array([([(i, i), (-i, -i)],) for i in range(10)], dtype)
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
@@ -63,13 +58,8 @@ class TestNested(TestToNdarray):
         sub_dtype = np.dtype((sub_sub_dtype, 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array([
-                               [
-                                   ([(i, i), (-i, -i)],),
-                                   ([(i, i), (-i, -i)],)
-                               ] for i in range(10)], dtype)
-
-        print ndarray
+        ndarray = np.array([[([(i, i), (-i, -i)],),
+                             ([(i, i), (-i, -i)],)] for i in range(10)], dtype)
 
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
@@ -81,8 +71,10 @@ class TestNested(TestToNdarray):
         son_docs = [
             bson.SON(
                 [('x', [
-                    bson.SON([('a', [i, i, i, i]), ('b', [i, i, i, i])]),
-                    bson.SON([('a', [-i, -i -i, -i]), ('b', [-i, -i, -i, -i])])
+                    bson.SON([('a', [i, i, i, i]),
+                              ('b', [i, i, i, i])]),
+                    bson.SON([('a', [-i, -i, -i, -i]),
+                              ('b', [-i, -i, -i, -i])])
                 ])]) for i in range(10)]
 
         raw_docs = [bson._dict_to_bson(
@@ -90,15 +82,10 @@ class TestNested(TestToNdarray):
         sub_dtype = np.dtype(([('a', '4int32'), ('b', '4int32')], 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array([
-                               ([(
-                                   [i, i, i, i], [i, i, i, i]
-                               ), (
-                                   [-i, -i, -i, -i], [-i, -i, -i, -i]
-                               )],)
-                               for i in range(10)], dtype)
-
-        print ndarray
+        ndarray = np.array(
+            [([([i, i, i, i], [i, i, i, i]),
+               ([-i, -i, -i, -i], [-i, -i, -i, -i])],)
+             for i in range(10)], dtype)
 
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
@@ -123,19 +110,14 @@ class TestNested(TestToNdarray):
         raw_docs = [bson._dict_to_bson(
             doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
         sub_sub_sub_dtype = np.dtype([('q', 'int32')])
-        sub_sub_dtype = np.dtype(([('a', sub_sub_sub_dtype), ('b', sub_sub_sub_dtype)], 2))
+        sub_sub_dtype = np.dtype(
+            ([('a', sub_sub_sub_dtype), ('b', sub_sub_sub_dtype)], 2))
         sub_dtype = np.dtype((sub_sub_dtype, 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        print dtype
-
-        print np.zeros(1, dtype)
-
-        ndarray = np.array([
-                               ([[((i,), (i,)), ((-i,), (-i,))], [((i,), (i,)), ((-i,), (-i,))]],)
-                               for i in range(10)], dtype)
-
-        print ndarray
+        ndarray = np.array([([[((i,), (i,)), ((-i,), (-i,))],
+                              [((i,), (i,)), ((-i,), (-i,))]],)
+                            for i in range(10)], dtype)
 
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)

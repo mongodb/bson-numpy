@@ -120,7 +120,8 @@ class TestErrors(TestToNdarray):
              ("q", bson.SON([("y", 0), ("z", 0)]))])
 
         bad_raw_docs = raw_docs[:9]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(bsonnumpy.error,
                                       "document does not match dtype"):
@@ -132,7 +133,8 @@ class TestErrors(TestToNdarray):
              ("q", bson.SON([("y", 0), ("z", 0)]))])
 
         bad_raw_docs = raw_docs[:9]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(bsonnumpy.error,
                                       "document does not match dtype"):
@@ -144,11 +146,13 @@ class TestErrors(TestToNdarray):
              ("q", 10)])
 
         bad_raw_docs = raw_docs[:9]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                "invalid document: expected subdoc from dtype, got other type"):
+                "invalid document: expected subdoc from dtype,"
+                " got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype_sub, 10)
 
         # Sub document not a document
@@ -157,19 +161,20 @@ class TestErrors(TestToNdarray):
              ("q", [10, 11, 12])])
 
         bad_raw_docs = raw_docs[:9]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                "invalid document: expected subdoc from dtype, got other type"):
+                "invalid document: expected subdoc from dtype,"
+                " got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype_sub, 10)
 
         # Sub document extra key
         dtype2 = np.dtype([('y', np.int32), ('z', np.int32)])
         dtype_sub2 = np.dtype([('x', dtype2)])
 
-        ndarray2 = np.array([((i, i),) for i in range(10)],
-                           dtype=dtype_sub2)
+        ndarray2 = np.array([((i, i),) for i in range(10)], dtype=dtype_sub2)
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype_sub2, 10)
         self.assertTrue(np.array_equal(ndarray2, res))
 
@@ -185,7 +190,7 @@ class TestErrors(TestToNdarray):
             bson.SON(
                 [("x", [[i, i*2, i*3], [i*4, i*5, i*6]]),
                  ("y", [[i*7, i*8, i*9], [i*10, i*11, i*12]])])
-             for i in ['a', 'b', 'c', 'd']]
+            for i in ['a', 'b', 'c', 'd']]
         raw_docs = [bson._dict_to_bson(
             doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
         dtype = np.dtype([('x', '2,3S13'), ('y', '2,3S13')])
@@ -204,18 +209,19 @@ class TestErrors(TestToNdarray):
             [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
              ("bad_key", [['d'*7, 'd'*7, 'd'*9], ['d'*10, 'd'*11, 'd'*12]])])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         with self.assertRaisesPattern(bsonnumpy.error,
                                       "document does not match dtype"):
-
-             bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
 
         # Top-level array not array
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
              ("y", 'not an array')])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         with self.assertRaisesPattern(
                 bsonnumpy.error,
@@ -224,33 +230,42 @@ class TestErrors(TestToNdarray):
 
         # Top-level array too long
         bad_doc = bson.SON(
-            [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6], ['d'*4, 'd'*5, 'd'*6]]),
-             ("y", [['d'*7, 'd'*8, 'd'*9], ['d'*10, 'd'*11, 'd'*12], ['d'*10, 'd'*11, 'd'*12]])])
+            [("x", [['d'*1, 'd'*2, 'd'*3],
+                    ['d'*4, 'd'*5, 'd'*6],
+                    ['d'*4, 'd'*5, 'd'*6]]),
+             ("y", [['d'*7, 'd'*8, 'd'*9],
+                    ['d'*10, 'd'*11, 'd'*12],
+                    ['d'*10, 'd'*11, 'd'*12]])])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
 
         # Sub array too long
         bad_doc = bson.SON(
-            [("x", [['d'*1, 'd'*2, 'd'*3, 'd'*3], ['d'*4, 'd'*5, 'd'*6, 'd'*3]]),
-             ("y", [['d'*7, 'd'*8, 'd'*9, 'd'*3], ['d'*10, 'd'*11, 'd'*12, 'd'*3]])])
+            [("x", [['d'*1, 'd'*2, 'd'*3, 'd'*3],
+                    ['d'*4, 'd'*5, 'd'*6, 'd'*3]]),
+             ("y", [['d'*7, 'd'*8, 'd'*9, 'd'*3],
+                    ['d'*10, 'd'*11, 'd'*12, 'd'*3]])])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
 
-        #TODO: not checking type
+        # TODO: not checking type
         # Sub array not array
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
              ("y", ['not an array', ['d'*10, 'd'*11, 'd'*12]])])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
         # with self.assertRaisesPattern(bsonnumpy.error,
         #                               "document does not match dtype"):
-        # print bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+        # bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
 
         # TODO: segfaults
         # Top-level array too short
@@ -258,8 +273,9 @@ class TestErrors(TestToNdarray):
             [("x", [['d'*1, 'd'*2, 'd'*3]]),
              ("y", [['d'*7, 'd'*8, 'd'*9]])])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
-        # print bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        # bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
 
         # TODO: currently just leaves last element empty
         # Sub array too short
@@ -267,7 +283,7 @@ class TestErrors(TestToNdarray):
             [("x", [['d'*1, 'd'*2], ['d'*4, 'd'*5]]),
              ("y", [['d'*7, 'd'*8], ['d'*10, 'd'*11]])])
         bad_raw_docs = raw_docs[:3]
-        bad_raw_docs.append(bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
-        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
+        bad_raw_docs.append(
+            bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
+        # res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
         # self.assertTrue(np.array_equal(ndarray, res))
-
