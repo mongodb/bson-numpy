@@ -16,6 +16,7 @@ class TestNested(TestToNdarray):
     else:
         assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
 
+    @unittest.skip("not yet implemented")
     def test_array_scalar_load1(self):
         # Test arrays with documents as elements
 
@@ -40,6 +41,7 @@ class TestNested(TestToNdarray):
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
 
+    @unittest.skip("not yet implemented")
     def test_array_scalar_load2(self):
         # Test sub arrays with documents as elements
         son_docs = [
@@ -73,6 +75,7 @@ class TestNested(TestToNdarray):
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
 
+    @unittest.skip("not yet implemented")
     def test_array_scalar_load3(self):
         # Test sub arrays with documents that have arrays
         son_docs = [
@@ -101,6 +104,7 @@ class TestNested(TestToNdarray):
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
         self.assertTrue(np.array_equal(ndarray, res))
 
+    @unittest.skip("not yet implemented")
     def test_array_scalar_load4(self):
         # Test documents with multiple levels of sub documents
         son_docs = [
