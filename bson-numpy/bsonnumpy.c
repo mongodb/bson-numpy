@@ -873,9 +873,9 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     if (row < num_documents) {
         PyObject *none_obj;
         PyArray_Dims newshape = {dimension_lengths, number_dimensions};
-//        if (debug_mode) {
+        if (debug_mode) {
             printf("resizing from %d to %d\n", num_documents, row);
-//        }
+        }
 
         dimension_lengths[0] = row;
         /* returns None or NULL */
@@ -945,7 +945,7 @@ initbsonnumpy(void)
     BsonNumpyError = PyErr_NewException("bsonnumpy.error", NULL, NULL);
     Py_INCREF(BsonNumpyError);
     PyModule_AddObject(m, "error", BsonNumpyError);
-    debug_mode = (NULL != getenv("BSON_NUMPY_DEBUG"));
+    debug_mode = (NULL != getenv("BSON_NUMPY_DEBUG")); // TODO: never set
 
     import_array();
 }
