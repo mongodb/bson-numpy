@@ -813,8 +813,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     }
 
     if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
-        PyErr_SetString(BsonNumpyError,
-                        "ndarray initialization failed");
         debug("PyArray_OutputConverter failed with array object",
               array_obj, NULL);
         PyErr_SetString(BsonNumpyError,
