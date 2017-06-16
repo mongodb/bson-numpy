@@ -17,7 +17,7 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
                        npy_intp *coordinates, int current_depth,
                        PyArray_Descr *dtype);
 
-static bool debug_mode;
+static bool debug_mode = false;
 
 static void
 debug(char* message, PyObject* object, bson_t* doc)
