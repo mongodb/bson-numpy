@@ -16,7 +16,45 @@ class TestNested(TestToNdarray):
     else:
         assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
 
-    @unittest.skip("not yet implemented")
+    # @unittest.skip("not yet implemented")
+    def test_array_scalar_load00(self):
+        # Test arrays with documents as elements
+
+        son_docs = [
+            bson.SON([('x', [i, i, i, i])]) for i in range(2, 4)]
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+        dtype = np.dtype([('x', '4int32')])
+
+        ndarray = np.array([([i, i,i, i],) for i in range(2, 4)], dtype)
+
+        # Correct dtype
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
+
+        print "expected", ndarray
+        print "actual", res
+        self.assertTrue(np.array_equal(ndarray, res))
+
+    def test_array_scalar_load0(self):
+        # Test arrays with documents as elements
+
+        son_docs = [
+            bson.SON([('x', [[i, i] for _ in range(3)])]) for i in range(2, 4)]
+        raw_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
+        dtype = np.dtype([('x', '(3,2)int32')])
+
+        ndarray = np.array([([[i, i] for _ in range(3)],) for i in range(2, 4)], dtype)
+
+        # Correct dtype
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
+
+        print "expected", ndarray
+        print "actual", res
+        self.assertTrue(np.array_equal(ndarray, res))
+
+
+    # @unittest.skip("not yet implemented")
     def test_array_scalar_load1(self):
         # Test arrays with documents as elements
 
@@ -25,18 +63,19 @@ class TestNested(TestToNdarray):
                 [('x', [
                     bson.SON([('a', i), ('b', i)]),
                     bson.SON([('a', -i), ('b', -i)])
-                ])]) for i in range(10)]
+                ])]) for i in range(2, 4)]
         raw_docs = [bson._dict_to_bson(
             doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
         sub_dtype = np.dtype(([('a', 'int32'), ('b', 'int32')], 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array([([(i, i), (-i, -i)],) for i in range(10)], dtype)
+        ndarray = np.array([([(i, i), (-i, -i)],) for i in range(2, 4)], dtype)
+
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
         self.assertTrue(np.array_equal(ndarray, res))
 
-    @unittest.skip("not yet implemented")
+    # @unittest.skip("not yet implemented")
     def test_array_scalar_load2(self):
         # Test sub arrays with documents as elements
         son_docs = [
@@ -51,7 +90,7 @@ class TestNested(TestToNdarray):
                         bson.SON([('c', -i), ('d', -i)])
                     ],
 
-                ])]) for i in range(10)]
+                ])]) for i in range(2, 4)]
         raw_docs = [bson._dict_to_bson(
             doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
         sub_sub_dtype = np.dtype(([('a', 'int32'), ('b', 'int32')], 2))
@@ -59,10 +98,13 @@ class TestNested(TestToNdarray):
         dtype = np.dtype([('x', sub_dtype)])
 
         ndarray = np.array([[([(i, i), (-i, -i)],),
-                             ([(i, i), (-i, -i)],)] for i in range(10)], dtype)
+                             ([(i, i), (-i, -i)],)] for i in range(2, 4)], dtype)
+
 
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
+        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
+        print "expected", ndarray
+        print "actual", res
         self.assertTrue(np.array_equal(ndarray, res))
 
     @unittest.skip("not yet implemented")

@@ -158,17 +158,62 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
                       npy_intp *coordinates, int current_depth,
                       PyArray_Descr *dtype)
 {
-    npy_intp dimensions = PyArray_NDIM(ndarray);
-    bson_iter_t sub_it;
+
+    /* Type check */
+    if (!BSON_ITER_HOLDS_ARRAY(it)) {
+        PyErr_SetString(BsonNumpyError,
+                        "invalid document: expected list from dtype,"
+                                " got other type");
+        return 0;
+    }
+    if (dtype->subarray == NULL) {
+        debug("_load_array_from_bson called with non-array dtype",
+              (PyObject*)dtype, NULL);
+        PyErr_SetString(BsonNumpyError,
+                        "expected subarray, invalid dtype");
+        return 0;
+
+    }
+    PyObject* shape = dtype->subarray->shape;
+    if (!PyTuple_Check(shape)) {
+        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+        return 0;
+    }
+
+    /* Check length of document array matches dtype */
+    PyObject* expected_length_obj = PyTuple_GetItem(shape, current_depth - 1);
+    long expected_length = PyInt_AsLong(expected_length_obj);
+    int dimensions = (int) PyTuple_Size(shape);
+
+    printf("in load_array, current_depth=%i\n", current_depth);
+    debug("\tdtype", dtype, NULL);
+    debug("\tshape", shape, NULL);
+    printf("\tdims: %i\n", dimensions);
+    debug("\texp_len", expected_length_obj, NULL);
 
     /* Get length of array */
+    bson_iter_t sub_it;
     bson_iter_recurse(it, &sub_it);
     int count = 0;
     while (bson_iter_next(&sub_it)) {
         count++;
     }
     bson_iter_recurse(it, &sub_it);
+    printf("\tact_len %i\n", count);
+
+    if (expected_length != count) {
+        char buffer[100];
+        snprintf(buffer, 100,
+                 "expected length %li but got list of length %i",
+                 expected_length, count);
+        debug(buffer, NULL, NULL);
+        PyErr_SetString(BsonNumpyError,
+                        "invalid document: list is of incorrect length");
+        return 0;
+    }
+
     if (count == 1) {
+        debug("converting array of length 1 to scalar\n", NULL, NULL);
         bson_iter_next(&sub_it);
 
         /* Array is of length 1, therefore we treat it like a number */
@@ -178,22 +223,22 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
 
         int i = 0;
         while (bson_iter_next(&sub_it)) {
-            PyArray_Descr *sub_dtype = dtype->subarray ? dtype->subarray->base
-                                                       : dtype;
-
-            /* If we're recurring after the end of dtype's dimensions, we have
-             * a flexible type subarray */
-            // TODO: do we ever get here?
             long new_offset = offset;
-            if (current_depth + 1 < dimensions) {
+            if (current_depth < dimensions + 1) { //TODO: depth + 1 or not?
                 coordinates[current_depth + 1] = i;
             } else {
                 PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
                 return 0;
             }
+
+            PyArray_Descr* subdtype = dtype;
+            if(current_depth == dimensions) {
+                subdtype = dtype->subarray->base;
+            }
+
             int ret = _load_scalar_from_bson(&sub_it, ndarray, new_offset,
                                              coordinates, current_depth + 1,
-                                             sub_dtype);
+                                             subdtype);
             if (ret == 0) {
                 return 0;
             };
@@ -495,10 +540,6 @@ static int
 _load_farray_from_bson(bson_iter_t *bsonit, npy_intp *coordinates,
         PyArrayObject *ndarray, PyArray_Descr *dtype,
         int current_depth) {
-    printf("STARTING LOAD_FARRAY, CURR_DEPTH=%i\n", current_depth);
-    debug("in load_farray, dtype", (PyObject*)dtype, NULL);
-    debug("in load_farray, ndarray", (PyObject*)ndarray, NULL);
-
     if (!BSON_ITER_HOLDS_ARRAY(bsonit)) {
         PyErr_SetString(BsonNumpyError,
                         "invalid document: expected list from dtype,"
@@ -509,59 +550,66 @@ _load_farray_from_bson(bson_iter_t *bsonit, npy_intp *coordinates,
     if (dtype->subarray) {
 
         /* Get the subarray's base type and shape */
-        PyObject *shape = dtype->subarray->shape;
-        debug("in load_farray, subarray shape", shape, NULL);
         PyArray_Descr *base_dtype = dtype->subarray->base;
-        int number_dimensions = (int) PyTuple_Size(shape);
-        printf("in load_farray, number_dimensions=%i\n", number_dimensions);
 
-        /* Loop through bson array */
-        bson_iter_t sub_it;
-        bson_iter_recurse(bsonit, &sub_it);
+        char base_kind = base_dtype->kind;
 
-        int i = 0;
-        while (bson_iter_next(&sub_it)) {
-            coordinates[current_depth-1] = i;
-            printf("\tlooping through farray, coordinates=["); for (int i=0;i<number_dimensions;i++) { printf("%i,", coordinates[i]); }; printf("]\n");
-            /* If we aren't at the base of the array, recur */
-            if (current_depth < number_dimensions /* +1 or not?? */) {
-                printf("\t\t RECUR:\n");
-                _load_farray_from_bson(&sub_it, coordinates, ndarray, dtype, current_depth + 1);
-            } else if(base_dtype->subarray != NULL) {
-                //TODO: there's another subarray!!
-            } else {
-                printf("\t\t AT BASE OF ARRAY\n");
-                /* Reached the end of the array */
-                if (base_dtype->fields != NULL && base_dtype->fields != Py_None) {
-                    printf("\t\t\t FOUND SUBDOC\n");
-                    /* The array contains documents */
-                    bson_t *sub_document;
-                    uint32_t document_len;
-                    const uint8_t *document_buffer;
-
-                    if (!BSON_ITER_HOLDS_DOCUMENT(&sub_it)) {
-                        PyErr_SetString(BsonNumpyError,
-                                        "invalid document: expected subdoc "
-                                                "from dtype, got other type");
-                        return 0;
-                    }
-
-                    bson_iter_document(&sub_it, &document_len,
-                                       &document_buffer);
-                    sub_document = bson_new_from_data(document_buffer,
-                                                      document_len);
-                    debug("in load_farray, recurring on subdoc", NULL, sub_document);
-                    _load_fdocument_from_bson(sub_document, coordinates, ndarray, base_dtype, current_depth+1, 0);
-
-
-                } else {
-                    printf("\t\t\t FOUND SCALAR\n");
-                    /* The array contains scalars */
-                    _load_scalar_from_bson(&sub_it, ndarray, 0, coordinates, current_depth, base_dtype);
-                }
-            }
-            i++;
+        /* If type is basic, then can use scalar load. TODO: better way to check? */
+        if (base_kind != NPY_VOID && base_kind != NPY_OBJECT) {
+            printf("BASIC ARRAY TYPE\n");
+            return _load_array_from_bson(bsonit, ndarray, 0, coordinates, current_depth, dtype);
+        } else {
+            printf("COMPLEX ARRAY TYPE\n");
         }
+
+//
+//        /* Loop through bson array */
+//        bson_iter_t sub_it;
+//        bson_iter_recurse(bsonit, &sub_it);
+//
+//        int i = 0;
+//        while (bson_iter_next(&sub_it)) {
+//            coordinates[current_depth-1] = i;
+//            printf("\tlooping through farray, coordinates=["); for (int i=0;i<number_dimensions;i++) { printf("%i,", coordinates[i]); }; printf("]\n");
+//            /* If we aren't at the base of the array, recur */
+//            if (current_depth < number_dimensions /* +1 or not?? */) {
+//                printf("\t\t RECUR:\n");
+//                _load_farray_from_bson(&sub_it, coordinates, ndarray, dtype, current_depth + 1);
+//            } else if(base_dtype->subarray != NULL) {
+//                //TODO: there's another subarray!!
+//            } else {
+//                printf("\t\t AT BASE OF ARRAY\n");
+//                /* Reached the end of the array */
+//                if (base_dtype->fields != NULL && base_dtype->fields != Py_None) {
+//                    printf("\t\t\t FOUND SUBDOC\n");
+//                    /* The array contains documents */
+//                    bson_t *sub_document;
+//                    uint32_t document_len;
+//                    const uint8_t *document_buffer;
+//
+//                    if (!BSON_ITER_HOLDS_DOCUMENT(&sub_it)) {
+//                        PyErr_SetString(BsonNumpyError,
+//                                        "invalid document: expected subdoc "
+//                                                "from dtype, got other type");
+//                        return 0;
+//                    }
+//
+//                    bson_iter_document(&sub_it, &document_len,
+//                                       &document_buffer);
+//                    sub_document = bson_new_from_data(document_buffer,
+//                                                      document_len);
+//                    debug("in load_farray, recurring on subdoc", NULL, sub_document);
+//                    _load_fdocument_from_bson(sub_document, coordinates, ndarray, base_dtype, current_depth+1, 0);
+//
+//
+//                } else {
+//                    printf("\t\t\t FOUND SCALAR\n");
+//                    /* The array contains scalars */
+//                    _load_scalar_from_bson(&sub_it, ndarray, 0, coordinates, current_depth, base_dtype);
+//                }
+//            }
+//            i++;
+//        }
         return 1;
     }
 
@@ -586,8 +634,6 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
     PyArray_Descr *sub_dtype;
     PyObject *sub_dtype_obj, *offset_obj;
     Py_ssize_t i;
-
-    printf("\nSTARTING LOAD_FDOC, CURR_DEPTH=%i, NUM_DIMS=%i\n", current_depth, PyArray_NDIM(ndarray));
 
     if (dtype->fields != NULL && dtype->fields != Py_None) {
         /* A field is described by a tuple composed of another data-type
@@ -656,57 +702,50 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
             printf("in load_fdoc, looping through fields, at key=%s\n", key_str);
 
             if (sub_dtype->subarray) {
-                debug("in load_fdoc, found subarray in sub_dtype", (PyObject*)sub_dtype, NULL);
+                debug("LOAD_FDOC, found subarray in sub_dtype", (PyObject*)sub_dtype, NULL);
                 /* If the current key's value is a subarray */
-                void *ptr;
-                PyArrayObject *subndarray;
 
-                /* Get subarray as ndarray */
-                //TODO: need to make sure we get the array[0], not array[0][0]
-                ptr = PyArray_GetPtr(ndarray, coordinates);
-                PyObject* subndarray_tuple = PyArray_GETITEM(ndarray, ptr);
-
-                debug("THE RESULTS OF GET ARRAY", subndarray_tuple, NULL);
-
-//                TODO: Not sure what was being done here or why
-
-//                debug("in load_fdoc, subndarray_tuple from GETITEM(coordinates)", subndarray_tuple, NULL);
-//                PyObject* subndarray_obj;
-//                for (int sub_i = 0; sub_i <= sub_depth; sub_i++) {
-//                    npy_intp offset = sub_coordinates[sub_i];
-//                    subndarray_obj = PyTuple_GetItem(subndarray_tuple, offset);
-//                    printf("\tnew offset=%i ", offset);
-//                    debug(" subndarray_obj", subndarray_obj, NULL);
-//                }
-                PyObject* subndarray_obj = PyTuple_GetItem(subndarray_tuple, 0);
-
-                if (!PyArray_OutputConverter(subndarray_obj, &subndarray)) {
-                    debug("PyArray_OutputConverter failed for the subarray"
-                                  " retrieved from the ndarray",
-                          subndarray_tuple, NULL);
-                    PyErr_SetString(BsonNumpyError,
-                                    "Dimension mismatch");
-                    return 0;
-                }
-                debug("in load_fdoc, creating new sub ndarray", (PyObject*)subndarray, NULL);
-
-                PyObject *shape = sub_dtype->subarray->shape;
+                PyObject* shape = sub_dtype->subarray->shape;
                 if (!PyTuple_Check(shape)) {
                     debug("invalid dtype->subarray->shape", shape, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "dtype argument had invalid subarray");
                     return 0;
                 }
-                debug("in load_fdoc, sub_dtype->array->shape", shape, NULL);
-                debug("in load_fdoc, sub_dtype->array->base", sub_dtype->subarray->base, NULL);
-                int sub_number_dimensions = (int) PyTuple_Size(shape);
-                npy_intp* new_coordinates = calloc(1 + sub_number_dimensions, sizeof(npy_intp));
 
-                /* Call load_flexible_array because sub_dtype may have fields */
-                //TODO: reset coordinates
-                if (!_load_farray_from_bson(&bsonit, new_coordinates, subndarray,
-                                            sub_dtype, 1)) { //TODO: maybe set current_depth to 1?
-                    /* error set by _load_farray_from_bson */
+
+                /* Get element of array */
+                PyArrayObject* subndarray;
+                PyObject* subarray_obj = PyArray_GetField(ndarray,
+                                                      sub_dtype,
+                                                      offset_long);
+                if (!subarray_obj) {
+                    debug("PyArray_GetField failed with dtype",
+                          (PyObject*)dtype, NULL);
+                    PyErr_SetString(BsonNumpyError,
+                                    "indexing failed on named field");
+                    return 0;
+                }
+
+                if (NPY_FAIL == PyArray_OutputConverter(subarray_obj, &subndarray)) {
+                    debug("PyArray_OutputConverter failed with array object",
+                          subarray_obj, NULL);
+                    PyErr_SetString(BsonNumpyError,
+                                    "indexing failed on named field");
+                    return 0;
+                }
+
+                size_t number_dimensions = (size_t)PyTuple_Size(shape);
+                npy_intp* new_coordinates = calloc(
+                        1 + number_dimensions, sizeof(npy_intp));
+
+                debug("\tpassing subarray", subarray_obj, NULL);
+
+
+                if (!_load_farray_from_bson(&bsonit, new_coordinates,
+                                            subndarray, sub_dtype,
+                                            1)) {
+                    /* error set by load_farray_from_bson */
                     return 0;
                 }
 
@@ -755,7 +794,7 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
         return 1;
     }
 
-    /* Called incorrectly */
+    /* Top-level dtype did not have named fields */
     debug("_load_fdocument_from_bson called with a non-document dtype",
           (PyObject*)dtype, NULL);
     PyErr_SetString(BsonNumpyError,
