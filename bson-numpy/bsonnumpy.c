@@ -181,15 +181,16 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
     }
 
     /* Check length of document array matches dtype */
-    PyObject* expected_length_obj = PyTuple_GetItem(shape, current_depth - 1);
+    PyObject* expected_length_obj = PyTuple_GetItem(shape, current_depth);
     long expected_length = PyInt_AsLong(expected_length_obj);
     int dimensions = (int) PyTuple_Size(shape);
 
     printf("in load_array, current_depth=%i\n", current_depth);
-    debug("\tdtype", dtype, NULL);
+    debug("\tdtype", (PyObject*)dtype, NULL);
     debug("\tshape", shape, NULL);
     printf("\tdims: %i\n", dimensions);
     debug("\texp_len", expected_length_obj, NULL);
+    printf("\toffset=%li\n", offset, NULL);
 
     /* Get length of array */
     bson_iter_t sub_it;
@@ -224,26 +225,33 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
         int i = 0;
         while (bson_iter_next(&sub_it)) {
             long new_offset = offset;
-            if (current_depth < dimensions + 1) { //TODO: depth + 1 or not?
-                coordinates[current_depth + 1] = i;
+            if (current_depth < dimensions) { //TODO: depth + 1 or not?
+                coordinates[current_depth] = i;
             } else {
                 PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
                 return 0;
             }
 
             PyArray_Descr* subdtype = dtype;
-            if(current_depth == dimensions) {
+            if(current_depth == dimensions - 1) {
+                debug("setting dimensions to base type",
+                      (PyObject*)dtype->subarray->base, NULL);
                 subdtype = dtype->subarray->base;
             }
+
+            printf("\tcalling _load_scalar with coordinates=[");
+            for (int q=0;q<dimensions;q++) { printf("%li,", coordinates[q]); } printf("]\n");
 
             int ret = _load_scalar_from_bson(&sub_it, ndarray, new_offset,
                                              coordinates, current_depth + 1,
                                              subdtype);
             if (ret == 0) {
+                /* Error set by _load_scalar_from_bson */
                 return 0;
             };
             i++;
         }
+        coordinates[current_depth] = 0;
         return 1;
     }
 }
@@ -352,6 +360,7 @@ _load_int32_from_bson(const bson_value_t *value, void *dst,
         return 0;
     }
 
+    debug("copying int with dtype", (PyObject*)dtype, NULL);
     memcpy(dst, &value->value.v_int32, sizeof value->value.v_int32);
     return 1;
 }
@@ -420,6 +429,8 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
 
     value = bson_iter_value(bsonit);
     pointer = PyArray_GetPtr(ndarray, coordinates) + offset;
+
+    debug("in load_scalar, ndarray", (PyObject*)ndarray, NULL);
 
     switch (value->value_type) {
         case BSON_TYPE_ARRAY:
@@ -703,8 +714,8 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
 
             if (sub_dtype->subarray) {
                 debug("LOAD_FDOC, found subarray in sub_dtype", (PyObject*)sub_dtype, NULL);
+                printf("\toffset=%li\n", offset_long);
                 /* If the current key's value is a subarray */
-
                 PyObject* shape = sub_dtype->subarray->shape;
                 if (!PyTuple_Check(shape)) {
                     debug("invalid dtype->subarray->shape", shape, NULL);
@@ -712,13 +723,15 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                                     "dtype argument had invalid subarray");
                     return 0;
                 }
+                size_t number_dimensions = (size_t)PyTuple_Size(shape);
 
+                /* Index into ndarray with coordinates */
+                PyArrayObject* subndarray;
+                void* subarray_ptr = PyArray_GetPtr(ndarray, coordinates);
+                PyObject* subarray_tuple = PyArray_GETITEM(ndarray, subarray_ptr);
+                PyObject* subarray_obj = PyTuple_GetItem(subarray_tuple, 0);
 
                 /* Get element of array */
-                PyArrayObject* subndarray;
-                PyObject* subarray_obj = PyArray_GetField(ndarray,
-                                                      sub_dtype,
-                                                      offset_long);
                 if (!subarray_obj) {
                     debug("PyArray_GetField failed with dtype",
                           (PyObject*)dtype, NULL);
@@ -726,25 +739,21 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                                     "indexing failed on named field");
                     return 0;
                 }
-
-                if (NPY_FAIL == PyArray_OutputConverter(subarray_obj, &subndarray)) {
+                if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
+                                                        &subndarray)) {
                     debug("PyArray_OutputConverter failed with array object",
                           subarray_obj, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "indexing failed on named field");
                     return 0;
                 }
-
-                size_t number_dimensions = (size_t)PyTuple_Size(shape);
                 npy_intp* new_coordinates = calloc(
                         1 + number_dimensions, sizeof(npy_intp));
-
-                debug("\tpassing subarray", subarray_obj, NULL);
 
 
                 if (!_load_farray_from_bson(&bsonit, new_coordinates,
                                             subndarray, sub_dtype,
-                                            1)) {
+                                            0)) {
                     /* error set by load_farray_from_bson */
                     return 0;
                 }
