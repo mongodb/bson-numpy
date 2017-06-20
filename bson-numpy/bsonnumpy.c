@@ -235,8 +235,8 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
             i++;
         }
         /* Reset the rest of the coordinates to zero */
-        for (int p = current_depth; p < dimensions; p++) {
-            coordinates[p] = 0;
+        for (i = current_depth; i < dimensions; i++) {
+            coordinates[i] = 0;
         }
         return 1;
     }
@@ -580,6 +580,7 @@ _load_document_from_bson(bson_t *document, npy_intp *array_coordinates,
     PyArray_Descr *sub_dtype;
     PyObject *sub_dtype_obj, *offset_obj;
     Py_ssize_t i;
+    int sub_i;
 
     if (dtype->fields != NULL && dtype->fields != Py_None) {
         /* A field is described by a tuple composed of another data-type
@@ -667,7 +668,7 @@ _load_document_from_bson(bson_t *document, npy_intp *array_coordinates,
 
                 /* Indexing into ndarray with named fields returns a tuple
                  * that is nested as many levels as there are fields */
-                for (int sub_i = 0; sub_i < current_doc_depth + 1; sub_i++) {
+                for (sub_i = 0; sub_i < current_doc_depth + 1; sub_i++) {
                     npy_intp index = doc_coordinates[sub_i];
                     subarray_tuple = PyTuple_GetItem(subarray_tuple, index);
                 }
