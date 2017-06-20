@@ -12,7 +12,7 @@ from bson.raw_bson import RawBSONDocument
 from test import client_context, millis, unittest, TestToNdarray
 
 
-class TestSequence2Ndarray(TestToNdarray):
+class TestSequenceFlat(TestToNdarray):
     @client_context.require_connected
     def test_collection_flexible_int32(self):
         docs = [{"x": i, "y": 10 - i} for i in range(10)]
@@ -98,6 +98,8 @@ class TestSequence2Ndarray(TestToNdarray):
         dtype = np.dtype([('y', 'S11'), ('x', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
 
+
+class TestSequenceArray(TestToNdarray):
     @client_context.require_connected
     def test_collection_flexible_subarray1(self):
         # 2d subarray
@@ -174,6 +176,8 @@ class TestSequence2Ndarray(TestToNdarray):
         dtype = np.dtype([('y', 'S11'), ('x', '2int32'), ('z', 'V12')])
         self.make_mixed_collection_test(docs, dtype)
 
+
+class TestSequenceDoc(TestToNdarray):
     @client_context.require_connected
     def test_collection_sub1(self):
         # nested documents
@@ -221,6 +225,35 @@ class TestSequence2Ndarray(TestToNdarray):
         dtype_sub = np.dtype([('q', dtype), ('x', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
 
+    @client_context.require_connected
+    def test_collection_sub5(self):
+        # 3x nested documents
+        docs = [{'x': {'y': {'z': 100 + i}}} for i in range(10)]
+        dtype0 = np.dtype([('z', np.int32)])
+        dtype1 = np.dtype([('y', dtype0)])
+        dtype = np.dtype([('x', dtype1)])
+        self.make_mixed_collection_test(docs, dtype)
+
+    @client_context.require_connected
+    def test_collection_sub6(self):
+        # 3x nested documents
+        docs = [{'x': {'y': {'z': i,
+                             'z2': "this is a string!"},
+                       'y2': i},
+                 'x2': i} for i in range(10)]
+        dtype0 = np.dtype([('z', np.int32), ('z2', 'S17')])
+        dtype1 = np.dtype([('y', dtype0), ('y2', np.int32)])
+        dtype = np.dtype([('x', dtype1), ('x2', 'int32')])
+        self.make_mixed_collection_test(docs, dtype)
+
+        dtype0 = np.dtype([('z2', 'S17'), ('z', np.int32)])
+        dtype1 = np.dtype([('y2', np.int32), ('y', dtype0)])
+        dtype = np.dtype([('x2', 'int32'), ('x', dtype1)])
+        self.make_mixed_collection_test(docs, dtype)
+
+
+
+class TestSequenceNestedArray(TestToNdarray):
     @client_context.require_connected
     def test_collection_sub_subarrays(self):
         docs = [
@@ -277,15 +310,6 @@ class TestSequence2Ndarray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub4(self):
-        # 3x nested documents
-        docs = [{'x': {'y': {'z': 100 + i}}} for i in range(10)]
-        dtype0 = np.dtype([('z', np.int32)])
-        dtype1 = np.dtype([('y', dtype0)])
-        dtype = np.dtype([('x', dtype1)])
-        self.make_mixed_collection_test(docs, dtype)
-
-    @client_context.require_connected
     def test_collection_sub4_array(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': [100 + i, 100 - i]}}} for i in range(10)]
@@ -328,23 +352,6 @@ class TestSequence2Ndarray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_sub4_array3(self):
-        # 3x nested documents
-        docs = [{'x': {'y': {'z': i,
-                             'z2': "this is a string!"},
-                       'y2': i},
-                 'x2': i} for i in range(10)]
-        dtype0 = np.dtype([('z', np.int32), ('z2', 'S17')])
-        dtype1 = np.dtype([('y', dtype0), ('y2', np.int32)])
-        dtype = np.dtype([('x', dtype1), ('x2', 'int32')])
-        self.make_mixed_collection_test(docs, dtype)
-
-        dtype0 = np.dtype([('z2', 'S17'), ('z', np.int32)])
-        dtype1 = np.dtype([('y2', np.int32), ('y', dtype0)])
-        dtype = np.dtype([('x2', 'int32'), ('x', dtype1)])
-        self.make_mixed_collection_test(docs, dtype)
-
-    @client_context.require_connected
     def test_collection_sub_many(self):
         num = 3
         docs = [{} for _ in range(num)]
@@ -375,103 +382,3 @@ class TestSequence2Ndarray(TestToNdarray):
             letter_index -= 1
 
         self.make_mixed_collection_test(docs, dt)  # OMG this works!!
-
-    @client_context.require_connected
-    def test_collection_not_flexible(self):
-        # TODO: determine what to do when user doesn't give a flexible type for
-        # documents. Doc order?
-        docs = [{"x": [i, i - 1], "y": [10 - i, 9 - i]} for i in range(10)]
-        dtype = np.dtype("(2, 2)int32")
-        # self.make_mixed_collection_test(docs, dtype)
-        docs = [{"x": i, "y": 10 - i} for i in range(10)]
-        dtype = np.dtype("2int32")
-        # self.make_mixed_collection_test(docs, dtype)
-
-    @client_context.require_connected
-    def test_collection_wrong_count(self):
-        dtype = np.dtype([('_id', np.int32)])
-        docs = [{"_id": 1}, {"_id": 2}]
-        self.client.bsonnumpy_test.coll.delete_many({})
-        self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-
-        cursor = raw_coll.find()
-        ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, 2)
-
-        self.assertEqual(2, len(ndarray))
-        cursor.rewind()
-
-        # Undercount.
-        ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, 1)
-
-        self.assertEqual(1, len(ndarray))
-        cursor.rewind()
-
-        # Overcount.
-        ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, 30)
-
-        self.assertEqual(2, len(ndarray))
-
-    def test_null(self):
-        data = bson._dict_to_bson(
-            {"x": None}, True, bson.DEFAULT_CODEC_OPTIONS)
-        with self.assertRaises(bsonnumpy.error) as context:
-            bsonnumpy.sequence_to_ndarray(iter([data]),
-                                          np.dtype([('x', '<V10')]),
-                                          1)
-
-        self.assertIn("unsupported BSON type: Null", str(context.exception))
-
-    def test_extra_fields(self):
-        data = bson._dict_to_bson({"x": 12, "y": 13}, True,
-                                  bson.DEFAULT_CODEC_OPTIONS)
-
-        ndarray = bsonnumpy.sequence_to_ndarray([data],
-                                                np.dtype([("y", np.int)]),
-                                                1)
-
-        self.assertEqual(1, len(ndarray))
-        self.assertEqual(13, ndarray[0]["y"])
-
-        with self.assertRaises(ValueError):
-            ndarray[0]["x"]
-
-    def test_string_length(self):
-        data = bson._dict_to_bson({"x": "abc"}, True,
-                                  bson.DEFAULT_CODEC_OPTIONS)
-
-        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
-                                                np.dtype([("x", "V1")]),
-                                                1)
-
-        self.assertEqual(ndarray[0]["x"].tobytes(), b"a")
-        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
-                                                np.dtype([("x", "V2")]),
-                                                1)
-
-        self.assertEqual(ndarray[0]["x"].tobytes(), b"ab")
-        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
-                                                np.dtype([("x", "V3")]),
-                                                1)
-
-        self.assertEqual(ndarray[0]["x"].tobytes(), b"abc")
-        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
-                                                np.dtype([("x", "V4")]),
-                                                1)
-
-        self.assertEqual(ndarray[0]["x"].tobytes(), b"abc\0")
-
-    def test_iterable(self):
-        # sequence_to_ndarray accepts an iterable, same as an iterator
-        data = bson._dict_to_bson({"x": 1}, True, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype([("x", "i")])
-
-        # No iter() call.
-        ndarray = bsonnumpy.sequence_to_ndarray([data], dtype, 1)
-        self.assertEqual(1, len(ndarray))
-        self.compare_elements({'x': 1}, ndarray[0], dtype)

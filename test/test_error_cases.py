@@ -76,6 +76,14 @@ class TestErrors(TestToNdarray):
             bsonnumpy.sequence_to_ndarray(
                 self.bson_docs, np.dtype(np.int32), 10)
 
+        # Dtype is simple array
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                r'dtype must include field names,'
+                r' like dtype\(\[\(\'fieldname\', numpy.int\)\]\)'):
+            bsonnumpy.sequence_to_ndarray(
+                self.bson_docs, np.dtype('(3,2)int32'), 10)
+
         # Dtype is null or empty
         with self.assertRaisesPattern(
                 TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
@@ -95,6 +103,39 @@ class TestErrors(TestToNdarray):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, -10)
         with self.assertRaisesPattern(TypeError, r'\binteger\b'):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, None)
+
+    def test_null(self):
+        data = bson._dict_to_bson(
+            {"x": None}, True, bson.DEFAULT_CODEC_OPTIONS)
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      r'unsupported BSON type: Null'):
+            bsonnumpy.sequence_to_ndarray(iter([data]),
+                                          np.dtype([('x', '<V10')]), 1)
+
+    def test_string_length(self):
+        data = bson._dict_to_bson({"x": "abc"}, True,
+                                  bson.DEFAULT_CODEC_OPTIONS)
+
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V1")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"a")
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V2")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"ab")
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V3")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"abc")
+        ndarray = bsonnumpy.sequence_to_ndarray(iter([data]),
+                                                np.dtype([("x", "V4")]),
+                                                1)
+
+        self.assertEqual(ndarray[0]["x"].tobytes(), b"abc\0")
 
 
 class TestSubdocErrors(TestToNdarray):
@@ -118,11 +159,10 @@ class TestSubdocErrors(TestToNdarray):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
 
     def test_correct_sub_dtype(self):
-        # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(self.raw_docs, self.dtype_sub, 10)
         self.assertTrue(np.array_equal(self.ndarray, res))
 
-    def test_incorrect_sub_dtype2(self):
+    def test_incorrect_sub_dtype1(self):
         # Top document missing key
         bad_doc = bson.SON(
             [("bad", bson.SON([("y", 0), ("z", 0)])),
@@ -136,7 +176,21 @@ class TestSubdocErrors(TestToNdarray):
                                       "document does not match dtype"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype3(self):
+    def test_incorrect_sub_dtype1a(self):
+        # Top document has extra key
+        data = bson._dict_to_bson({"x": 12, "y": 13}, True,
+                                  bson.DEFAULT_CODEC_OPTIONS)
+
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            [data], np.dtype([("y", np.int)]), 1)
+
+        self.assertEqual(1, len(ndarray))
+        self.assertEqual(13, ndarray[0]["y"])
+
+        with self.assertRaises(ValueError):
+            ndarray[0]["x"]
+
+    def test_incorrect_sub_dtype2(self):
         # Sub document missing key
         bad_doc = bson.SON(
             [("x", bson.SON([("bad", 0), ("z", 0)])),
@@ -150,7 +204,7 @@ class TestSubdocErrors(TestToNdarray):
                                       "document does not match dtype"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype4(self):
+    def test_incorrect_sub_dtype3(self):
         # Sub document not a document
         bad_doc = bson.SON(
             [("x", bson.SON([("y", 0), ("z", 0)])),
@@ -166,8 +220,6 @@ class TestSubdocErrors(TestToNdarray):
                 " got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype5(self):
-        # Sub document not a document
         bad_doc = bson.SON(
             [("x", bson.SON([("y", 0), ("z", 0)])),
              ("q", [10, 11, 12])])
@@ -182,7 +234,7 @@ class TestSubdocErrors(TestToNdarray):
                 " got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype6(self):
+    def test_incorrect_sub_dtype4(self):
         # Sub document extra key
         dtype2 = np.dtype([('y', np.int32), ('z', np.int32)])
         dtype_sub2 = np.dtype([('x', dtype2)])
@@ -210,9 +262,7 @@ class TestArrayErrors(TestToNdarray):
         bson.SON(
             [("x", [[i, i*2, i*3], [i*4, i*5, i*6]]),
              ("y", [[i*7, i*8, i*9], [i*10, i*11, i*12]])])
-        for i in ['a', 'b'
-             , 'c', 'd'
-                  ]]
+        for i in ['a', 'b', 'c', 'd']]
     raw_docs = [bson._dict_to_bson(
         doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
     dtype = np.dtype([('x', '2,3S13'), ('y', '2,3S13')])
@@ -220,12 +270,9 @@ class TestArrayErrors(TestToNdarray):
     ndarray = np.array(
         [([[i, i*2, i*3], [i*4, i*5, i*6]],
          ([[i*7, i*8, i*9], [i*10, i*11, i*12]]))
-            for i in ['a', 'b',
-                       'c', 'd'
-                      ]], dtype=dtype)
+            for i in ['a', 'b', 'c', 'd']], dtype=dtype)
 
     def test_correct_sub_dtype_array(self):
-        # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(self.raw_docs, self.dtype, 4)
         self.assertTrue(np.array_equal(self.ndarray, res))
 
