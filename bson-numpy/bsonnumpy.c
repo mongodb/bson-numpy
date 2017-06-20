@@ -178,7 +178,7 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
         return 0;
     }
     PyObject* expected_length_obj = PyTuple_GetItem(shape, current_depth);
-    long expected_length = PyInt_AsLong(expected_length_obj);
+    long expected_length = PyLong_AsLong(expected_length_obj);
     int dimensions = (int) PyTuple_Size(shape);
 
     bson_iter_t sub_it;
