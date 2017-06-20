@@ -2,7 +2,7 @@ import bson
 import bsonnumpy
 import numpy as np
 
-from test import client_context, TestToNdarray, unittest
+from test import TestToNdarray, unittest
 
 
 class TestErrors(TestToNdarray):
@@ -138,7 +138,7 @@ class TestErrors(TestToNdarray):
         self.assertEqual(ndarray[0]["x"].tobytes(), b"abc\0")
 
 
-class TestSubdocErrors(TestToNdarray):
+class TestDocErrors(TestToNdarray):
 
     son_docs = [
         bson.SON(
@@ -176,7 +176,7 @@ class TestSubdocErrors(TestToNdarray):
                                       "document does not match dtype"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype1a(self):
+    def test_incorrect_sub_dtype2(self):
         # Top document has extra key
         data = bson._dict_to_bson({"x": 12, "y": 13}, True,
                                   bson.DEFAULT_CODEC_OPTIONS)
@@ -190,7 +190,7 @@ class TestSubdocErrors(TestToNdarray):
         with self.assertRaises(ValueError):
             ndarray[0]["x"]
 
-    def test_incorrect_sub_dtype2(self):
+    def test_incorrect_sub_dtype3(self):
         # Sub document missing key
         bad_doc = bson.SON(
             [("x", bson.SON([("bad", 0), ("z", 0)])),
@@ -204,7 +204,7 @@ class TestSubdocErrors(TestToNdarray):
                                       "document does not match dtype"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype3(self):
+    def test_incorrect_sub_dtype4(self):
         # Sub document not a document
         bad_doc = bson.SON(
             [("x", bson.SON([("y", 0), ("z", 0)])),
@@ -234,7 +234,7 @@ class TestSubdocErrors(TestToNdarray):
                 " got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype_sub, 10)
 
-    def test_incorrect_sub_dtype4(self):
+    def test_incorrect_sub_dtype5(self):
         # Sub document extra key
         dtype2 = np.dtype([('y', np.int32), ('z', np.int32)])
         dtype_sub2 = np.dtype([('x', dtype2)])
