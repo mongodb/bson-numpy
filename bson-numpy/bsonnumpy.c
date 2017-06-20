@@ -551,62 +551,14 @@ _load_farray_from_bson(bson_iter_t *bsonit, npy_intp *coordinates,
             return _load_array_from_bson(
                     bsonit, ndarray, 0, coordinates, current_depth, dtype);
         } else {
+            /* TODO: implement support for arrays of nested documents */
             PyErr_SetString(BsonNumpyError,
                             "unhandled type: array of documents");
             return 0;
         }
 
-//V
-//        /* Loop through bson array */
-//        bson_iter_t sub_it;
-//        bson_iter_recurse(bsonit, &sub_it);
-//
-//        int i = 0;
-//        while (bson_iter_next(&sub_it)) {
-//            coordinates[current_depth-1] = i;
-//            printf("\tlooping through farray, coordinates=["); for (int i=0;i<number_dimensions;i++) { printf("%i,", coordinates[i]); }; printf("]\n");
-//            /* If we aren't at the base of the array, recur */
-//            if (current_depth < number_dimensions /* +1 or not?? */) {
-//                printf("\t\t RECUR:\n");
-//                _load_farray_from_bson(&sub_it, coordinates, ndarray, dtype, current_depth + 1);
-//            } else if(base_dtype->subarray != NULL) {
-//                //TODO: there's another subarray!!
-//            } else {
-//                printf("\t\t AT BASE OF ARRAY\n");
-//                /* Reached the end of the array */
-//                if (base_dtype->fields != NULL && base_dtype->fields != Py_None) {
-//                    printf("\t\t\t FOUND SUBDOC\n");
-//                    /* The array contains documents */
-//                    bson_t *sub_document;
-//                    uint32_t document_len;
-//                    const uint8_t *document_buffer;
-//
-//                    if (!BSON_ITER_HOLDS_DOCUMENT(&sub_it)) {
-//                        PyErr_SetString(BsonNumpyError,
-//                                        "invalid document: expected subdoc "
-//                                                "from dtype, got other type");
-//                        return 0;
-//                    }
-//
-//                    bson_iter_document(&sub_it, &document_len,
-//                                       &document_buffer);
-//                    sub_document = bson_new_from_data(document_buffer,
-//                                                      document_len);
-//                    debug("in load_farray, recurring on subdoc", NULL, sub_document);
-//                    _load_document_from_bson(sub_document, coordinates, ndarray, base_dtype, current_depth+1, 0);
-//
-//
-//                } else {
-//                    printf("\t\t\t FOUND SCALAR\n");
-//                    /* The array contains scalars */
-//                    _load_scalar_from_bson(&sub_it, ndarray, 0, coordinates, current_depth, base_dtype);
-//                }
-//            }
-//            i++;
-//        }
         return 1;
     }
-
     /* Called incorrectly */
     debug("_load_farray_from_bson called with a non-array dtype",
           (PyObject*)dtype, NULL);
