@@ -252,7 +252,6 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
 
-
 class TestSequenceNestedArray(TestToNdarray):
     @client_context.require_connected
     def test_collection_sub_subarrays(self):
