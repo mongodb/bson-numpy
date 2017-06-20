@@ -209,7 +209,7 @@ class TestArrayErrors(TestToNdarray):
             [("x", [[i, i*2, i*3], [i*4, i*5, i*6]]),
              ("y", [[i*7, i*8, i*9], [i*10, i*11, i*12]])])
         for i in ['a', 'b'
-            # , 'c', 'd'
+             , 'c', 'd'
                   ]]
     raw_docs = [bson._dict_to_bson(
         doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
@@ -219,14 +219,12 @@ class TestArrayErrors(TestToNdarray):
         [([[i, i*2, i*3], [i*4, i*5, i*6]],
          ([[i*7, i*8, i*9], [i*10, i*11, i*12]]))
             for i in ['a', 'b',
-                      # 'c', 'd'
+                       'c', 'd'
                       ]], dtype=dtype)
 
     def test_correct_sub_dtype_array(self):
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(self.raw_docs, self.dtype, 2)
-        print "expected", self.ndarray
-        print "actual", res
+        res = bsonnumpy.sequence_to_ndarray(self.raw_docs, self.dtype, 4)
         self.assertTrue(np.array_equal(self.ndarray, res))
 
     def test_incorrect_sub_dtype_array1(self):
@@ -256,21 +254,6 @@ class TestArrayErrors(TestToNdarray):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array3(self):
-        son_docs = [
-            bson.SON(
-                [("x", [[i, i*2, i*3], [i*4, i*5, i*6]]),
-                 ("y", [[i*7, i*8, i*9], [i*10, i*11, i*12]])])
-            for i in ['a', 'b', 'c', 'd']]
-        raw_docs = [bson._dict_to_bson(
-            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in son_docs]
-
-        dtype = np.dtype([('x', '2,3S13'), ('y', '2,3S13')])
-
-        ndarray = np.array(
-            [([[i, i*2, i*3], [i*4, i*5, i*6]],
-              ([[i*7, i*8, i*9], [i*10, i*11, i*12]]))
-             for i in ['a', 'b', 'c', 'd']], dtype=dtype)
-
         # Top-level array too long
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3],
@@ -279,14 +262,15 @@ class TestArrayErrors(TestToNdarray):
              ("y", [['d'*7, 'd'*8, 'd'*9],
                     ['d'*10, 'd'*11, 'd'*12],
                     ['d'*10, 'd'*11, 'd'*12]])])
-        bad_raw_docs = raw_docs[:3]
+        bad_raw_docs = self.raw_docs[:3]
         bad_raw_docs.append(
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
-        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, dtype, 4)
-        self.assertTrue(np.array_equal(ndarray, res))
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                "invalid document: list is of incorrect length"):
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array4(self):
-
         # Sub array too long
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3, 'd'*3],
@@ -296,11 +280,12 @@ class TestArrayErrors(TestToNdarray):
         bad_raw_docs = self.raw_docs[:3]
         bad_raw_docs.append(
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
-        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
-        self.assertTrue(np.array_equal(self.ndarray, res))
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                "invalid document: list is of incorrect length"):
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array5(self):
-        # TODO: not checking type
         # Sub array not array
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3], ['d'*4, 'd'*5, 'd'*6]]),
@@ -309,12 +294,12 @@ class TestArrayErrors(TestToNdarray):
         bad_raw_docs.append(
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
-        with self.assertRaisesPattern(bsonnumpy.error,
-                                      "document does not match dtype"):
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                "invalid document: expected list from dtype, got other type"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array6(self):
-        # TODO: segfaults
         # Top-level array too short
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2, 'd'*3]]),
@@ -323,12 +308,12 @@ class TestArrayErrors(TestToNdarray):
         bad_raw_docs.append(
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
 
-        with self.assertRaisesPattern(bsonnumpy.error,
-                                      "document does not match dtype"):
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                "invalid document: list is of incorrect length"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array7(self):
-        # TODO: currently just leaves last element empty
         # Sub array too short
         bad_doc = bson.SON(
             [("x", [['d'*1, 'd'*2], ['d'*4, 'd'*5]]),
@@ -336,5 +321,7 @@ class TestArrayErrors(TestToNdarray):
         bad_raw_docs = self.raw_docs[:3]
         bad_raw_docs.append(
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
-        res = bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
-        self.assertTrue(np.array_equal(self.ndarray, res))
+        with self.assertRaisesPattern(
+                bsonnumpy.error,
+                "invalid document: list is of incorrect length"):
+            bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
