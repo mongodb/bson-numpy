@@ -17,9 +17,11 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
                        npy_intp *coordinates, int current_depth,
                        PyArray_Descr *dtype);
 static int
-_load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
+_load_fdocument_from_bson(bson_t *document, npy_intp *array_coordinates,
                           PyArrayObject *ndarray, PyArray_Descr *dtype,
-                          int current_depth, npy_intp offset);
+                          int current_depth, npy_intp offset,
+                          npy_intp *doc_coordinates, int doc_depth,
+                          int current_doc_depth);
 
 static bool debug_mode = false;
 
@@ -653,9 +655,11 @@ _load_farray_from_bson(bson_iter_t *bsonit, npy_intp *coordinates,
 
 
 static int
-_load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
-                         PyArrayObject *ndarray, PyArray_Descr *dtype,
-                         int current_depth, npy_intp offset) {
+_load_fdocument_from_bson(bson_t *document, npy_intp *array_coordinates,
+                          PyArrayObject *ndarray, PyArray_Descr *dtype,
+                          int current_depth, npy_intp offset,
+                          npy_intp *doc_coordinates, int doc_depth,
+                          int current_doc_depth) {
 
     PyObject *fields, *key, *value = NULL;
     Py_ssize_t pos;
@@ -678,11 +682,14 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                             "invalid dtype: dtype.fields is not a dict");
             return 0;
         }
-        printf("in _load_fdoc, current_depth=%i, passed offset=%li\n", current_depth, offset);
+        printf("in _load_fdoc, current_depth=%i, current_doc_depth=%i\n", current_depth, current_doc_depth);
         for (i = 0; i < number_fields; i++) {
             long offset_long;
             key = PyTuple_GetItem(ordered_names, i);
             value = PyDict_GetItem(fields, key);
+
+            /* Have found another layer of nested document */
+            doc_coordinates[current_doc_depth] = i;
 
             /* Get key, sub dtype, and offset for each field in dtype */
             if (!PyTuple_Check(value)) {
@@ -728,11 +735,11 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                 return 0;
             }
 
-            printf("\tlooping through fields, at key=%s, index=%li, current offset=%li and coordinates[", key_str, i, offset_long);
-            for (int z=0;z<1;z++) {printf("%i,", coordinates[z]);}; printf("]\n");
+            printf("\tlooping through fields, at key=%s, index=%li, current offset=%li and array_coordinates[", key_str, i, offset_long);
+            for (int z=0;z<1;z++) {printf("%i,", array_coordinates[z]);}; printf("]\n");
 
             if (sub_dtype->subarray) {
-                coordinates[current_depth] = i;
+                array_coordinates[current_depth] = i;
                 /* If the current key's value is a subarray */
                 PyObject* shape = sub_dtype->subarray->shape;
                 if (!PyTuple_Check(shape)) {
@@ -743,14 +750,27 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                 }
                 size_t number_dimensions = (size_t)PyTuple_Size(shape);
 
-                /* Index into ndarray with coordinates  + offset s*/
+                /* Index into ndarray with array_coordinates  + offset s*/
                 PyArrayObject* subndarray;
-                void* subarray_ptr = PyArray_GetPtr(ndarray, coordinates);
+                void* subarray_ptr = PyArray_GetPtr(ndarray, array_coordinates);
                 PyObject* subarray_tuple = PyArray_GETITEM(
                         ndarray, subarray_ptr);
                 debug("GOT SUBARRAY TUPLE", subarray_tuple, NULL);
 
-                PyObject* subarray_obj = PyTuple_GetItem(subarray_tuple, i);
+
+
+                /* Indexing into ndarray with named fields returns a tuple
+                 * that is nested as many levels as there are fields */
+//                PyObject* subarray_obj = PyTuple_GetItem(subarray_tuple, i);
+                printf("current_doc_depth=%i and doc_coordinates=[", current_doc_depth); for (int z=0;z<current_doc_depth+1;z++) {printf("%i,", doc_coordinates[z]);}; printf("]\n");
+
+
+                for (int sub_i = 0; sub_i < current_doc_depth + 1; sub_i++) {
+                    npy_intp index = doc_coordinates[sub_i];
+                    subarray_tuple = PyTuple_GetItem(subarray_tuple, index);
+                }
+                PyObject* subarray_obj = subarray_tuple;
+                debug("INNER ARRAY=", subarray_obj, NULL);
 
                 /* Get element of array */
                 if (!subarray_obj) {
@@ -771,7 +791,7 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                 npy_intp* new_coordinates = calloc(
                         1 + number_dimensions, sizeof(npy_intp));
 
-                printf("\tcalling _load_farray from bson with subarray that was at coordinates=["); for (int z=0;z<1;z++) {printf("%i,", coordinates[z]);}; printf("]");
+                printf("\tcalling _load_farray from bson with subarray that was at array_coordinates=["); for (int z=0;z<1;z++) {printf("%i,", array_coordinates[z]);}; printf("]");
                 debug("", subarray_obj, NULL);
                 if (!_load_farray_from_bson(&bsonit, new_coordinates,
                                             subndarray, sub_dtype,
@@ -787,7 +807,6 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                 bson_t *sub_document;
                 uint32_t document_len;
                 const uint8_t *document_buffer;
-
                 if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
                     debug("the document that does not match dtype is",
                           NULL, document);
@@ -796,18 +815,18 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                                             "from dtype, got other type");
                     return 0;
                 }
-
                 bson_iter_document(&bsonit, &document_len,
                                    &document_buffer);
                 sub_document = bson_new_from_data(document_buffer,
                                                   document_len);
 
                 debug("\tcalling _load_fdoc with subdoc", NULL, sub_document);
-                printf("\tand coordinates=["); for (int z=0;z<1;z++) {printf("%i,", coordinates[z]);}; printf("]\n");
+                printf("\tand array_coordinates=["); for (int z=0;z<1;z++) {printf("%i,", array_coordinates[z]);}; printf("]\n");
                 if (!_load_fdocument_from_bson(
-                        sub_document, coordinates, ndarray,
+                        sub_document, array_coordinates, ndarray,
                         sub_dtype, current_depth,
-                        offset + offset_long)) {
+                        offset + offset_long, doc_coordinates, doc_depth + 1,
+                        current_doc_depth + 1)) {
                     /* error set by _load_fdoc_from_bson */
                     return 0;
                 }
@@ -817,7 +836,7 @@ _load_fdocument_from_bson(bson_t *document, npy_intp *coordinates,
                 debug("\tfound scalar in sub_dtype", (PyObject*)sub_dtype, NULL);
                 if (!_load_scalar_from_bson(&bsonit, ndarray,
                                              offset + offset_long,
-                                             coordinates, current_depth,
+                                             array_coordinates, current_depth,
                                              sub_dtype)) {
                     /* Error set by _load_scalar_from_bson */
                     return 0;
@@ -953,9 +972,13 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
             return 0;
         }
 
+        /* Need two sets of coordinates, one for documents and one for arrays */
+        npy_intp* doc_coordinates = calloc(100, sizeof(npy_intp));
+
         /* current_depth = 1 because layer 0 is the whole sequence */
         if (!_load_fdocument_from_bson(document, coordinates, ndarray,
-                                      PyArray_DTYPE(ndarray), 1, 0)) {
+                                      PyArray_DTYPE(ndarray), 1, 0,
+                                      doc_coordinates, 0, 0)) {
             /* error set by _load_fdocument_from_bson */
             return NULL;
         }

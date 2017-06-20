@@ -120,7 +120,7 @@ class TestSequenceArray(TestToNdarray):
                        [i + 3, i + 4, i + 5],
                        [i + 6, i + 7, i + 8],
                        [i + 9, i + 10, i + 11]],
-                 "y": "string!!" + str(i)} for i in range(2, 4)]
+                 "y": "string!!" + str(i)} for i in range(10)]
         dtype = np.dtype([('x', "(4,3)int32"), ('y', 'S10')])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', 'S10'), ('x', "(4,3)int32")])
@@ -183,7 +183,7 @@ class TestSequenceArray(TestToNdarray):
 
 class TestSequenceDoc(TestToNdarray):
     @client_context.require_connected
-    def test_collection_sub1(self):
+    def test_subdoc1(self):
         # nested documents
         docs = [{'x': {'y': 100 + i}} for i in range(10)]
         dtype = np.dtype([('y', np.int32)])
@@ -191,7 +191,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub2(self):
+    def test_subdoc2(self):
         # sub-doc has multiple fields
         docs = [{'x': {'y': 100 + i, 'z': i}} for i in range(10)]
         dtype = np.dtype([('y', np.int32), ('z', np.int32)])
@@ -199,7 +199,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub3(self):
+    def test_subdoc3(self):
         # doc has multiple fields
         docs = [{'x': {'y': 100 + i}, 'q': {'y': -i}} for i in range(10)]
         dtype = np.dtype([('y', np.int32)])
@@ -207,7 +207,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub4(self):
+    def test_subdoc4(self):
         # doc and subdoc have multiple fields
         docs = [{'x': {'y': 100 + i, 'z': i}, 'q': {'y': -i, 'z': 100 - i}} for
                 i in range(10)]
@@ -219,7 +219,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub4_mixed(self):
+    def test_subdoc4_mixed(self):
         docs = [{'x': {'y': str(10 + i) * i, 'z': i},
                  'q': {'y': str(i) * i, 'z': 100 - i}} for i in range(10)]
         dtype = np.dtype([('y', 'S110'), ('z', np.int32)])
@@ -230,7 +230,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub5(self):
+    def test_subdoc5(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': 100 + i}}} for i in range(10)]
         dtype0 = np.dtype([('z', np.int32)])
@@ -239,7 +239,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_sub6(self):
+    def test_subdoc6(self):
         # 3x nested documents
         docs = [{'x': {'y': {'z': i,
                              'z2': "this is a string!"},
@@ -258,9 +258,11 @@ class TestSequenceDoc(TestToNdarray):
 
 class TestSequenceNestedArray(TestToNdarray):
     @client_context.require_connected
-    def test_collection_sub_subarrays(self):
+    def test_nested_array(self):
         docs = [
-            {'x': {'y': [100 + i, 100, i], 'y1': (i + 1) * 10}, 'x1': i + 5}
+            {'x': {'y': [100 + i, 100, i],
+                   'y1': (i + 1) * 10},
+             'x1': i + 5}
             for i in range(10)]
 
         dtype = np.dtype([('y', '3int32'), ('y1', 'int32')])
@@ -271,9 +273,10 @@ class TestSequenceNestedArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub_subarrays2(self):
+    def test_nested_array2x(self):
         docs = [{'x': {'y': [[100 + i, 100, i],
-                             [i, i + 1, i + 2]], 'y1': (i + 1) * 10},
+                             [i, i + 1, i + 2]],
+                       'y1': (i + 1) * 10},
                  'x1': i + 5} for i in range(10)]
         dtype = np.dtype([('y', '(2,3)int32'), ('y1', 'int32')])
         dtype_sub = np.dtype([('x', dtype), ('x1', 'int32')])
@@ -283,9 +286,10 @@ class TestSequenceNestedArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub_subarrays3(self):
+    def test_nested_array2x_mixed(self):
         docs = [{'x': {'y': [[100 + i, 100, i],
-                             [i, i + 1, i + 2]], 'y1': (i + 1) * 10},
+                             [i, i + 1, i + 2]],
+                       'y1': (i + 1) * 10},
                  'x1': [[[i + 5, i + 6], [i + 7, i + 8]],
                         [[i + 9, i + 10], [i + 11, i + 12]]]} for i in
                 range(10)]
@@ -297,7 +301,7 @@ class TestSequenceNestedArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub_subarrays4(self):
+    def test_nested_array2x_mixed2(self):
         docs = [{'x': {'y': [[100 + i, 100, i],
                              [i, i + 1, i + 2]],
                        'y1': (i + 1) * 10,
@@ -313,37 +317,41 @@ class TestSequenceNestedArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype_sub)
 
     @client_context.require_connected
-    def test_collection_sub4_array(self):
+    def test_nested_array3x(self):
         # 3x nested documents
-        docs = [{'x': {'y': {'z': [100 + i, 100 - i]}}} for i in range(10)]
+        docs = [{'x': {'y': {'z': [
+            100 + i, 100 - i]}}} for i in range(10)]
         dtype0 = np.dtype([('z', '2int32')])
         dtype1 = np.dtype([('y', dtype0)])
         dtype = np.dtype([('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_sub4_array(self):
-        # 3x nested documents
-        docs = [{'x': {'y': {'z': [
-            [100 + i, 100 - i, 100],
-            [1 * i, 2 * i, 3 * i],
-            [4 * i, 5 * i, 6 * i],
-            [7 * i, 8 * i, 9 * i]]}}} for i in range(10)]
+    def test_nested_array3x2d(self):
+        # 3x nested documents with 2d array
+        docs = [
+            {'x': {'y': {'z': [
+                    [100 + i, 100 - i, 100],
+                    [1 * i, 2 * i, 3 * i],
+                    [4 * i, 5 * i, 6 * i],
+                    [7 * i, 8 * i, 9 * i]]}}} for i in range(10)]
         dtype0 = np.dtype([('z', '(4,3)int32')])
         dtype1 = np.dtype([('y', dtype0)])
         dtype = np.dtype([('x', dtype1)])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_sub4_array2(self):
-        # 3x nested documents
-        docs = [{'x': {'y': {'z': [[100 + i, 100 - i, 100],
-                                   [1 * i, 2 * i, 3 * i],
-                                   [4 * i, 5 * i, 6 * i],
-                                   [7 * i, 8 * i, 9 * i]],
-                             'z2': "this is a string!"},
-                       'y2': {'a': "a different doc string"}},
-                 'x2': [1, 2, 3]} for i in range(10)]
+    def test_nested_array3x2d_mixed(self):
+        # 3x nested documents with 2d array and other fields
+        docs = [
+            {'x': {'y': {'z': [
+                [100 + i, 100 - i, 100],
+                [1 * i, 2 * i, 3 * i],
+                [4 * i, 5 * i, 6 * i],
+                [7 * i, 8 * i, 9 * i]],
+            'z2': "this is a string!"},
+            'y2': {'a': "a different doc string"}},
+            'x2': [1, 2, 3]} for i in range(10)]
         dtype2 = np.dtype([('a', 'S26')])
         dtype0 = np.dtype([('z', '(4,3)int32'), ('z2', 'S17')])
         dtype1 = np.dtype([('y', dtype0), ('y2', dtype2)])
@@ -355,7 +363,7 @@ class TestSequenceNestedArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_sub_many(self):
+    def test_nested_array_complicated(self):
         num = 3
         docs = [{} for _ in range(num)]
 
