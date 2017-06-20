@@ -14,7 +14,7 @@ from test import client_context, millis, unittest, TestToNdarray
 
 class TestSequenceFlat(TestToNdarray):
     @client_context.require_connected
-    def test_collection_flexible_int32(self):
+    def test_int32(self):
         docs = [{"x": i, "y": 10 - i} for i in range(10)]
         dtype = np.dtype([('x', np.int32), ('y', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
@@ -22,7 +22,7 @@ class TestSequenceFlat(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_int64(self):
+    def test_int64(self):
         docs = [{"x": i, "y": 2**63 - 1 - i} for i in range(10)]
         dtype = np.dtype([('x', np.int64), ('y', np.int64)])
         self.make_mixed_collection_test(docs, dtype)
@@ -30,7 +30,7 @@ class TestSequenceFlat(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_objectid(self):
+    def test_objectid(self):
         docs = [{"x": bson.ObjectId()} for _ in range(10)]
         dtype = np.dtype([('x', '<V12')])
 
@@ -49,13 +49,13 @@ class TestSequenceFlat(TestToNdarray):
             self.assertEqual(document["x"].binary, row["x"].tobytes())
 
     @client_context.require_connected
-    def test_collection_flexible_bool(self):
+    def test_bool(self):
         docs = [{"x": True}, {"x": False}]
         dtype = np.dtype([('x', np.bool)])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_datetime(self):
+    def test_datetime(self):
         docs = [{"x": datetime.datetime(1970, 1, 1)},
                 {"x": datetime.datetime(1980, 1, 1)},
                 {"x": datetime.datetime(1990, 1, 1)}]
@@ -78,19 +78,19 @@ class TestSequenceFlat(TestToNdarray):
                 row["x"])
 
     @client_context.require_connected
-    def test_collection_flexible_double(self):
+    def test_double(self):
         docs = [{"x": math.pi}, {"x": math.pi ** 2}]
         dtype = np.dtype([('x', np.double)])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_binary(self):
+    def test_binary(self):
         docs = [{"x": bson.Binary(b"asdf")}]
         dtype = np.dtype([('x', np.dtype("<V10"))])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_mixed_scalar(self):
+    def test_mixed_scalar(self):
         docs = [{"x": i, "y": random.choice(string.ascii_lowercase) * 11} for i
                 in range(10)]
         dtype = np.dtype([('x', np.int32), ('y', 'S11')])
@@ -98,11 +98,15 @@ class TestSequenceFlat(TestToNdarray):
         dtype = np.dtype([('y', 'S11'), ('x', np.int32)])
         self.make_mixed_collection_test(docs, dtype)
 
+    def test_void(self):
+        # TODO: test for types that are 'V'
+        pass
+
 
 class TestSequenceArray(TestToNdarray):
     @client_context.require_connected
-    def test_collection_flexible_subarray1(self):
-        # 2d subarray
+    def test_subarray1d(self):
+        # 1d subarray
         docs = [{"x": [1 + i, -i - 1], "y": [i, -i]} for i in range(5)]
         dtype = np.dtype([('x', '2int32'), ('y', '2int32')])
         self.make_mixed_collection_test(docs, dtype)
@@ -110,20 +114,20 @@ class TestSequenceArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_subarray2(self):
-        # 3d subarray
-        docs = [{"x": [[i, i + 1, i + 2],
-                       [-i, -i - 1, -i - 2],
-                       [100 * i, 100 * i + 1, 100 * i + 2],
-                       [0, 1, 2]],
-                 "y": "string!!!"} for i in range(5)]
+    def test_subarray2d(self):
+        # 2d subarray
+        docs = [{"x": [[i + 0, i + 1, i + 2],
+                       [i + 3, i + 4, i + 5],
+                       [i + 6, i + 7, i + 8],
+                       [i + 9, i + 10, i + 11]],
+                 "y": "string!!" + str(i)} for i in range(2, 4)]
         dtype = np.dtype([('x', "(4,3)int32"), ('y', 'S10')])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', 'S10'), ('x', "(4,3)int32")])
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_subarray3(self):
+    def test_subarray3d(self):
         # 3d subarray
         docs = []
         for i in range(5):
@@ -154,7 +158,7 @@ class TestSequenceArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_subarray2_mixed1(self):
+    def test_subarray2d2(self):
         # 3d subarray
         docs = [{"x": [[i, i + 1, i + 2],
                        [-i, -i - 1, -i - 2],
@@ -166,7 +170,7 @@ class TestSequenceArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
     @client_context.require_connected
-    def test_collection_flexible_mixed(self):
+    def test_mixed(self):
         docs = [{"x": [i, -i], "y": random.choice(string.ascii_lowercase) * 11,
                  "z": bson.Binary(b'foobar')} for i in range(10)]
         dtype = np.dtype([('x', '2int32'), ('y', 'S11'), ('z', 'V12')])
