@@ -31,8 +31,6 @@ class TestNested(TestToNdarray):
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
 
-        print "expected", ndarray
-        print "actual", res
         self.assertTrue(np.array_equal(ndarray, res))
 
     def test_array_scalar_load0(self):
@@ -50,11 +48,9 @@ class TestNested(TestToNdarray):
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
 
-        print "expected", ndarray
-        print "actual", res
         self.assertTrue(np.array_equal(ndarray, res))
 
-    # @unittest.skip("not yet implemented")
+    @unittest.skip("not yet implemented")
     def test_array_scalar_load1(self):
         # Test arrays with documents as elements
 
@@ -75,7 +71,7 @@ class TestNested(TestToNdarray):
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
         self.assertTrue(np.array_equal(ndarray, res))
 
-    # @unittest.skip("not yet implemented")
+    @unittest.skip("not yet implemented")
     def test_array_scalar_load2(self):
         # Test sub arrays with documents as elements
         son_docs = [
@@ -103,8 +99,6 @@ class TestNested(TestToNdarray):
 
         # Correct dtype
         res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
-        print "expected", ndarray
-        print "actual", res
         self.assertTrue(np.array_equal(ndarray, res))
 
     @unittest.skip("not yet implemented")

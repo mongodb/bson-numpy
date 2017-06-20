@@ -330,11 +330,11 @@ class TestSequenceNestedArray(TestToNdarray):
     def test_nested_array3x2d(self):
         # 3x nested documents with 2d array
         docs = [
-            {'x': {'y': {'z': [
-                    [100 + i, 100 - i, 100],
-                    [1 * i, 2 * i, 3 * i],
-                    [4 * i, 5 * i, 6 * i],
-                    [7 * i, 8 * i, 9 * i]]}}} for i in range(10)]
+            {'x': {'y': {
+                'z': [[100 + i, 100 - i, 100],
+                      [1 * i, 2 * i, 3 * i],
+                      [4 * i, 5 * i, 6 * i],
+                      [7 * i, 8 * i, 9 * i]]}}} for i in range(10)]
         dtype0 = np.dtype([('z', '(4,3)int32')])
         dtype1 = np.dtype([('y', dtype0)])
         dtype = np.dtype([('x', dtype1)])
@@ -344,14 +344,14 @@ class TestSequenceNestedArray(TestToNdarray):
     def test_nested_array3x2d_mixed(self):
         # 3x nested documents with 2d array and other fields
         docs = [
-            {'x': {'y': {'z': [
-                [100 + i, 100 - i, 100],
-                [1 * i, 2 * i, 3 * i],
-                [4 * i, 5 * i, 6 * i],
-                [7 * i, 8 * i, 9 * i]],
-            'z2': "this is a string!"},
-            'y2': {'a': "a different doc string"}},
-            'x2': [1, 2, 3]} for i in range(10)]
+            {'x': {'y': {
+                'z': [[100 + i, 100 - i, 100],
+                      [1 * i, 2 * i, 3 * i],
+                      [4 * i, 5 * i, 6 * i],
+                      [7 * i, 8 * i, 9 * i]],
+                'z2': "this is a string!"},
+                'y2': {'a': "a different doc string"}},
+                'x2': [1, 2, 3]} for i in range(10)]
         dtype2 = np.dtype([('a', 'S26')])
         dtype0 = np.dtype([('z', '(4,3)int32'), ('z2', 'S17')])
         dtype1 = np.dtype([('y', dtype0), ('y2', dtype2)])
