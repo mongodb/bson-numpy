@@ -96,7 +96,8 @@ class TestErrors(TestToNdarray):
         with self.assertRaisesPattern(TypeError, r'\binteger\b'):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, self.dtype, None)
 
-class TestDtypeErrors(TestToNdarray):
+
+class TestSubdocErrors(TestToNdarray):
 
     son_docs = [
         bson.SON(
@@ -196,6 +197,7 @@ class TestDtypeErrors(TestToNdarray):
                             dtype=dtype_sub3)
         res = bsonnumpy.sequence_to_ndarray(self.raw_docs, dtype_sub3, 10)
         self.assertTrue(np.array_equal(ndarray3, res))
+
 
 class TestArrayErrors(TestToNdarray):
 
