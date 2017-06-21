@@ -416,9 +416,6 @@ _load_scalar_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray, long offset,
     pointer = PyArray_GetPtr(ndarray, coordinates) + offset;
 
     switch (value->value_type) {
-        case BSON_TYPE_ARRAY:
-            return _load_array_from_bson(bsonit, ndarray, offset, coordinates,
-                                         current_depth, dtype);
         case BSON_TYPE_DOUBLE:
             return _load_double_from_bson(value, pointer, dtype);
         case BSON_TYPE_UTF8:
