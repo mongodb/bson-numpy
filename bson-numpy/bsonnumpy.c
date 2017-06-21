@@ -152,97 +152,6 @@ _bson_type_name(bson_type_t t)
 }
 
 
-static int
-_load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
-                      npy_intp *coordinates, int current_depth,
-                      PyArray_Descr *dtype)
-{
-
-    /* Type and length checks */
-    if (!BSON_ITER_HOLDS_ARRAY(it)) {
-        PyErr_SetString(BsonNumpyError,
-                        "invalid document: expected list from dtype,"
-                                " got other type");
-        return 0;
-    }
-    if (dtype->subarray == NULL) {
-        debug("_load_array_from_bson called with non-array dtype",
-              (PyObject*)dtype, NULL);
-        PyErr_SetString(BsonNumpyError,
-                        "expected subarray, invalid dtype");
-        return 0;
-    }
-    PyObject* shape = dtype->subarray->shape;
-    if (!PyTuple_Check(shape)) {
-        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
-        return 0;
-    }
-    PyObject* expected_length_obj = PyTuple_GetItem(shape, current_depth);
-    long expected_length = PyLong_AsLong(expected_length_obj);
-    int dimensions = (int) PyTuple_Size(shape);
-
-    bson_iter_t sub_it;
-    bson_iter_recurse(it, &sub_it);
-    int count = 0;
-    while (bson_iter_next(&sub_it)) {
-        count++;
-    }
-    if (expected_length != count) {
-        char buffer[100];
-        snprintf(buffer, 100,
-                 "expected length %li but got list of length %i",
-                 expected_length, count);
-        debug(buffer, NULL, NULL);
-        PyErr_SetString(BsonNumpyError,
-                        "invalid document: list is of incorrect length");
-        return 0;
-    }
-
-    /* Load data into array */
-    bson_iter_recurse(it, &sub_it);
-    if (count == 1) {
-        debug("converting array of length 1 to scalar\n", NULL, NULL);
-        bson_iter_next(&sub_it);
-
-        /* Array is of length 1, therefore we treat it like a number */
-        return _load_scalar_from_bson(&sub_it, ndarray, offset, coordinates,
-                                      current_depth, dtype);
-    } else {
-        PyArray_Descr* subdtype = dtype;
-        int (*load_func)(bson_iter_t*, PyArrayObject*, long, npy_intp*,
-                         int, PyArray_Descr*) = &_load_array_from_bson;
-        if(current_depth == dimensions - 1) {
-            subdtype = dtype->subarray->base;
-            load_func = &_load_scalar_from_bson;
-        }
-
-        int i = 0;
-        while (bson_iter_next(&sub_it)) {
-            long new_offset = offset;
-            if (current_depth < dimensions) {
-                coordinates[current_depth] = i;
-            } else {
-                PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
-                return 0;
-            }
-            int ret = (*load_func)(&sub_it, ndarray, new_offset,
-                                             coordinates, current_depth + 1,
-                                             subdtype);
-            if (ret == 0) {
-                /* Error set by loading function */
-                return 0;
-            };
-            i++;
-        }
-        /* Reset the rest of the coordinates to zero */
-        for (i = current_depth; i < dimensions; i++) {
-            coordinates[i] = 0;
-        }
-        return 1;
-    }
-}
-
-
 static void
 _bsonnumpy_type_err(bson_type_t bson_type, const PyArray_Descr *dtype,
                     const char *msg)
@@ -525,6 +434,97 @@ bson_to_ndarray(PyObject *self, PyObject *args)
     free(coordinates);
 
     return array_obj;
+}
+
+
+static int
+_load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
+                      npy_intp *coordinates, int current_depth,
+                      PyArray_Descr *dtype)
+{
+
+    /* Type and length checks */
+    if (!BSON_ITER_HOLDS_ARRAY(it)) {
+        PyErr_SetString(BsonNumpyError,
+                        "invalid document: expected list from dtype,"
+                                " got other type");
+        return 0;
+    }
+    if (dtype->subarray == NULL) {
+        debug("_load_array_from_bson called with non-array dtype",
+              (PyObject*)dtype, NULL);
+        PyErr_SetString(BsonNumpyError,
+                        "expected subarray, invalid dtype");
+        return 0;
+    }
+    PyObject* shape = dtype->subarray->shape;
+    if (!PyTuple_Check(shape)) {
+        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
+        return 0;
+    }
+    PyObject* expected_length_obj = PyTuple_GetItem(shape, current_depth);
+    long expected_length = PyLong_AsLong(expected_length_obj);
+    int dimensions = (int) PyTuple_Size(shape);
+
+    bson_iter_t sub_it;
+    bson_iter_recurse(it, &sub_it);
+    int count = 0;
+    while (bson_iter_next(&sub_it)) {
+        count++;
+    }
+    if (expected_length != count) {
+        char buffer[100];
+        snprintf(buffer, 100,
+                 "expected length %li but got list of length %i",
+                 expected_length, count);
+        debug(buffer, NULL, NULL);
+        PyErr_SetString(BsonNumpyError,
+                        "invalid document: list is of incorrect length");
+        return 0;
+    }
+
+    /* Load data into array */
+    bson_iter_recurse(it, &sub_it);
+    if (count == 1) {
+        debug("converting array of length 1 to scalar\n", NULL, NULL);
+        bson_iter_next(&sub_it);
+
+        /* Array is of length 1, therefore we treat it like a number */
+        return _load_scalar_from_bson(&sub_it, ndarray, offset, coordinates,
+                                      current_depth, dtype);
+    } else {
+        PyArray_Descr* subdtype = dtype;
+        int (*load_func)(bson_iter_t*, PyArrayObject*, long, npy_intp*,
+                         int, PyArray_Descr*) = &_load_array_from_bson;
+        if(current_depth == dimensions - 1) {
+            subdtype = dtype->subarray->base;
+            load_func = &_load_scalar_from_bson;
+        }
+
+        int i = 0;
+        while (bson_iter_next(&sub_it)) {
+            long new_offset = offset;
+            if (current_depth < dimensions) {
+                coordinates[current_depth] = i;
+            } else {
+                PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
+                return 0;
+            }
+            int ret = (*load_func)(&sub_it, ndarray, new_offset,
+                                   coordinates, current_depth + 1,
+                                   subdtype);
+            if (ret == 0) {
+                /* Error set by loading function */
+                return 0;
+            };
+            i++;
+        }
+        /* Reset the rest of the coordinates to zero */
+        for (i = current_depth; i < dimensions; i++) {
+            coordinates[i] = 0;
+        }
+        return 1;
+    }
 }
 
 static int
