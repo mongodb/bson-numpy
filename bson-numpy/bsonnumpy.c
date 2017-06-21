@@ -528,43 +528,6 @@ _load_array_from_bson(bson_iter_t *it, PyArrayObject *ndarray, long offset,
     }
 }
 
-static int
-_load_farray_from_bson(bson_iter_t *bsonit, npy_intp *coordinates,
-        PyArrayObject *ndarray, PyArray_Descr *dtype,
-        int current_depth) {
-    if (!BSON_ITER_HOLDS_ARRAY(bsonit)) {
-        PyErr_SetString(BsonNumpyError,
-                        "invalid document: expected list from dtype,"
-                                " got other type");
-        return 0;
-    }
-
-    if (dtype->subarray) {
-
-        /* Get the subarray's base type and shape */
-        char base_kind = dtype->subarray->base->kind;
-
-        /* If type is basic, then can use scalar load. TODO: better way to check? */
-        if (base_kind != NPY_VOID && base_kind != NPY_OBJECT) {
-            return _load_array_from_bson(
-                    bsonit, ndarray, 0, coordinates, current_depth, dtype);
-        } else {
-            /* TODO: implement support for arrays of nested documents */
-            PyErr_SetString(BsonNumpyError,
-                            "unhandled type: array of documents");
-            return 0;
-        }
-
-        return 1;
-    }
-    /* Called incorrectly */
-    debug("_load_farray_from_bson called with a non-array dtype",
-          (PyObject*)dtype, NULL);
-    PyErr_SetString(BsonNumpyError,
-                    "I don't think this is possible");
-    return 0;
-}
-
 
 static int
 _load_document_from_bson(
@@ -691,10 +654,8 @@ _load_document_from_bson(
                 npy_intp* new_coordinates = calloc(
                         1 + number_dimensions, sizeof(npy_intp));
 
-                if (!_load_farray_from_bson(&bsonit, new_coordinates,
-                                            subndarray, sub_dtype,
-                                            0)) {
-                    /* error set by load_farray_from_bson */
+                if (!_load_array_from_bson(&bsonit, subndarray, 0, new_coordinates, 0, sub_dtype)) {
+                    /* error set by load_array_from_bson */
                     return 0;
                 }
 

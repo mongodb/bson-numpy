@@ -50,7 +50,6 @@ class TestNested(TestToNdarray):
 
         self.assertTrue(np.array_equal(ndarray, res))
 
-    @unittest.skip("not yet implemented")
     def test_array_scalar_load1(self):
         # Test arrays with documents as elements
 
@@ -65,13 +64,11 @@ class TestNested(TestToNdarray):
         sub_dtype = np.dtype(([('a', 'int32'), ('b', 'int32')], 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array([([(i, i), (-i, -i)],) for i in range(2, 4)], dtype)
-
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
-        self.assertTrue(np.array_equal(ndarray, res))
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      r'unsupported BSON type: Sub-document'):
+            bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
 
-    @unittest.skip("not yet implemented")
     def test_array_scalar_load2(self):
         # Test sub arrays with documents as elements
         son_docs = [
@@ -98,10 +95,10 @@ class TestNested(TestToNdarray):
               ([(i, i), (-i, -i)],)] for i in range(2, 4)], dtype)
 
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
-        self.assertTrue(np.array_equal(ndarray, res))
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      r'unsupported BSON type: unknown'):
+            bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 2)
 
-    @unittest.skip("not yet implemented")
     def test_array_scalar_load3(self):
         # Test sub arrays with documents that have arrays
         son_docs = [
@@ -118,16 +115,11 @@ class TestNested(TestToNdarray):
         sub_dtype = np.dtype(([('a', '4int32'), ('b', '4int32')], 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array(
-            [([([i, i, i, i], [i, i, i, i]),
-               ([-i, -i, -i, -i], [-i, -i, -i, -i])],)
-             for i in range(10)], dtype)
-
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
-        self.assertTrue(np.array_equal(ndarray, res))
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      r'unsupported BSON type: Sub-document'):
+            bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
 
-    @unittest.skip("not yet implemented")
     def test_array_scalar_load4(self):
         # Test documents with multiple levels of sub documents
         son_docs = [
@@ -151,10 +143,7 @@ class TestNested(TestToNdarray):
         sub_dtype = np.dtype((sub_sub_dtype, 2))
         dtype = np.dtype([('x', sub_dtype)])
 
-        ndarray = np.array([([[((i,), (i,)), ((-i,), (-i,))],
-                              [((i,), (i,)), ((-i,), (-i,))]],)
-                            for i in range(10)], dtype)
-
         # Correct dtype
-        res = bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
-        self.assertTrue(np.array_equal(ndarray, res))
+        with self.assertRaisesPattern(bsonnumpy.error,
+                                      r'unsupported BSON type: unknown'):
+            bsonnumpy.sequence_to_ndarray(raw_docs, dtype, 4)
