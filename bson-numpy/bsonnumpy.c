@@ -721,7 +721,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     PyArrayObject *ndarray;
 
     int num_documents;
-    int number_dimensions;
+    int number_dimensions = 1;
     npy_intp *dimension_lengths = NULL;
     npy_intp *array_coordinates = NULL;
 
@@ -764,19 +764,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     dimension_lengths = malloc(1 * sizeof(npy_intp));
     dimension_lengths[0] = num_documents;
 
-    number_dimensions = 1;
-
-//    if (dtype->subarray != NULL) { // TODO: this should be 1 if a document
-//        PyObject *shape = dtype->subarray->shape;
-//        if (!PyTuple_Check(shape)) {
-//            debug("invalid dtype->subarray->shape", shape, NULL);
-//            PyErr_SetString(BsonNumpyError,
-//                            "dtype argument had invalid subarray");
-//            return NULL;
-//        }
-//        number_dimensions = (int) PyTuple_Size(shape);
-//    }
-
     Py_INCREF(dtype);
 
     /* This function steals a reference to dtype? */
@@ -800,8 +787,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     /* For each document in the collection, fill row of ndarray */
     while ((binary_doc = PyIter_Next(iterator_obj))) {
-        int p;
-
         /* Get BSON document */
         const char *bytes_str = PyBytes_AS_STRING(binary_doc);
         Py_ssize_t bytes_len = PyBytes_GET_SIZE(binary_doc);
@@ -836,11 +821,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         array_coordinates[0] = ++row;
         if (row >= num_documents) {
             break;
-        }
-
-        /* Reset the rest of the array_coordinates to zero */
-        for (p = 1; p < number_dimensions; p++) {
-            array_coordinates[p] = 0;
         }
     }
 
