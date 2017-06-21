@@ -42,64 +42,6 @@ debug(char* message, PyObject* object, bson_t* doc)
     }
 }
 
-/* Stub to test passing ndarrays. */
-static PyObject *
-ndarray_to_bson(PyObject *self, PyObject *args)
-{
-    PyObject *array_obj;
-    PyArray_Descr *dtype;
-    PyArrayObject *ndarray;
-    bson_t document;
-//    npy_intp i;
-
-    if (!PyArg_ParseTuple(args, "O", &array_obj)) {
-        PyErr_SetNone(PyExc_TypeError);
-        return NULL;
-    }
-
-    /* Convert array */
-    if (!PyArray_Check(array_obj)) {
-        PyErr_SetNone(PyExc_TypeError);
-        return NULL;
-    }
-    if (!PyArray_OutputConverter(array_obj, &ndarray)) {
-        PyErr_SetString(BsonNumpyError, "bad array type");
-        return NULL;
-    }
-    dtype = PyArray_DTYPE(ndarray);
-
-    /* npy_intp num_dims = PyArray_NDIM(ndarray);
-    npy_intp *shape = PyArray_SHAPE(ndarray); */
-//    npy_intp num_documents = PyArray_DIM(ndarray, 0);
-
-    bson_init(&document);
-
-    /* TODO: could use array iterator API but potentially better to recur
-     * ourselves */
-//    for (i = 0; i < num_documents; i++) {
-//        void *pointer = PyArray_GETPTR1(ndarray, i);
-//        PyObject *result = PyArray_GETITEM(ndarray, pointer);
-//        PyObject *type = PyObject_Type(result);
-
-//        if (debug) {
-//            printf("got item at %i =", (int) i);
-//            PyObject_Print(result, stdout, 0);
-//            printf(" type=");
-//            PyObject_Print(type, stdout, 0);
-//            printf("\n");
-//        }
-//    }
-
-//    if (debug) {
-//        printf("ndarray=");
-//        PyObject_Print((PyObject *) ndarray, stdout, 0);
-//        printf(" dtype=");
-//        PyObject_Print((PyObject *) dtype, stdout, 0);
-//        printf("\n");
-//    }
-    return Py_BuildValue(""); /* TODO: return document instead */
-}
-
 
 static const char *
 _bson_type_name(bson_type_t t)
@@ -850,8 +792,32 @@ done:
     return array_obj;
 }
 
+/* Stub */
+static PyObject *
+ndarray_to_sequence(PyObject *self, PyObject *args)
+{
+    PyObject *array_obj;
+    PyArrayObject *ndarray;
 
-static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_bson",     ndarray_to_bson,     METH_VARARGS, "Convert an ndarray into a BSON byte string"},
+    if (!PyArg_ParseTuple(args, "O", &array_obj)) {
+        return NULL;
+    }
+
+    /* Convert array */
+    if (!PyArray_Check(array_obj)) {
+        PyErr_SetString(BsonNumpyError, "sequence_to_ndarray requires a numpy.ndarray");
+        return NULL;
+    }
+    if (!PyArray_OutputConverter(array_obj, &ndarray)) {
+        PyErr_SetString(BsonNumpyError, "invalid ndarray passed into sequence_to_ndarray");
+        return NULL;
+    }
+
+    return PyTuple_New(0);
+}
+
+
+static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_sequence", ndarray_to_sequence, METH_VARARGS, "Convert an ndarray into a iterator of BSON documents"},
                                          {"bson_to_ndarray",     bson_to_ndarray,     METH_VARARGS, "Convert BSON byte string into an ndarray"},
                                          {"sequence_to_ndarray", sequence_to_ndarray, METH_VARARGS, "Convert an iterator containing BSON documents into an ndarray"},
                                          {NULL,                  NULL,                0,            NULL}        /* Sentinel */

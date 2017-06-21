@@ -16,7 +16,6 @@ class TestNested(TestToNdarray):
     else:
         assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
 
-    # @unittest.skip("not yet implemented")
     def test_array_scalar_load00(self):
         # Test arrays with documents as elements
 

@@ -9,65 +9,78 @@ from test import TestToNdarray, millis, unittest
 
 
 class TestToBSONScalars(unittest.TestCase):
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_integer32_types(self):
         array = np.array([99, 88, 77, 66], dtype=np.int32)
         bsonnumpy.ndarray_to_bson(array)
 
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_integer64_types(self):
         array = np.array([99, 88, 77, 66], dtype=np.int64)
         bsonnumpy.ndarray_to_bson(array)
 
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_bool(self):
         array = np.array([True, False, True, False], dtype=np.bool)
         bsonnumpy.ndarray_to_bson(array)
 
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_float64_types(self):
         array = np.array([99.99, 88.88, 77.77, 66.66], dtype=np.float64)
         bsonnumpy.ndarray_to_bson(array)
 
-    # def test_oid(self):
-    #     array = np.array([bson.ObjectId(), bson.ObjectId(),
-    #                       bson.ObjectId(), bson.ObjectId()],
-    #                      dtype=np.dtype('<V12'))
-    #     bsonnumpy.ndarray_to_bson(array)
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
+    def test_oid(self):
+        array = np.array([bson.ObjectId(), bson.ObjectId(),
+                          bson.ObjectId(), bson.ObjectId()],
+                         dtype=np.dtype('<V12'))
+        bsonnumpy.ndarray_to_bson(array)
 
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_string(self):
         array = np.array([b"string_0", b"str1", b"utf8-2"],
                          dtype=np.dtype('<S2'))
         bsonnumpy.ndarray_to_bson(array)
 
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_binary(self):
         array = np.array([bson.Binary(b"binary_0"),
                           bson.Binary(b"bin1"),
                           bson.Binary(b"utf8-2")], dtype=np.dtype('<V15'))
         bsonnumpy.ndarray_to_bson(array)
 
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
     def test_subarray(self):
         array = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]],
                          dtype=np.dtype('int32'))
         bsonnumpy.ndarray_to_bson(array)
 
-        # def test_datetime(self):
-        #     array = np.array([datetime.datetime(1970, 1, 1),
-        #                       datetime.datetime(1970, 1, 2),
-        #                       datetime.datetime(1970, 1, 3)],
-        #                      dtype=np.dtype('int64'))
-        #     bsonnumpy.ndarray_to_bson(array)
-        #
-        # def test_timestamp(self):
-        #     array = np.array([
-        #         bson.timestamp.Timestamp(time=00000, inc=77),
-        #         bson.timestamp.Timestamp(time=00000, inc=88),
-        #         bson.timestamp.Timestamp(time=00000, inc=99)],
-        #         dtype=np.dtype('uint64'))
-        #     bsonnumpy.ndarray_to_bson(array)
-        #
-        # def test_documents(self):
-        #     array = np.array([
-        #         bson.SON([("a", 1)]),
-        #         bson.SON([("b", 2)]),
-        #         bson.SON([("c", 3)])], dtype=np.dtype('<V35'))
-        #     bsonnumpy.ndarray_to_bson(array)
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
+    def test_datetime(self):
+        array = np.array([datetime.datetime(1970, 1, 1),
+                          datetime.datetime(1970, 1, 2),
+                          datetime.datetime(1970, 1, 3)],
+                         dtype=np.dtype('int64'))
+        bsonnumpy.ndarray_to_bson(array)
+
+    @unittest.skip("TODO: these tests will be changed to test "
+                   "ndarray_to_sequence for issue #27")
+    def test_timestamp(self):
+        array = np.array([
+            bson.timestamp.Timestamp(time=00000, inc=77),
+            bson.timestamp.Timestamp(time=00000, inc=88),
+            bson.timestamp.Timestamp(time=00000, inc=99)],
+            dtype=np.dtype('uint64'))
+        bsonnumpy.ndarray_to_bson(array)
 
 
 class TestFromBSONScalars(TestToNdarray):
