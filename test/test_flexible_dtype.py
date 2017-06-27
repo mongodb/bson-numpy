@@ -33,3 +33,6 @@ class TestFlexibleTypes(unittest.TestCase):
                         (sons[str(i)][name] == ndarray[i][name]).all())
                 else:
                     self.assertEqual(sons[str(i)][name], ndarray[i][name])
+
+if __name__ == '__main__':
+    unittest.main()

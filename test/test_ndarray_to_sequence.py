@@ -483,3 +483,7 @@ class TestSequenceNestedArray(TestToNdarray):
             letter_index -= 1
 
         self.make_mixed_collection_test(docs, dt)  # OMG this works!!
+
+
+if __name__ == '__main__':
+    unittest.main()
