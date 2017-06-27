@@ -11,10 +11,6 @@ class TestErrors(TestToNdarray):
         doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [
         bson.SON([("x", i), ("y", -i)]) for i in range(10)]]
     ndarray = np.array([(i, -i) for i in range(10)], dtype=dtype)
-    if hasattr(unittest.TestCase, 'assertRaisesRegex'):
-        assertRaisesPattern = unittest.TestCase.assertRaisesRegex
-    else:
-        assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
 
     def test_incorrect_arguments(self):
         # Expects iterator, dtype, count

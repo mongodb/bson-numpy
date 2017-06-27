@@ -293,93 +293,6 @@ _load_scalar_from_bson(
 }
 
 
-static PyObject *
-bson_to_ndarray(PyObject *self, PyObject *args)
-{
-    /* Takes in a BSON byte string and a dtype */
-    PyObject *binary_doc;
-    PyObject *dtype_obj;
-    PyObject *array_obj;
-    const char *bytestr;
-    PyArray_Descr *dtype;
-    PyArrayObject *ndarray;
-    Py_ssize_t bytes_len;
-    Py_ssize_t number_dimensions = -1;
-    npy_intp *dimension_lengths;
-    bson_iter_t bsonit;
-    bson_t *document;
-    size_t err_offset;
-    npy_intp *coordinates;
-    npy_intp i;
-
-    if (!PyArg_ParseTuple(args, "SO", &binary_doc, &dtype_obj)) {
-        PyErr_SetNone(PyExc_TypeError);
-        return NULL;
-    }
-    bytestr = PyBytes_AS_STRING(binary_doc);
-    bytes_len = PyBytes_GET_SIZE(binary_doc);
-    /* slower than what??? Also, is this a valid cast? */
-    document = bson_new_from_data((uint8_t *) bytestr, bytes_len);
-    if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
-        /* TODO: validate in a reasonable way, now segfaults if bad */
-        PyErr_SetString(BsonNumpyError, "Document failed validation");
-        return NULL;
-    }
-
-    /* Convert dtype */
-    if (!PyArray_DescrCheck(dtype_obj)) {
-        PyErr_SetNone(PyExc_TypeError);
-        return NULL;
-    }
-    if (!PyArray_DescrConverter(dtype_obj, &dtype)) {
-        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
-        return NULL;
-    }
-
-    bson_iter_init(&bsonit, document);
-    dimension_lengths = malloc(1 * sizeof(npy_intp));
-    dimension_lengths[0] = bson_count_keys(document);
-    number_dimensions = 1;
-
-    if (dtype->subarray != NULL) {
-        PyObject *shape = dtype->subarray->shape;
-        if (!PyTuple_Check(shape)) {
-            PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
-            return NULL;
-        }
-        number_dimensions = (int) PyTuple_Size(shape);
-    }
-
-    Py_INCREF(dtype);
-
-    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
-    if (!array_obj) {
-        return NULL;
-    }
-
-    if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
-        return NULL;
-    }
-
-    coordinates = calloc(number_dimensions + 1, sizeof(npy_intp));
-    for (i = 0; i < dimension_lengths[0]; i++) {
-        bson_iter_next(&bsonit);
-        coordinates[0] = i;
-        int success = _load_scalar_from_bson(&bsonit, ndarray, dtype,
-                                             coordinates, 0, 0);
-        if (success == 0) {
-            return NULL;
-        }
-    }
-
-    free(dimension_lengths);
-    free(document);
-    free(coordinates);
-
-    return array_obj;
-}
-
-
 static int
 _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
                       PyArray_Descr *dtype, npy_intp *coordinates,
@@ -818,7 +731,6 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 
 
 static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_sequence", ndarray_to_sequence, METH_VARARGS, "Convert an ndarray into a iterator of BSON documents"},
-                                         {"bson_to_ndarray",     bson_to_ndarray,     METH_VARARGS, "Convert BSON byte string into an ndarray"},
                                          {"sequence_to_ndarray", sequence_to_ndarray, METH_VARARGS, "Convert an iterator containing BSON documents into an ndarray"},
                                          {NULL,                  NULL,                0,            NULL}        /* Sentinel */
 };

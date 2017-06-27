@@ -13,6 +13,34 @@ from test import client_context, millis, unittest, TestToNdarray
 
 
 class TestSequenceFlat(TestToNdarray):
+    def test_incorrect_arguments(self):
+        # Expects iterator, dtype, count
+        needs_iter = r"sequence_to_ndarray requires an iterator"
+        invalid = r"document from sequence failed validation"
+
+        with self.assertRaisesPattern(TypeError, needs_iter):
+            bsonnumpy.sequence_to_ndarray(1, np.dtype([("a", np.int)]), 1)
+
+        with self.assertRaisesPattern(bsonnumpy.error, invalid):
+            bsonnumpy.sequence_to_ndarray("asdf", np.dtype([("a", np.int)]), 1)
+
+        # TODO: better error here
+        with self.assertRaisesPattern(bsonnumpy.error, invalid):
+            bsonnumpy.sequence_to_ndarray(b"asdf", np.dtype([("a", np.int)]), 1)
+
+        with self.assertRaises(TypeError):
+            bsonnumpy.sequence_to_ndarray(10, 10, 1)
+
+        with self.assertRaisesPattern(
+                TypeError, "sequence_to_ndarray requires an iterator"):
+            bsonnumpy.sequence_to_ndarray(None, np.dtype([("a", np.int)]), 1)
+
+    def test_empty(self):
+        dtype = np.dtype([("a", np.int)])
+        result = bsonnumpy.sequence_to_ndarray([], dtype, 0)
+        self.assertEqual(result.dtype, dtype)
+        self.assertTrue(np.array_equal(result, np.array([], dtype)))
+
     @client_context.require_connected
     def test_int32(self):
         docs = [{"x": i, "y": 10 - i} for i in range(10)]
@@ -257,7 +285,6 @@ class TestSequenceDoc(TestToNdarray):
 
 
 class TestSequenceNestedArray(TestToNdarray):
-    @client_context.require_connected
     def test_nested_array(self):
         docs = [
             {'x': {'y': [100 + i, 100, i],
