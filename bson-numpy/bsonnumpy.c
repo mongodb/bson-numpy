@@ -341,45 +341,36 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
 
     /* Load data into array */
     bson_iter_recurse(bsonit, &sub_it);
-    if (count == 1) {
-        debug("converting array of length 1 to scalar\n", NULL, NULL);
-        bson_iter_next(&sub_it);
-
-        /* Array is of length 1, therefore we treat it like a number */
-        return _load_scalar_from_bson(&sub_it, ndarray, dtype,
-                                      coordinates, current_depth, offset);
-    } else {
-        PyArray_Descr* subdtype = dtype;
-        int (*load_func)(bson_iter_t*, PyArrayObject*, PyArray_Descr*,
-                         npy_intp*, int, long) = &_load_array_from_bson;
-        if(current_depth == dimensions - 1) {
-            subdtype = dtype->subarray->base;
-            load_func = &_load_scalar_from_bson;
-        }
-
-        int i = 0;
-        while (bson_iter_next(&sub_it)) {
-            long new_offset = offset;
-            if (current_depth < dimensions) {
-                coordinates[current_depth] = i;
-            } else {
-                PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
-                return 0;
-            }
-            int ret = (*load_func)(&sub_it, ndarray, subdtype,
-                                   coordinates, current_depth + 1, new_offset);
-            if (ret == 0) {
-                /* Error set by loading function */
-                return 0;
-            };
-            i++;
-        }
-        /* Reset the rest of the coordinates to zero */
-        for (i = current_depth; i < dimensions; i++) {
-            coordinates[i] = 0;
-        }
-        return 1;
+    PyArray_Descr* subdtype = dtype;
+    int (*load_func)(bson_iter_t*, PyArrayObject*, PyArray_Descr*,
+                     npy_intp*, int, long) = &_load_array_from_bson;
+    if(current_depth == dimensions - 1) {
+        subdtype = dtype->subarray->base;
+        load_func = &_load_scalar_from_bson;
     }
+
+    int i = 0;
+    while (bson_iter_next(&sub_it)) {
+        long new_offset = offset;
+        if (current_depth < dimensions) {
+            coordinates[current_depth] = i;
+        } else {
+            PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
+            return 0;
+        }
+        int ret = (*load_func)(&sub_it, ndarray, subdtype,
+                               coordinates, current_depth + 1, new_offset);
+        if (ret == 0) {
+            /* Error set by loading function */
+            return 0;
+        };
+        i++;
+    }
+    /* Reset the rest of the coordinates to zero */
+    for (i = current_depth; i < dimensions; i++) {
+        coordinates[i] = 0;
+    }
+    return 1;
 }
 
 
