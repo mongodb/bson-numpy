@@ -1,4 +1,4 @@
-import os
+import glob
 import sys
 
 # Suppress warnings during shutdown, http://bugs.python.org/issue15881
@@ -25,11 +25,20 @@ class build_ext(_build_ext):
         self.include_dirs.append(numpy.get_include())
 
 
+libraries = []
+if sys.platform == "win32":
+    libraries.append("ws2_32")
+elif sys.platform != "darwin":
+    # librt may be needed for clock_gettime()
+    libraries.append("rt")
+
+
 bsonnumpymodule = setuptools.Extension(
     'bsonnumpy',
-    libraries=["bson-1.0"],
-    include_dirs=["/usr/include/libbson-1.0", "/usr/local/include/libbson-1.0"],
-    sources=[os.path.join("bson-numpy", "bsonnumpy.c")])
+    sources=["bson-numpy/bsonnumpy.c"] + glob.glob("bson-numpy/*/*.c"),
+    include_dirs=["bson-numpy", "bson-numpy/bson"],
+    define_macros=[("BSON_COMPILATION", 1)],
+    libraries=libraries)
 
 
 if sys.version_info[:2] == (2, 6):
