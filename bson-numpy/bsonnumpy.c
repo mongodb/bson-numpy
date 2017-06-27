@@ -8,7 +8,7 @@
 /* #include <numpy/npy_common.h> */
 #include <numpy/ndarrayobject.h>
 
-#include "libbson-1.0/bson.h"
+#include "bson/bson.h"
 
 static PyObject *BsonNumpyError;
 

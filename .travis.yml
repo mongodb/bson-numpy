@@ -16,14 +16,7 @@ install:
 - echo $LIBRARY_PATH
 - echo $LD_LIBRARY_PATH
 - echo $TRAVIS_PYTHON_VERSION
-- sudo apt-get install git-core automake autoconf libtool gcc
-- git clone git://github.com/mongodb/libbson.git
-- cd libbson/
-- mkdir bson-build
-- ./autogen.sh --prefix=`pwd`/bson-build
-- make
-- make install
-- cd ..
+- sudo apt-get install gcc
 - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
 - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pandas; fi
 - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx; fi
