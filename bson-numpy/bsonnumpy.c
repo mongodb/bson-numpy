@@ -450,15 +450,10 @@ _load_document_from_bson(
             /* Get subdocument from BSON document */
             bson_iter_init(&bsonit, document);
             if (!bson_iter_find(&bsonit, key_str)) {
-                /* BSON document is missing key specified by dtype */
-                char buffer[100];
-                snprintf(buffer, 100,
-                         "could not find key \"%s\" in sub document",
-                         key_str);
-                debug(buffer, NULL, document);
-                PyErr_SetString(
+                PyErr_Format(
                         BsonNumpyError,
-                        "document does not match dtype");
+                        "document does not match dtype, missing key \"%s\"",
+                        key_str);
                 return 0;
             }
 
