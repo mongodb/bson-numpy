@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.3)
 
-set(Python_ADDITIONAL_VERSIONS 2.7)
 include(FindPythonInterp)
+message(STATUS "Found Python ${PYTHON_VERSION_STRING} ${PYTHON_EXECUTABLE}")
 include(FindPythonLibs)
 include(cmake/FindNumpy.cmake)
 include(cmake/FindBSON.cmake)

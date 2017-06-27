@@ -293,93 +293,6 @@ _load_scalar_from_bson(
 }
 
 
-static PyObject *
-bson_to_ndarray(PyObject *self, PyObject *args)
-{
-    /* Takes in a BSON byte string and a dtype */
-    PyObject *binary_doc;
-    PyObject *dtype_obj;
-    PyObject *array_obj;
-    const char *bytestr;
-    PyArray_Descr *dtype;
-    PyArrayObject *ndarray;
-    Py_ssize_t bytes_len;
-    Py_ssize_t number_dimensions = -1;
-    npy_intp *dimension_lengths;
-    bson_iter_t bsonit;
-    bson_t *document;
-    size_t err_offset;
-    npy_intp *coordinates;
-    npy_intp i;
-
-    if (!PyArg_ParseTuple(args, "SO", &binary_doc, &dtype_obj)) {
-        PyErr_SetNone(PyExc_TypeError);
-        return NULL;
-    }
-    bytestr = PyBytes_AS_STRING(binary_doc);
-    bytes_len = PyBytes_GET_SIZE(binary_doc);
-    /* slower than what??? Also, is this a valid cast? */
-    document = bson_new_from_data((uint8_t *) bytestr, bytes_len);
-    if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
-        /* TODO: validate in a reasonable way, now segfaults if bad */
-        PyErr_SetString(BsonNumpyError, "Document failed validation");
-        return NULL;
-    }
-
-    /* Convert dtype */
-    if (!PyArray_DescrCheck(dtype_obj)) {
-        PyErr_SetNone(PyExc_TypeError);
-        return NULL;
-    }
-    if (!PyArray_DescrConverter(dtype_obj, &dtype)) {
-        PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
-        return NULL;
-    }
-
-    bson_iter_init(&bsonit, document);
-    dimension_lengths = malloc(1 * sizeof(npy_intp));
-    dimension_lengths[0] = bson_count_keys(document);
-    number_dimensions = 1;
-
-    if (dtype->subarray != NULL) {
-        PyObject *shape = dtype->subarray->shape;
-        if (!PyTuple_Check(shape)) {
-            PyErr_SetString(BsonNumpyError, "dtype passed in was invalid");
-            return NULL;
-        }
-        number_dimensions = (int) PyTuple_Size(shape);
-    }
-
-    Py_INCREF(dtype);
-
-    array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
-    if (!array_obj) {
-        return NULL;
-    }
-
-    if (NPY_FAIL == PyArray_OutputConverter(array_obj, &ndarray)) {
-        return NULL;
-    }
-
-    coordinates = calloc(number_dimensions + 1, sizeof(npy_intp));
-    for (i = 0; i < dimension_lengths[0]; i++) {
-        bson_iter_next(&bsonit);
-        coordinates[0] = i;
-        int success = _load_scalar_from_bson(&bsonit, ndarray, dtype,
-                                             coordinates, 0, 0);
-        if (success == 0) {
-            return NULL;
-        }
-    }
-
-    free(dimension_lengths);
-    free(document);
-    free(coordinates);
-
-    return array_obj;
-}
-
-
 static int
 _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
                       PyArray_Descr *dtype, npy_intp *coordinates,
@@ -428,45 +341,36 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
 
     /* Load data into array */
     bson_iter_recurse(bsonit, &sub_it);
-    if (count == 1) {
-        debug("converting array of length 1 to scalar\n", NULL, NULL);
-        bson_iter_next(&sub_it);
-
-        /* Array is of length 1, therefore we treat it like a number */
-        return _load_scalar_from_bson(&sub_it, ndarray, dtype,
-                                      coordinates, current_depth, offset);
-    } else {
-        PyArray_Descr* subdtype = dtype;
-        int (*load_func)(bson_iter_t*, PyArrayObject*, PyArray_Descr*,
-                         npy_intp*, int, long) = &_load_array_from_bson;
-        if(current_depth == dimensions - 1) {
-            subdtype = dtype->subarray->base;
-            load_func = &_load_scalar_from_bson;
-        }
-
-        int i = 0;
-        while (bson_iter_next(&sub_it)) {
-            long new_offset = offset;
-            if (current_depth < dimensions) {
-                coordinates[current_depth] = i;
-            } else {
-                PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
-                return 0;
-            }
-            int ret = (*load_func)(&sub_it, ndarray, subdtype,
-                                   coordinates, current_depth + 1, new_offset);
-            if (ret == 0) {
-                /* Error set by loading function */
-                return 0;
-            };
-            i++;
-        }
-        /* Reset the rest of the coordinates to zero */
-        for (i = current_depth; i < dimensions; i++) {
-            coordinates[i] = 0;
-        }
-        return 1;
+    PyArray_Descr* subdtype = dtype;
+    int (*load_func)(bson_iter_t*, PyArrayObject*, PyArray_Descr*,
+                     npy_intp*, int, long) = &_load_array_from_bson;
+    if(current_depth == dimensions - 1) {
+        subdtype = dtype->subarray->base;
+        load_func = &_load_scalar_from_bson;
     }
+
+    int i = 0;
+    while (bson_iter_next(&sub_it)) {
+        long new_offset = offset;
+        if (current_depth < dimensions) {
+            coordinates[current_depth] = i;
+        } else {
+            PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
+            return 0;
+        }
+        int ret = (*load_func)(&sub_it, ndarray, subdtype,
+                               coordinates, current_depth + 1, new_offset);
+        if (ret == 0) {
+            /* Error set by loading function */
+            return 0;
+        };
+        i++;
+    }
+    /* Reset the rest of the coordinates to zero */
+    for (i = current_depth; i < dimensions; i++) {
+        coordinates[i] = 0;
+    }
+    return 1;
 }
 
 
@@ -537,15 +441,10 @@ _load_document_from_bson(
             /* Get subdocument from BSON document */
             bson_iter_init(&bsonit, document);
             if (!bson_iter_find(&bsonit, key_str)) {
-                /* BSON document is missing key specified by dtype */
-                char buffer[100];
-                snprintf(buffer, 100,
-                         "could not find key \"%s\" in sub document",
-                         key_str);
-                debug(buffer, NULL, document);
-                PyErr_SetString(
+                PyErr_Format(
                         BsonNumpyError,
-                        "document does not match dtype");
+                        "document does not match dtype, missing key \"%s\"",
+                        key_str);
                 return 0;
             }
 
@@ -818,7 +717,6 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 
 
 static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_sequence", ndarray_to_sequence, METH_VARARGS, "Convert an ndarray into a iterator of BSON documents"},
-                                         {"bson_to_ndarray",     bson_to_ndarray,     METH_VARARGS, "Convert BSON byte string into an ndarray"},
                                          {"sequence_to_ndarray", sequence_to_ndarray, METH_VARARGS, "Convert an iterator containing BSON documents into an ndarray"},
                                          {NULL,                  NULL,                0,            NULL}        /* Sentinel */
 };

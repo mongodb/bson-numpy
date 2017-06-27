@@ -17,7 +17,6 @@ class TestNdarrayFlat(TestToNdarray):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
 
     def test_incorrect_arguments(self):
-        # Expects iterator, dtype, count
         with self.assertRaisesPattern(
                 bsonnumpy.error, r'sequence_to_ndarray requires a numpy\.'
                                  r'ndarray'):

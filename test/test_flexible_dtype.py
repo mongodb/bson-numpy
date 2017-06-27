@@ -21,9 +21,6 @@ class TestFlexibleTypes(unittest.TestCase):
         ])
 
         dtype = np.dtype([('name', np.str, 18), ('grades', np.int32, (2,))])
-        # Comment for now since erroring on 3.x
-        # ndarray = bsonnumpy.bson_to_ndarray(utf8, dtype)
-
         ndarray = np.array(lists, dtype=dtype)
 
         self.assertEqual(ndarray.dtype, dtype)
@@ -36,3 +33,6 @@ class TestFlexibleTypes(unittest.TestCase):
                         (sons[str(i)][name] == ndarray[i][name]).all())
                 else:
                     self.assertEqual(sons[str(i)][name], ndarray[i][name])
+
+if __name__ == '__main__':
+    unittest.main()

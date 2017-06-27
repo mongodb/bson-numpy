@@ -13,6 +13,34 @@ from test import client_context, millis, unittest, TestToNdarray
 
 
 class TestSequenceFlat(TestToNdarray):
+    def test_incorrect_arguments(self):
+        # Expects iterator, dtype, count
+        needs_iter = r"sequence_to_ndarray requires an iterator"
+        invalid = r"document from sequence failed validation"
+
+        with self.assertRaisesPattern(TypeError, needs_iter):
+            bsonnumpy.sequence_to_ndarray(1, np.dtype([("a", np.int)]), 1)
+
+        with self.assertRaisesPattern(bsonnumpy.error, invalid):
+            bsonnumpy.sequence_to_ndarray("asdf", np.dtype([("a", np.int)]), 1)
+
+        # TODO: better error here
+        with self.assertRaisesPattern(bsonnumpy.error, invalid):
+            bsonnumpy.sequence_to_ndarray(b"asdf", np.dtype([("a", np.int)]), 1)
+
+        with self.assertRaises(TypeError):
+            bsonnumpy.sequence_to_ndarray(10, 10, 1)
+
+        with self.assertRaisesPattern(
+                TypeError, "sequence_to_ndarray requires an iterator"):
+            bsonnumpy.sequence_to_ndarray(None, np.dtype([("a", np.int)]), 1)
+
+    def test_empty(self):
+        dtype = np.dtype([("a", np.int)])
+        result = bsonnumpy.sequence_to_ndarray([], dtype, 0)
+        self.assertEqual(result.dtype, dtype)
+        self.assertTrue(np.array_equal(result, np.array([], dtype)))
+
     @client_context.require_connected
     def test_int32(self):
         docs = [{"x": i, "y": 10 - i} for i in range(10)]
@@ -23,7 +51,7 @@ class TestSequenceFlat(TestToNdarray):
 
     @client_context.require_connected
     def test_int64(self):
-        docs = [{"x": i, "y": 2**63 - 1 - i} for i in range(10)]
+        docs = [{"x": i, "y": 2 ** 63 - 1 - i} for i in range(10)]
         dtype = np.dtype([('x', np.int64), ('y', np.int64)])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', np.int64), ('x', np.int64)])
@@ -257,7 +285,6 @@ class TestSequenceDoc(TestToNdarray):
 
 
 class TestSequenceNestedArray(TestToNdarray):
-    @client_context.require_connected
     def test_nested_array(self):
         docs = [
             {'x': {'y': [100 + i, 100, i],
@@ -271,6 +298,69 @@ class TestSequenceNestedArray(TestToNdarray):
         dtype = np.dtype([('y1', 'int32'), ('y', '3int32')])
         dtype_sub = np.dtype([('x1', 'int32'), ('x', dtype)])
         self.make_mixed_collection_test(docs, dtype_sub)
+
+    def test_deeply_nested_array(self):
+        # arrays of length 1 are maintained when they are within another array
+        dtype = np.dtype([("a", "(3,2,1)int32"),
+                          ("b", "(3,2,1)int32")])
+
+        doc = bson.SON([("a",
+                         [[[9], [9]],
+                          [[8], [8]],
+                          [[7], [7]]]),
+                        ("b",
+                         [[[6], [6]],
+                          [[5], [5]],
+                          [[4], [4]]])])
+
+        utf8 = bson._dict_to_bson(doc, False, bson.DEFAULT_CODEC_OPTIONS)
+        result = bsonnumpy.sequence_to_ndarray([utf8], dtype, 1)
+        self.assertEqual(dtype, result.dtype)
+        self.assertTrue(np.array_equal(
+            result,
+            np.array([([[[9], [9]],
+                        [[8], [8]],
+                        [[7], [7]]],
+                       [[[6], [6]],
+                        [[5], [5]],
+                        [[4], [4]]])], dtype)))
+
+        dtype = np.dtype([("a", "(3,1)int32"),
+                          ("b", "(3,1)int32"),
+                          ("c", "(3,1)int32")])
+
+        doc = bson.SON([("a", [[9], [8], [7]]),
+                        ("b", [[6], [5], [4]]),
+                        ("c", [[3], [2], [1]])])
+
+        utf8 = bson._dict_to_bson(doc, False, bson.DEFAULT_CODEC_OPTIONS)
+        result = bsonnumpy.sequence_to_ndarray([utf8], dtype, 1)
+        self.assertEqual(dtype, result.dtype)
+        self.assertTrue(np.array_equal(
+            result,
+            np.array([([[9], [8], [7]],
+                       [[6], [5], [4]],
+                       [[3], [2], [1]])], dtype)))
+
+        dtype = np.dtype([("a", "2int32")])
+        doc = bson.SON([("a", [7, 7])])
+        utf8 = bson._dict_to_bson(doc, False, bson.DEFAULT_CODEC_OPTIONS)
+        result = bsonnumpy.sequence_to_ndarray([utf8], dtype, 1)
+        self.assertEqual(dtype, result.dtype)
+        self.assertTrue(np.array_equal(
+            result,
+            np.array([([7, 7],)], dtype)))
+
+        dtype = np.dtype([("a", "(2,1,1,1)int32")])
+        doc = bson.SON([("a", [[[[99]]], [[[88]]]])])
+        utf8 = bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS)
+
+        result = bsonnumpy.sequence_to_ndarray([utf8], dtype, 1)
+        self.assertEqual(dtype, result.dtype)
+        self.assertTrue(np.array_equal(
+            result,
+            np.array([([[[[99]]], [[[88]]]],)], dtype)))
 
     @client_context.require_connected
     def test_nested_array2x(self):
@@ -393,3 +483,7 @@ class TestSequenceNestedArray(TestToNdarray):
             letter_index -= 1
 
         self.make_mixed_collection_test(docs, dt)  # OMG this works!!
+
+
+if __name__ == '__main__':
+    unittest.main()
