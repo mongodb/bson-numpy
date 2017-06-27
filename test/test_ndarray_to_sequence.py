@@ -51,7 +51,7 @@ class TestSequenceFlat(TestToNdarray):
 
     @client_context.require_connected
     def test_int64(self):
-        docs = [{"x": i, "y": 2**63 - 1 - i} for i in range(10)]
+        docs = [{"x": i, "y": 2 ** 63 - 1 - i} for i in range(10)]
         dtype = np.dtype([('x', np.int64), ('y', np.int64)])
         self.make_mixed_collection_test(docs, dtype)
         dtype = np.dtype([('y', np.int64), ('x', np.int64)])
