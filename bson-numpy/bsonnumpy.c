@@ -380,13 +380,14 @@ _load_document_from_bson(
         npy_intp *array_coordinates, int array_depth,
         npy_intp *doc_coordinates, int doc_depth, npy_intp offset) {
 
-    PyObject *fields_obj, *key_obj, *value_obj = NULL;
+    PyObject *fields_obj, *key_obj, *value_obj, *ordered_names_obj = NULL;
     bson_iter_t bsonit;
     char* key_str;
     PyArray_Descr *sub_dtype;
     PyObject *sub_dtype_obj, *offset_obj;
     Py_ssize_t i;
     int sub_i;
+    bool decref_key = false;
 
     if (dtype->fields != NULL && dtype->fields != Py_None) {
         /* A field is described by a tuple composed of another data-type
@@ -399,7 +400,7 @@ _load_document_from_bson(
             return 0;
         }
 
-        PyObject *ordered_names_obj = PyArray_FieldNames(fields_obj); /* TODO: decref? */
+        ordered_names_obj = PyArray_FieldNames(fields_obj); /* new reference */
         Py_ssize_t number_fields = PyTuple_Size(ordered_names_obj);
         for (i = 0; i < number_fields; i++) {
             long offset_long;
@@ -414,16 +415,17 @@ _load_document_from_bson(
                 PyErr_SetString(
                         BsonNumpyError,
                         "invalid dtype: sub dtype is invalid");
-                return 0;
+                goto done;
             }
             if (PyUnicode_Check(key_obj)) {
                 key_obj = PyUnicode_AsASCIIString(key_obj);
+                decref_key = true;
             }
             if (!PyBytes_Check(key_obj)) {
                 PyErr_SetString(
                         BsonNumpyError,
                         "invalid document: bson string error in key name");
-                return 0;
+                goto done;
             }
             offset_obj = PyTuple_GetItem(value_obj, 1);
             offset_long = PyLong_AsLong(offset_obj);
@@ -435,7 +437,7 @@ _load_document_from_bson(
                 PyErr_SetString(
                         BsonNumpyError,
                         "invalid dtype: sub dtype is invalid");
-                return 0;
+                goto done;
             }
 
             /* Get subdocument from BSON document */
@@ -445,7 +447,7 @@ _load_document_from_bson(
                         BsonNumpyError,
                         "document does not match dtype, missing key \"%s\"",
                         key_str);
-                return 0;
+                goto done;
             }
 
             if (sub_dtype->subarray) {
@@ -457,7 +459,7 @@ _load_document_from_bson(
                     debug("invalid dtype->subarray->shape", shape, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "dtype argument had invalid subarray");
-                    return 0;
+                    goto done;
                 }
                 size_t number_dimensions = (size_t)PyTuple_Size(shape);
 
@@ -481,7 +483,7 @@ _load_document_from_bson(
                           (PyObject*)dtype, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "indexing failed on named field");
-                    return 0;
+                    goto done;
                 }
                 if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
                                                         &subndarray)) {
@@ -489,7 +491,7 @@ _load_document_from_bson(
                           subarray_obj, NULL);
                     PyErr_SetString(BsonNumpyError,
                                     "indexing failed on named field");
-                    return 0;
+                    goto done;
                 }
                 npy_intp* new_coordinates = calloc(
                         1 + number_dimensions, sizeof(npy_intp));
@@ -498,7 +500,7 @@ _load_document_from_bson(
                                            new_coordinates, 0, 0)) {
                     /* error set by load_array_from_bson */
                     free(new_coordinates);
-                    return 0;
+                    goto done;
                 }
                 free(new_coordinates);
 
@@ -513,7 +515,7 @@ _load_document_from_bson(
                     PyErr_SetString(BsonNumpyError,
                                     "invalid document: expected subdoc "
                                             "from dtype, got other type");
-                    return 0;
+                    goto done;
                 }
                 bson_iter_document(&bsonit, &document_len,
                                    &document_buffer);
@@ -526,7 +528,7 @@ _load_document_from_bson(
                                               offset + offset_long)) {
                     /* error set by _load_document_from_bson */
                     bson_destroy(sub_document);
-                    return 0;
+                    goto done;
                 }
                 bson_destroy(sub_document);
             } else {
@@ -535,11 +537,11 @@ _load_document_from_bson(
                                             array_coordinates, array_depth,
                                             offset + offset_long)) {
                     /* Error set by _load_scalar_from_bson */
-                    return 0;
+                    goto done;
                 }
             }
         }
-        return 1;
+        goto done;
     }
 
     /* Top-level dtype did not have named fields */
@@ -548,7 +550,18 @@ _load_document_from_bson(
     PyErr_SetString(BsonNumpyError,
                     "dtype must include field names, like"
                             " dtype([('fieldname', numpy.int)])");
-    return 0;
+
+    done:
+    Py_XDECREF(ordered_names_obj);
+    if (decref_key) {
+        Py_XDECREF(key_obj);
+    }
+
+    if (PyErr_Occurred()) {
+        return 0;
+    }
+
+    return 1;
 }
 
 
