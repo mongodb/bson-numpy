@@ -12,7 +12,7 @@ from bson.raw_bson import RawBSONDocument
 from test import client_context, millis, unittest, TestToNdarray
 
 
-class TestSequenceFlat(TestToNdarray):
+class TestFlat(TestToNdarray):
     def test_incorrect_arguments(self):
         # Expects iterator, dtype, count
         needs_iter = r"sequence_to_ndarray requires an iterator"
@@ -131,7 +131,7 @@ class TestSequenceFlat(TestToNdarray):
         pass
 
 
-class TestSequenceArray(TestToNdarray):
+class TestArray(TestToNdarray):
     @client_context.require_connected
     def test_subarray1d(self):
         # 1d subarray
@@ -209,7 +209,7 @@ class TestSequenceArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
 
-class TestSequenceDoc(TestToNdarray):
+class TestSubDoc(TestToNdarray):
     @client_context.require_connected
     def test_subdoc1(self):
         # nested documents
@@ -284,7 +284,7 @@ class TestSequenceDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
 
-class TestSequenceNestedArray(TestToNdarray):
+class TestNestedArray(TestToNdarray):
     def test_nested_array(self):
         docs = [
             {'x': {'y': [100 + i, 100, i],

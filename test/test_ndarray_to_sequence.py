@@ -5,7 +5,7 @@ import numpy as np
 from test import unittest, TestToSequence
 
 
-class TestNdarrayFlat(TestToSequence):
+class TestFlat(TestToSequence):
 
     def test_incorrect_arguments(self):
         with self.assertRaisesPattern(
