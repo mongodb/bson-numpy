@@ -697,6 +697,9 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 {
     PyObject *array_obj;
     PyArrayObject *ndarray;
+    PyObject* sequence;
+    int count = 0;
+    PyObject* result = Py_None;
 
     if (!PyArg_ParseTuple(args, "O", &array_obj)) {
         return NULL;
@@ -704,15 +707,81 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 
     /* Convert array */
     if (!PyArray_Check(array_obj)) {
-        PyErr_SetString(BsonNumpyError, "sequence_to_ndarray requires a numpy.ndarray");
+        PyErr_SetString(BsonNumpyError,
+                        "sequence_to_ndarray requires a numpy.ndarray");
         return NULL;
     }
     if (!PyArray_OutputConverter(array_obj, &ndarray)) {
-        PyErr_SetString(BsonNumpyError, "invalid ndarray passed into sequence_to_ndarray");
+        PyErr_SetString(BsonNumpyError,
+                        "invalid ndarray passed into sequence_to_ndarray");
         return NULL;
     }
 
-    return PyTuple_New(0);
+    /* Create sequence to be returned */
+    npy_intp length = PyArray_SIZE(ndarray);
+    sequence = PyList_New(length);
+
+    debug("ARRAY PASSED IN", (PyObject*)ndarray, NULL);
+
+
+    NpyIter* iter;
+    NpyIter_IterNextFunc *iternext;
+    char** dataptr;
+
+    /* Handle zero-sized arrays specially */
+    if (PyArray_SIZE(ndarray) == 0) {
+        return 0;
+    }
+
+    iter = NpyIter_New(ndarray, NPY_ITER_READONLY|
+                                NPY_ITER_REFS_OK,
+                       NPY_KEEPORDER, NPY_NO_CASTING,
+                       NULL);
+    if (iter == NULL) {
+        PyErr_SetString(BsonNumpyError,
+                        "unable to initialize iterator for ndarray");
+        return NULL;
+    }
+
+    /*
+     * The iternext function gets stored in a local variable
+     * so it can be called repeatedly in an efficient manner.
+     */
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        NpyIter_Deallocate(iter);
+        PyErr_SetString(BsonNumpyError,
+                        "unable to iterate over ndarray");
+        return NULL;
+    }
+    /* The location of the data pointer which the iterator may update */
+    dataptr = NpyIter_GetDataPtrArray(iter);
+
+    /* Get the list of fields and offsets */
+
+    do {
+        char* data = *dataptr;
+        bson_t document;
+        bson_init(&document);
+
+        PyObject* item = PyArray_GETITEM(ndarray, data);
+        debug("found array item", item, NULL);
+
+        debug("document currently like", NULL, &document);
+        uint32_t doc_len = document.len;
+        printf("\tlength of document=%i\n", doc_len);
+
+        result = Py_BuildValue("s#", bson_get_data(&document), doc_len);
+        debug("\tresult from buildvalue", result, NULL);
+        PyList_SetItem(sequence, count, result);
+        /* Increment the iterator to the next inner loop */
+        count++;
+    } while(iternext(iter));
+
+    NpyIter_Deallocate(iter);
+
+
+    return sequence;
 }
 
 

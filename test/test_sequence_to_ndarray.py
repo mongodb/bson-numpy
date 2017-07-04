@@ -9,8 +9,8 @@ class TestNdarrayFlat(TestToNdarray):
     dtype = np.dtype([('x', np.int32), ('y', np.int32)])
     bson_docs = [bson._dict_to_bson(
         doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [
-        bson.SON([("x", i), ("y", -i)]) for i in range(10)]]
-    ndarray = np.array([(i, -i) for i in range(10)], dtype=dtype)
+        bson.SON([("x", i), ("y", -i)]) for i in range(5)]]
+    ndarray = np.array([(i, -i) for i in range(5)], dtype=dtype)
     if hasattr(unittest.TestCase, 'assertRaisesRegex'):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegex
     else:
@@ -31,3 +31,15 @@ class TestNdarrayFlat(TestToNdarray):
             bsonnumpy.ndarray_to_sequence(1)
         with self.assertRaises(TypeError):
             bsonnumpy.ndarray_to_sequence(10, 10)
+
+    def test_simple(self):
+        empty_list = bson_docs = [bson._dict_to_bson(
+            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [
+                                      bson.SON() for i in range(5)]]
+        print "empty list", empty_list
+        result = bsonnumpy.ndarray_to_sequence(self.ndarray)
+        print result
+        print [bson._bson_to_dict(
+            d, bson.DEFAULT_CODEC_OPTIONS) for d in result]
+        # bsonnumpy.ndarray_to_sequence(np.array([i for i in range(10)]))
+        # bsonnumpy.ndarray_to_sequence(np.array([[i, i] for i in range(10)]))
