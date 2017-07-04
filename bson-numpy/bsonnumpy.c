@@ -691,16 +691,73 @@ done:
     return array_obj;
 }
 
-/* Stub */
+static int _load_int32_from_ndarray(bson_t* document, char* ptr, char* key_str) {
+
+    // TODO: error check
+    npy_int32 value = *((npy_int32 *)ptr);
+    BSON_APPEND_INT32(document, key_str, value);
+    return 1;
+}
+
+static int
+_load_scalar_from_ndarray(bson_t* document, char* ptr,
+                          char* key_str,
+                          PyArray_Descr* dtype) {
+
+    debug("dtype", dtype, NULL);
+    debug("dtype->fields", dtype->fields, NULL);
+    if (dtype->fields != NULL && dtype->fields != Py_None) {
+        // TODO: subdocument
+        PyErr_Format(BsonNumpyError, "subdocs currently unsupported");
+        return false;
+    } else if (dtype->subarray != NULL) {
+        //TODO: subarray
+        PyErr_Format(BsonNumpyError, "subarrays currently unsupported");
+        return false;
+    } else {
+        printf("dtype->type_num=%i, NPY_INT32=%i\n", dtype->type_num, NPY_INT32);
+        switch (dtype->type_num) {
+            case NPY_INT32:
+                return _load_int32_from_ndarray(document, ptr, key_str);
+//            case BSON_TYPE_UTF8:
+//                return _load_utf8_from_bson(value, pointer, dtype);
+//            case BSON_TYPE_BINARY:
+//                return _load_binary_from_bson(value, pointer, dtype);
+//            case BSON_TYPE_OID:
+//                return _load_oid_from_bson(value, pointer, dtype);
+//            case BSON_TYPE_BOOL:
+//                return _load_bool_from_bson(value, pointer, dtype);
+//            case BSON_TYPE_DATE_TIME:
+//                return _load_int64_from_bson(value, pointer, dtype);
+//            case BSON_TYPE_INT32:
+//                return _load_int32_from_bson(value, pointer, dtype);
+//            case BSON_TYPE_INT64:
+//                return _load_int64_from_bson(value, pointer, dtype);
+
+            default:
+                PyErr_Format(BsonNumpyError, "unsupported Numpy type: %c",
+                             dtype->type);
+                debug("Unsupported dtype", (PyObject *) dtype, NULL);
+                return false;
+        }
+    }
+}
+
+
 static PyObject *
 ndarray_to_sequence(PyObject *self, PyObject *args)
 {
-    PyObject *array_obj;
-    PyArrayObject *ndarray;
-    PyArray_Descr* dtype;
-    PyObject* sequence;
+    PyObject *array_obj = NULL;
+    PyArrayObject *ndarray = NULL;
+    PyArray_Descr* dtype = NULL;
+    PyObject* sequence = NULL;
     int count = 0;
     PyObject* result = Py_None;
+    PyObject *fields, *key_obj, *value_obj, *offset_obj, *sub_dtype_obj;
+    char* key_str;
+    long offset_long;
+    PyArray_Descr* sub_dtype;
+    int i;
 
     if (!PyArg_ParseTuple(args, "O", &array_obj)) {
         return NULL;
@@ -725,6 +782,16 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
     }
 
     /* Get fields and offsets */
+    fields = dtype->fields;
+
+    PyObject *ordered_names = PyArray_FieldNames(fields);
+    Py_ssize_t number_fields = PyTuple_Size(ordered_names);
+    if (!PyDict_Check(fields)) {
+        debug("dtype->fields is not a dict", fields, NULL);
+        PyErr_SetString(BsonNumpyError,
+                        "invalid dtype: dtype.fields is not a dict");
+        return 0;
+    }
 
     /* Create sequence to be returned */
     npy_intp length = PyArray_SIZE(ndarray);
@@ -774,6 +841,49 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
         debug("found array item", item, NULL);
 
 
+        for (i = 0; i < number_fields; i++) {
+            key_obj = PyTuple_GetItem(ordered_names, i);
+            value_obj = PyDict_GetItem(fields, key_obj);
+
+            /* Get key, sub dtype, and offset for each field in dtype */
+            if (!PyTuple_Check(value_obj)) {
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid dtype: sub dtype is invalid");
+                return NULL;
+            }
+            if (PyUnicode_Check(key_obj)) {
+                key_obj = PyUnicode_AsASCIIString(key_obj);
+            }
+            if (!PyBytes_Check(key_obj)) {
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid document: bson string error in key name");
+                return NULL;
+            }
+            offset_obj = PyTuple_GetItem(value_obj, 1);
+            offset_long = PyLong_AsLong(offset_obj);
+            key_str = PyBytes_AsString(key_obj);
+            sub_dtype_obj = PyTuple_GetItem(value_obj, 0);
+            if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) {
+                debug("dtype->fields sub dtype is invalid",
+                      sub_dtype_obj, NULL);
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "invalid dtype: sub dtype is invalid");
+                return NULL;
+            }
+            debug("    found field key", key_obj, NULL);
+            debug("\tof type", sub_dtype_obj, NULL);
+            debug("\tand offset", offset_obj, NULL);
+
+            char* fieldptr = data + offset_long;
+
+            if (!_load_scalar_from_ndarray(&document, fieldptr, key_str, sub_dtype)) {
+                return NULL;
+            }
+
+        }
 
 
         uint32_t doc_len = document.len;
