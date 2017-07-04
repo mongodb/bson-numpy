@@ -5,9 +5,6 @@ branches:
   only:
   - dev
 
-services:
-  - mongodb
-
 install:
 - echo $TRAVIS_PYTHON_VERSION
 - sudo apt-get install gcc
@@ -16,6 +13,17 @@ install:
 - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx; fi
 - pip install -U pymongo
 
+env:
+- MONGODB=2.6.12
+- MONGODB=3.0.15
+- MONGODB=3.2.14
+- MONGODB=3.4.5
+
+before_script:
+  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz -O /tmp/mongodb.tgz
+  - tar -xvf /tmp/mongodb.tgz
+  - mkdir /tmp/data
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath /tmp/data --bind_ip 127.0.0.1 &> /dev/null &
 
 python:
   - "2.6"
@@ -27,4 +35,3 @@ python:
 script:
   - python setup.py test
   - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then cd doc && PYTHONPATH=.. make doctest; fi
-
