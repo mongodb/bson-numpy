@@ -146,6 +146,21 @@ class TestToNdarray(unittest.TestCase):
                              ndarray)
 
 
+class TestToSequence(unittest.TestCase):
+    if hasattr(unittest.TestCase, 'assertRaisesRegex'):
+        assertRaisesPattern = unittest.TestCase.assertRaisesRegex
+    else:
+        assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
+
+    def compare_results(self, expected, actual):
+        dict_result = [bson._bson_to_dict(
+            d, bson.DEFAULT_CODEC_OPTIONS) for d in actual]
+        self.assertEqual(len(dict_result), len(expected))
+        for i in range(len(dict_result)):
+            self.assertEqual(dict_result[i],
+                             expected[i])
+
+
 def millis(delta):
     if hasattr(delta, 'total_seconds'):
         return delta.total_seconds() * 1000

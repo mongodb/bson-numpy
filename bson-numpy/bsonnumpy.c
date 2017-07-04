@@ -704,8 +704,6 @@ _load_scalar_from_ndarray(bson_t* document, char* ptr,
                           char* key_str,
                           PyArray_Descr* dtype) {
 
-    debug("dtype", dtype, NULL);
-    debug("dtype->fields", dtype->fields, NULL);
     if (dtype->fields != NULL && dtype->fields != Py_None) {
         // TODO: subdocument
         PyErr_Format(BsonNumpyError, "subdocs currently unsupported");
@@ -752,7 +750,7 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
     PyArray_Descr* dtype = NULL;
     PyObject* sequence = NULL;
     int count = 0;
-    PyObject* result = Py_None;
+    PyObject* result;
     PyObject *fields, *key_obj, *value_obj, *offset_obj, *sub_dtype_obj;
     char* key_str;
     long offset_long;
@@ -799,16 +797,17 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 
     debug("ARRAY PASSED IN", (PyObject*)ndarray, NULL);
 
+    /* Handle zero-sized arrays specially */
+    if (PyArray_SIZE(ndarray) == 0) {
+        return sequence;
+    }
+
 
     /* Initialize iterator */
     NpyIter* iter;
     NpyIter_IterNextFunc *iternext;
     char** dataptr;
 
-    /* Handle zero-sized arrays specially */
-    if (PyArray_SIZE(ndarray) == 0) {
-        return 0;
-    }
     iter = NpyIter_New(ndarray, NPY_ITER_READONLY|
                                 NPY_ITER_REFS_OK,
                        NPY_KEEPORDER, NPY_NO_CASTING,
