@@ -131,7 +131,7 @@ class TestFlat(TestToNdarray):
         pass
 
 
-class TestArray(TestToNdarray):
+class TestSequenceArray(TestToNdarray):
     @client_context.require_connected
     def test_subarray1d(self):
         # 1d subarray
@@ -209,7 +209,7 @@ class TestArray(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
 
-class TestSubDoc(TestToNdarray):
+class TestSequenceDoc(TestToNdarray):
     @client_context.require_connected
     def test_subdoc1(self):
         # nested documents
@@ -284,7 +284,7 @@ class TestSubDoc(TestToNdarray):
         self.make_mixed_collection_test(docs, dtype)
 
 
-class TestNestedArray(TestToNdarray):
+class TestSequenceNestedArray(TestToNdarray):
     def test_nested_array(self):
         docs = [
             {'x': {'y': [100 + i, 100, i],

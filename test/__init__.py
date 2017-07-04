@@ -70,26 +70,11 @@ class ClientContext(object):
 
 client_context = ClientContext()
 
-
-class TestToNdarray(unittest.TestCase):
+class TestBsonNumpy(unittest.TestCase):
     if hasattr(unittest.TestCase, 'assertRaisesRegex'):
         assertRaisesPattern = unittest.TestCase.assertRaisesRegex
     else:
         assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
-
-    @classmethod
-    def setUpClass(cls):
-        cls.client = client_context.client
-
-    def compare_seq_to_ndarray_result(self, np_type, document):
-        data = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
-        dtype = np.dtype(np_type)
-        result = bsonnumpy.sequence_to_ndarray([data], dtype, 1)
-        self.assertEqual(result.dtype, dtype)
-        for key in document:
-            self.assertEqual(result[0][key], document[key],
-                             "Comparison failed for type %s: %s != %s" % (
-                                 dtype, result[0][key], document[key]))
 
     def compare_elements(self, expected, actual, dtype):
         if isinstance(expected, dict):
@@ -117,6 +102,24 @@ class TestToNdarray(unittest.TestCase):
 
         else:
             self.assertEqual(expected, actual)
+
+
+
+class TestToNdarray(TestBsonNumpy):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = client_context.client
+
+    def compare_seq_to_ndarray_result(self, np_type, document):
+        data = bson._dict_to_bson(document, False, bson.DEFAULT_CODEC_OPTIONS)
+        dtype = np.dtype(np_type)
+        result = bsonnumpy.sequence_to_ndarray([data], dtype, 1)
+        self.assertEqual(result.dtype, dtype)
+        for key in document:
+            self.assertEqual(result[0][key], document[key],
+                             "Comparison failed for type %s: %s != %s" % (
+                                 dtype, result[0][key], document[key]))
+
 
     # TODO: deal with both name and title in dtype
     def compare_results(self, dtype, expected, actual):
@@ -146,19 +149,14 @@ class TestToNdarray(unittest.TestCase):
                              ndarray)
 
 
-class TestToSequence(unittest.TestCase):
-    if hasattr(unittest.TestCase, 'assertRaisesRegex'):
-        assertRaisesPattern = unittest.TestCase.assertRaisesRegex
-    else:
-        assertRaisesPattern = unittest.TestCase.assertRaisesRegexp
-
-    def compare_results(self, expected, actual):
+class TestToSequence(TestBsonNumpy):
+    def compare_results(self, expected, actual, dtype):
         dict_result = [bson._bson_to_dict(
             d, bson.DEFAULT_CODEC_OPTIONS) for d in actual]
+
         self.assertEqual(len(dict_result), len(expected))
         for i in range(len(dict_result)):
-            self.assertEqual(dict_result[i],
-                             expected[i])
+            self.compare_elements(expected[i], dict_result[i], dtype)
 
 
 def millis(delta):

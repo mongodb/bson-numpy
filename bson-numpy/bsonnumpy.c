@@ -692,10 +692,34 @@ done:
 }
 
 static int _load_int32_from_ndarray(bson_t* document, char* ptr, char* key_str) {
-
-    // TODO: error check
     npy_int32 value = *((npy_int32 *)ptr);
     BSON_APPEND_INT32(document, key_str, value);
+    return 1;
+}
+static int _load_int64_from_ndarray(bson_t* document, char* ptr, char* key_str) {
+    npy_int64 value = *((npy_int64 *)ptr);
+    BSON_APPEND_INT64(document, key_str, value);
+    return 1;
+}
+static int _load_double_from_ndarray(bson_t* document, char* ptr, char* key_str) {
+    npy_double value = *((npy_double *)ptr);
+    BSON_APPEND_DOUBLE(document, key_str, value);
+    return 1;
+}
+static int _load_bool_from_ndarray(bson_t* document, char* ptr, char* key_str) {
+    npy_bool value = *((npy_bool *)ptr);
+    BSON_APPEND_BOOL(document, key_str, value);
+    return 1;
+}
+static int _load_binary_from_ndarray(bson_t* document, char* ptr,
+                                     char* key_str, uint32_t elsize) {
+    const uint8_t *value = (uint8_t *)ptr;
+    BSON_APPEND_BINARY(document, key_str, BSON_SUBTYPE_BINARY, value, elsize);
+    return 1;
+}
+static int _load_utf8_from_ndarray(bson_t* document, char* ptr,
+                                   char* key_str, int elsize) {
+    bson_append_utf8(document, key_str, strlen(key_str), ptr, elsize);
     return 1;
 }
 
@@ -704,6 +728,8 @@ _load_scalar_from_ndarray(bson_t* document, char* ptr,
                           char* key_str,
                           PyArray_Descr* dtype) {
 
+
+    // TODO: error check
     if (dtype->fields != NULL && dtype->fields != Py_None) {
         // TODO: subdocument
         PyErr_Format(BsonNumpyError, "subdocs currently unsupported");
@@ -713,24 +739,23 @@ _load_scalar_from_ndarray(bson_t* document, char* ptr,
         PyErr_Format(BsonNumpyError, "subarrays currently unsupported");
         return false;
     } else {
-        printf("dtype->type_num=%i, NPY_INT32=%i\n", dtype->type_num, NPY_INT32);
+        //TODO: Make a macro
         switch (dtype->type_num) {
             case NPY_INT32:
                 return _load_int32_from_ndarray(document, ptr, key_str);
-//            case BSON_TYPE_UTF8:
-//                return _load_utf8_from_bson(value, pointer, dtype);
-//            case BSON_TYPE_BINARY:
-//                return _load_binary_from_bson(value, pointer, dtype);
-//            case BSON_TYPE_OID:
-//                return _load_oid_from_bson(value, pointer, dtype);
-//            case BSON_TYPE_BOOL:
-//                return _load_bool_from_bson(value, pointer, dtype);
-//            case BSON_TYPE_DATE_TIME:
-//                return _load_int64_from_bson(value, pointer, dtype);
-//            case BSON_TYPE_INT32:
-//                return _load_int32_from_bson(value, pointer, dtype);
-//            case BSON_TYPE_INT64:
-//                return _load_int64_from_bson(value, pointer, dtype);
+            case NPY_INT64:
+                return _load_int64_from_ndarray(document, ptr, key_str);
+            case NPY_DOUBLE:
+                return _load_double_from_ndarray(document, ptr, key_str);
+            case NPY_STRING:
+            case NPY_UNICODE:
+                return _load_utf8_from_ndarray(document, ptr, key_str,
+                                            (uint32_t)dtype->elsize);
+            case NPY_VOID:
+                return _load_binary_from_ndarray(document, ptr, key_str,
+                                                 (uint32_t)dtype->elsize);
+            case NPY_BOOL:
+                return _load_bool_from_ndarray(document, ptr, key_str);
 
             default:
                 PyErr_Format(BsonNumpyError, "unsupported Numpy type: %c",
