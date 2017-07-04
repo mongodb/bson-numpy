@@ -9,12 +9,6 @@ services:
   - mongodb
 
 install:
-- export C_INCLUDE_PATH=`pwd`/libbson/bson-build/include
-- export LIBRARY_PATH=`pwd`/libbson/bson-build/lib
-- export LD_LIBRARY_PATH=`pwd`/libbson/bson-build/lib:$LD_LIBRARY_PATH
-- echo $C_INCLUDE_PATH
-- echo $LIBRARY_PATH
-- echo $LD_LIBRARY_PATH
 - echo $TRAVIS_PYTHON_VERSION
 - sudo apt-get install gcc
 - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
