@@ -739,7 +739,8 @@ _load_scalar_from_ndarray(bson_t* document, char* ptr,
         PyErr_Format(BsonNumpyError, "subarrays currently unsupported");
         return false;
     } else {
-        //TODO: Make a macro
+        /* TODO: Make a macro, or if I can initialize a bson_value_t could use
+         * bson_append_value, but so far the unions haven't worked */
         switch (dtype->type_num) {
             case NPY_INT32:
                 return _load_int32_from_ndarray(document, ptr, key_str);
