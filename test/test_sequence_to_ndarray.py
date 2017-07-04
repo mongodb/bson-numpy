@@ -32,11 +32,13 @@ class TestNdarrayFlat(TestToNdarray):
         with self.assertRaises(TypeError):
             bsonnumpy.ndarray_to_sequence(10, 10)
 
+    def test_incorrect_ndarray(self):
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'ndarray items require named fields'):
+            bsonnumpy.ndarray_to_sequence(np.array([i for i in range(10)]))
+
+
     def test_simple(self):
-        empty_list = bson_docs = [bson._dict_to_bson(
-            doc, False, bson.DEFAULT_CODEC_OPTIONS) for doc in [
-                                      bson.SON() for i in range(5)]]
-        print "empty list", empty_list
         result = bsonnumpy.ndarray_to_sequence(self.ndarray)
         print result
         print [bson._bson_to_dict(

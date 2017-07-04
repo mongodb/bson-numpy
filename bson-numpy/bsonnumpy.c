@@ -697,6 +697,7 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 {
     PyObject *array_obj;
     PyArrayObject *ndarray;
+    PyArray_Descr* dtype;
     PyObject* sequence;
     int count = 0;
     PyObject* result = Py_None;
@@ -716,6 +717,14 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
                         "invalid ndarray passed into sequence_to_ndarray");
         return NULL;
     }
+    dtype = PyArray_DESCR(ndarray);
+    if (dtype->fields == NULL || dtype->fields == Py_None) {
+        PyErr_SetString(BsonNumpyError,
+                        "ndarray items require named fields");
+        return NULL;
+    }
+
+    /* Get fields and offsets */
 
     /* Create sequence to be returned */
     npy_intp length = PyArray_SIZE(ndarray);
@@ -724,6 +733,7 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
     debug("ARRAY PASSED IN", (PyObject*)ndarray, NULL);
 
 
+    /* Initialize iterator */
     NpyIter* iter;
     NpyIter_IterNextFunc *iternext;
     char** dataptr;
@@ -732,7 +742,6 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
     if (PyArray_SIZE(ndarray) == 0) {
         return 0;
     }
-
     iter = NpyIter_New(ndarray, NPY_ITER_READONLY|
                                 NPY_ITER_REFS_OK,
                        NPY_KEEPORDER, NPY_NO_CASTING,
@@ -742,7 +751,6 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
                         "unable to initialize iterator for ndarray");
         return NULL;
     }
-
     /*
      * The iternext function gets stored in a local variable
      * so it can be called repeatedly in an efficient manner.
@@ -757,8 +765,6 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
     /* The location of the data pointer which the iterator may update */
     dataptr = NpyIter_GetDataPtrArray(iter);
 
-    /* Get the list of fields and offsets */
-
     do {
         char* data = *dataptr;
         bson_t document;
@@ -767,12 +773,11 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
         PyObject* item = PyArray_GETITEM(ndarray, data);
         debug("found array item", item, NULL);
 
-        debug("document currently like", NULL, &document);
-        uint32_t doc_len = document.len;
-        printf("\tlength of document=%i\n", doc_len);
 
+
+
+        uint32_t doc_len = document.len;
         result = Py_BuildValue("s#", bson_get_data(&document), doc_len);
-        debug("\tresult from buildvalue", result, NULL);
         PyList_SetItem(sequence, count, result);
         /* Increment the iterator to the next inner loop */
         count++;
