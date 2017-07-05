@@ -561,7 +561,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     PyObject *array_obj = NULL;
     PyObject *iterable_obj;
     PyObject *iterator_obj;
-    PyObject *dtype_obj;
     PyObject *binary_doc;
 
     PyArray_Descr *dtype;
@@ -575,10 +574,11 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     size_t err_offset;
     int row = 0;
 
-    if (!PyArg_ParseTuple(args, "OOi", &iterator_obj, &dtype_obj,
-                          &num_documents)) {
+    if (!PyArg_ParseTuple(args, "OO&i", &iterator_obj, PyArray_DescrConverter,
+                          &dtype, &num_documents)) {
         return NULL;
     }
+
     if (!PyIter_Check(iterator_obj)) {
         /* it's not an iterator, maybe it's iterable? */
         iterable_obj = iterator_obj;
@@ -591,17 +591,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
             return NULL;
         }
     }
-    if (!PyArray_DescrCheck(dtype_obj)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "sequence_to_ndarray requires a numpy.dtype");
-        return NULL;
-    }
-    if (!PyArray_DescrConverter(dtype_obj, &dtype)) {
-        debug("invalid dtype object", dtype_obj, NULL);
-        PyErr_SetString(BsonNumpyError,
-                        "dtype argument was invalid");
-        return NULL;
-    }
+
     if (num_documents < 0) {
         PyErr_SetString(BsonNumpyError,
                         "count argument was negative");
@@ -611,12 +601,9 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     dimension_lengths = malloc(1 * sizeof(npy_intp));
     dimension_lengths[0] = num_documents;
 
-    Py_INCREF(dtype);
-
     /* This function steals a reference to dtype? */
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
     if (!array_obj) {
-        debug("PyArray_Zeros failed with dtype", dtype_obj, NULL);
         PyErr_SetString(BsonNumpyError,
                         "ndarray initialization failed");
         goto done;

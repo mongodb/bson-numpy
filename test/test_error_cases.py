@@ -18,13 +18,13 @@ class TestErrors(TestToNdarray):
             bsonnumpy.sequence_to_ndarray(None, None, None)
         with self.assertRaisesPattern(
                 TypeError, r'sequence_to_ndarray requires an iterator'):
-            bsonnumpy.sequence_to_ndarray(0, 0, 0)
+            bsonnumpy.sequence_to_ndarray(0, self.dtype, 0)
         with self.assertRaisesPattern(
-                TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
+                bsonnumpy.error, r'dtype must include field names'):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, None, 10)
         with self.assertRaisesPattern(
                 TypeError, r'sequence_to_ndarray requires an iterator'):
-            bsonnumpy.sequence_to_ndarray(self.dtype, self.bson_docs, 10)
+            bsonnumpy.sequence_to_ndarray(self.dtype, self.dtype, 10)
         with self.assertRaisesPattern(
                 TypeError, r'function takes exactly 3 arguments \(4 given\)'):
             bsonnumpy.sequence_to_ndarray(self.dtype, self.bson_docs, 10, 10)
@@ -82,7 +82,7 @@ class TestErrors(TestToNdarray):
 
         # Dtype is null or empty
         with self.assertRaisesPattern(
-                TypeError, r'sequence_to_ndarray requires a numpy.dtype'):
+                bsonnumpy.error, r'dtype must include field names'):
             bsonnumpy.sequence_to_ndarray(self.bson_docs, None, 1)
 
     def test_incorrect_count(self):
