@@ -42,6 +42,51 @@ debug(char* message, PyObject* object, bson_t* doc)
     }
 }
 
+static const char *
+_npy_type_name(int t)
+{
+    switch (t) {
+        case NPY_BOOL:
+            return "Boolean";
+        case NPY_INT8:
+            return "Int8";
+        case NPY_INT16:
+            return "Int16";
+        case NPY_INT32:
+            return "Int32";
+        case NPY_INT64:
+            return "Int64";
+        case NPY_UINT8:
+            return "Unsigned Int8";
+        case NPY_UINT16:
+            return "Unsigned Int16";
+        case NPY_UINT32:
+            return "Unsigned Int32";
+        case NPY_UINT64:
+            return "Unsigned Int64";
+        case NPY_FLOAT32:
+            return "Float32";
+        case NPY_DOUBLE:
+            return "Double";
+        case NPY_COMPLEX128:
+            return "Complex128";
+        case NPY_DATETIME:
+            return "Datetime";
+        case NPY_TIMEDELTA:
+            return "TimeDelta";
+        case NPY_STRING:
+            return "String";
+        case NPY_UNICODE:
+            return "Unicode";
+        case NPY_OBJECT:
+            return "Object";
+        case NPY_VOID:
+            return "Void";
+        default:
+            return "unknown";
+    }
+}
+
 
 static const char *
 _bson_type_name(bson_type_t t)
@@ -759,8 +804,8 @@ _load_scalar_from_ndarray(bson_t* document, char* ptr,
                 return _load_bool_from_ndarray(document, ptr, key_str);
 
             default:
-                PyErr_Format(BsonNumpyError, "unsupported Numpy type: %c",
-                             dtype->type);
+                PyErr_Format(BsonNumpyError, "unsupported Numpy type: %s",
+                             _npy_type_name(dtype->type_num));
                 debug("Unsupported dtype", (PyObject *) dtype, NULL);
                 return false;
         }

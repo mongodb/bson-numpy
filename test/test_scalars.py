@@ -29,7 +29,7 @@ class TestFromBSONScalars(TestToNdarray):
 
 
 # Test all the unsupported types.
-def _make_test_fn(value, type_name, dtype):
+def _make_test_fn_bson(value, type_name, dtype):
     def test(self):
         data = bson._dict_to_bson({"a": value},
                                   True,  # check_keys
@@ -40,8 +40,34 @@ def _make_test_fn(value, type_name, dtype):
 
         self.assertIn("unsupported BSON type: %s" % type_name,
                       str(context.exception))
-
     return test
+
+
+def _make_test_fn_npy(type_name, dtype):
+    def test(self):
+        ndarray = np.zeros(10, dtype=np.dtype([("a", dtype)]))
+
+        with self.assertRaises(bsonnumpy.error) as context:
+            bsonnumpy.ndarray_to_sequence(ndarray)
+
+        self.assertIn("unsupported Numpy type: %s" % type_name,
+                      str(context.exception))
+    return test
+
+
+for type_name_, dtype_ in [
+    ("Int8", np.int8),
+    ("Int16", np.int16),
+    ("Unsigned Int8", np.uint8),
+    ("Unsigned Int16", np.uint16),
+    ("Complex128", np.complex128),
+    ("Datetime", np.datetime64),
+    ("TimeDelta", np.timedelta64),
+    ("Object", np.object)
+]:
+    test_name = "test_unsupported_numpy_%s" % type_name_.lower()
+    setattr(TestFromBSONScalars, test_name,
+            _make_test_fn_npy(type_name_, dtype_))
 
 
 for value_, type_name_, dtype_ in [
@@ -54,9 +80,9 @@ for value_, type_name_, dtype_ in [
     (bson.timestamp.Timestamp(0, 0), "Timestamp", "V10"),
     (None, "Null", "V10"),
 ]:
-    test_name = "test_unsupported_%s" % type_name_.lower()
+    test_name = "test_unsupported_bson_%s" % type_name_.lower()
     setattr(TestFromBSONScalars, test_name,
-            _make_test_fn(value_, type_name_, dtype_))
+            _make_test_fn_bson(value_, type_name_, dtype_))
 
 if __name__ == "__main__":
     unittest.main()
