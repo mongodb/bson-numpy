@@ -16,16 +16,15 @@ class TestSequenceFlat(TestToNdarray):
     def test_incorrect_arguments(self):
         # Expects iterator, dtype, count
         needs_iter = r"sequence_to_ndarray requires an iterator"
-        invalid = r"document from sequence failed validation"
+        invalid = r"sequence_to_ndarray requires sequence of bytes objects"
 
         with self.assertRaisesPattern(TypeError, needs_iter):
             bsonnumpy.sequence_to_ndarray(1, np.dtype([("a", np.int)]), 1)
 
-        with self.assertRaisesPattern(bsonnumpy.error, invalid):
+        with self.assertRaisesPattern(TypeError, invalid):
             bsonnumpy.sequence_to_ndarray("asdf", np.dtype([("a", np.int)]), 1)
 
-        # TODO: better error here
-        with self.assertRaisesPattern(bsonnumpy.error, invalid):
+        with self.assertRaisesPattern(TypeError, invalid):
             bsonnumpy.sequence_to_ndarray(b"asdf", np.dtype([("a", np.int)]), 1)
 
         with self.assertRaises(TypeError):

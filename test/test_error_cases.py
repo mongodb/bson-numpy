@@ -44,15 +44,13 @@ class TestErrors(TestToNdarray):
             self.assertEqual(res.size, 0)
 
         # Non-BSON documents
-        with self.assertRaisesPattern(
-                bsonnumpy.error, r'document from sequence failed validation'):
+        msg = r'sequence_to_ndarray requires sequence of bytes objects'
+        with self.assertRaisesPattern(TypeError, msg):
             bsonnumpy.sequence_to_ndarray(docs, self.dtype, 10)
-        with self.assertRaisesPattern(
-                bsonnumpy.error, r'document from sequence failed validation'):
+        with self.assertRaisesPattern(TypeError, msg):
             bsonnumpy.sequence_to_ndarray(
                 (None for _ in range(10)), self.dtype, 10)
-        with self.assertRaisesPattern(
-                bsonnumpy.error, r'document from sequence failed validation'):
+        with self.assertRaisesPattern(TypeError, msg):
             bsonnumpy.sequence_to_ndarray(
                 ({} for _ in range(10)), self.dtype, 10)
 

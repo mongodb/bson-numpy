@@ -559,49 +559,49 @@ static PyObject *
 sequence_to_ndarray(PyObject *self, PyObject *args)
 {
     PyObject *array_obj = NULL;
-    PyObject *iterable_obj;
-    PyObject *iterator_obj;
-    PyObject *binary_doc;
-
-    PyArray_Descr *dtype;
-    PyArrayObject *ndarray;
+    PyObject *iterable_obj = NULL;
+    PyObject *iterator_obj = NULL;
+    PyObject *binary_doc = NULL;
+    PyArray_Descr *dtype = NULL;
+    PyArrayObject *ndarray = NULL;
 
     int num_documents;
     int number_dimensions = 1;
-    npy_intp *dimension_lengths = NULL;
     npy_intp *array_coordinates = NULL;
-
     size_t err_offset;
     int row = 0;
+    npy_intp dimension_lengths[100];
+    npy_intp doc_coordinates[100];
 
     if (!PyArg_ParseTuple(args, "OO&i", &iterator_obj, PyArray_DescrConverter,
                           &dtype, &num_documents)) {
         return NULL;
     }
 
-    if (!PyIter_Check(iterator_obj)) {
+    if (PyIter_Check(iterator_obj)) {
+        Py_INCREF(iterator_obj);
+    } else {
         /* it's not an iterator, maybe it's iterable? */
         iterable_obj = iterator_obj;
-        Py_INCREF(iterable_obj);
-        iterator_obj = PyObject_GetIter (iterable_obj);
+        iterator_obj = PyObject_GetIter(iterable_obj);
         if (!iterator_obj) {
-            Py_DECREF(iterable_obj);
             PyErr_SetString(PyExc_TypeError,
                             "sequence_to_ndarray requires an iterator");
-            return NULL;
+            Py_DECREF(dtype);
+            goto done;
         }
     }
 
     if (num_documents < 0) {
         PyErr_SetString(BsonNumpyError,
                         "count argument was negative");
-        return NULL;
+        Py_DECREF(dtype);
+        goto done;
     }
 
-    dimension_lengths = malloc(1 * sizeof(npy_intp));
     dimension_lengths[0] = num_documents;
 
-    /* This function steals a reference to dtype? */
+    /* This function steals a reference to dtype */
     array_obj = PyArray_Zeros(1, dimension_lengths, dtype, 0);
     if (!array_obj) {
         PyErr_SetString(BsonNumpyError,
@@ -621,37 +621,42 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     /* For each document in the collection, fill row of ndarray */
     while ((binary_doc = PyIter_Next(iterator_obj))) {
+        if (!PyBytes_Check(binary_doc)) {
+            PyErr_SetString(PyExc_TypeError,
+                            "sequence_to_ndarray requires sequence of bytes"
+                                " objects");
+            goto done;
+        }
+
         /* Get BSON document */
         const char *bytes_str = PyBytes_AS_STRING(binary_doc);
         Py_ssize_t bytes_len = PyBytes_GET_SIZE(binary_doc);
-        bson_t *document = bson_new_from_data((uint8_t *) bytes_str, bytes_len);
-        if (!document) {
+        bson_t document;
+
+        bool r = bson_init_static(&document, (uint8_t *) bytes_str, bytes_len);
+        if (!r) {
             debug("binary document failed bson_new_from_document",
                   binary_doc, NULL);
             PyErr_SetString(BsonNumpyError,
                             "document from sequence failed validation");
-            return 0;
+            goto done;
         }
 
-        if (!bson_validate(document, BSON_VALIDATE_NONE, &err_offset)) {
+        if (!bson_validate(&document, BSON_VALIDATE_NONE, &err_offset)) {
             debug("binary document failed bson_validate", binary_doc, NULL);
             PyErr_SetString(BsonNumpyError,
                             "document from sequence failed validation");
-            return 0;
+            goto done;
         }
 
-        /* Need two sets of coordinates, one for documents and one for arrays */
-        npy_intp* doc_coordinates = calloc(100, sizeof(npy_intp));
-
         /* current_depth = 1 because layer 0 is the whole sequence */
-        if (!_load_document_from_bson(document, ndarray, PyArray_DTYPE(ndarray),
+        if (!_load_document_from_bson(&document, ndarray, PyArray_DTYPE(ndarray),
                                       array_coordinates, 1,
                                       doc_coordinates, 0, 0)) {
             /* error set by _load_document_from_bson */
-            return NULL;
+            goto done;
         }
 
-        free(document); // TODO: maybe we can avoid mallocing every document?
         array_coordinates[0] = ++row;
         if (row >= num_documents) {
             break;
@@ -674,7 +679,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     }
 
 done:
-    free(dimension_lengths);
+    Py_XDECREF(iterator_obj);
     free(array_coordinates);
 
     if (PyErr_Occurred()) {
