@@ -812,6 +812,72 @@ _load_scalar_from_ndarray(bson_t* document, char* ptr,
     }
 }
 
+static int
+_load_array_from_ndarray(bson_t* document, PyArrayObject* ndarray,
+                         PyObject* shape, char* key_str) {
+    printf("\t\tloading into key %s", key_str);
+    debug(" subarray", ndarray, NULL);
+    debug("\t\tshape", shape, NULL);
+
+    /* Initialize iterator */
+    NpyIter* iter;
+    NpyIter_IterNextFunc *iternext;
+    char** dataptr;
+
+    iter = NpyIter_New(ndarray, NPY_ITER_READONLY|
+                                NPY_ITER_REFS_OK,
+                       NPY_KEEPORDER, NPY_NO_CASTING,
+                       NULL);
+    if (iter == NULL) {
+        PyErr_SetString(BsonNumpyError,
+                        "unable to initialize iterator for ndarray");
+        return NULL;
+    }
+    /*
+     * The iternext function gets stored in a local variable
+     * so it can be called repeatedly in an efficient manner.
+     */
+    iternext = NpyIter_GetIterNext(iter, NULL);
+    if (iternext == NULL) {
+        NpyIter_Deallocate(iter);
+        PyErr_SetString(BsonNumpyError,
+                        "unable to iterate over ndarray");
+        return NULL;
+    }
+    /* The location of the data pointer which the iterator may update */
+    dataptr = NpyIter_GetDataPtrArray(iter);
+
+
+    bson_t child;
+    bson_init(&child);
+    bson_append_array_begin(document, key_str, strlen(key_str), &child);
+    int count = 0;
+    char index_str[5];
+    do {
+        char* data = *dataptr;
+
+        PyObject* item = PyArray_GETITEM(ndarray, data);
+        debug("\t\t\tfound array item", item, NULL);
+
+        // TODO: PICK UP HERE
+//        snprintf(index, 1, "%i", count);
+//        printf("INDEX=%s\n", index_str);
+
+//        if (!_load_scalar_from_ndarray(&child, data, index_str,
+//                                       PyArray_DESCR(ndarray))) {
+//            return NULL;
+//        }
+
+
+        /* Increment the iterator to the next inner loop */
+        count++;
+    } while(iternext(iter));
+
+    bson_append_array_end(document, &child);
+
+    return 1;
+}
+
 
 static PyObject *
 ndarray_to_sequence(PyObject *self, PyObject *args)
@@ -859,7 +925,7 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
         debug("dtype->fields is not a dict", fields, NULL);
         PyErr_SetString(BsonNumpyError,
                         "invalid dtype: dtype.fields is not a dict");
-        return 0;
+        return NULL;
     }
 
     /* Create sequence to be returned */
@@ -949,8 +1015,39 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
 
             char* fieldptr = data + offset_long;
 
-            if (!_load_scalar_from_ndarray(&document, fieldptr, key_str, sub_dtype)) {
+            if(sub_dtype->subarray != NULL) {
+                PyObject* shape = sub_dtype->subarray->shape;
+                PyObject* subarray_tuple = PyArray_GETITEM(
+                        ndarray, data);
+                PyObject* subarray_obj = PyTuple_GetItem(subarray_tuple, i);
+                PyArrayObject* subndarray;
+
+                if (!PyArray_Check(subarray_obj)) {
+                    PyErr_SetString(BsonNumpyError,
+                                    "failed to extract subarray from ndarray");
+                    return NULL;
+                }
+                if (!PyArray_OutputConverter(subarray_obj, &subndarray)) {
+                    PyErr_SetString(BsonNumpyError,
+                                    "ndarray had malformed subarray");
+                    return NULL;
+                }
+
+                _load_array_from_ndarray(&document, subndarray, shape,
+                                         key_str);
+
+
+            } else if (sub_dtype->fields != NULL && sub_dtype->fields != Py_None) {
+                PyErr_SetString(
+                        BsonNumpyError,
+                        "unsupported type: subdocument");
                 return NULL;
+            } else {
+
+                if (!_load_scalar_from_ndarray(&document, fieldptr, key_str,
+                                               sub_dtype)) {
+                    return NULL;
+                }
             }
 
         }

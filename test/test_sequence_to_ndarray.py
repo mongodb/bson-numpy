@@ -131,7 +131,7 @@ class TestFlat(TestToNdarray):
         pass
 
 
-class TestSequenceArray(TestToNdarray):
+class TestArray(TestToNdarray):
     @client_context.require_connected
     def test_subarray1d(self):
         # 1d subarray

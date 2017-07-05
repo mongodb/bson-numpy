@@ -140,3 +140,17 @@ class TestFlat(TestToSequence):
                            dtype=dtype)
         result = bsonnumpy.ndarray_to_sequence(ndarray)
         self.compare_results(docs, result, dtype)
+
+
+class TestArray(TestToSequence):
+
+    def test_subarray1d(self):
+        docs = [{"x": [1 + i, -i - 1], "y": [i, -i]} for i in range(5)]
+        dtype = np.dtype([('x', '2int32'), ('y', '2int32')])
+        ndarray = np.array([(docs[i]['x'], docs[i]['y']) for i in range(5)],
+                           dtype=dtype)
+        result = bsonnumpy.ndarray_to_sequence(ndarray)
+        dict_result = [bson._bson_to_dict(
+            d, bson.DEFAULT_CODEC_OPTIONS) for d in result]
+        print dict_result
+        # self.compare_results(docs, result, dtype)
