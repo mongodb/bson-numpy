@@ -28,7 +28,7 @@ static bool debug_mode = false;
 static void
 debug(char* message, PyObject* object, bson_t* doc)
 {
-    if (NULL != getenv("BSON_NUMPY_DEBUG")) {
+    if (debug_mode) {
         printf("%s", message);
         if (object) {
             printf(": ");
@@ -40,6 +40,13 @@ debug(char* message, PyObject* object, bson_t* doc)
         }
         printf("\n");
     }
+}
+
+
+static void
+init_debug_mode(void)
+{
+    debug_mode = (NULL != getenv("BSON_NUMPY_DEBUG"));
 }
 
 
@@ -742,6 +749,7 @@ PyInit_bsonnumpy(void) {
     Py_INCREF(BsonNumpyError);
     PyModule_AddObject(m, "error", BsonNumpyError);
 
+    init_debug_mode();
     import_array();
 
     return m;
@@ -762,8 +770,8 @@ initbsonnumpy(void)
     BsonNumpyError = PyErr_NewException("bsonnumpy.error", NULL, NULL);
     Py_INCREF(BsonNumpyError);
     PyModule_AddObject(m, "error", BsonNumpyError);
-    debug_mode = (NULL != getenv("BSON_NUMPY_DEBUG")); // TODO: never set
 
+    init_debug_mode();
     import_array();
 }
 
