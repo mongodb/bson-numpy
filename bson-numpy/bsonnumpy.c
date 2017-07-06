@@ -509,9 +509,11 @@ _load_document_from_bson(
 
             } else if (sub_dtype->fields && sub_dtype->fields != Py_None) {
                 /* If the current key's value is a subdocument */
-                bson_t *sub_document;
+                bson_t sub_document;
                 uint32_t document_len;
                 const uint8_t *document_buffer;
+                bool r;
+
                 if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
                     debug("the document that does not match dtype is",
                           NULL, document);
@@ -522,10 +524,17 @@ _load_document_from_bson(
                 }
                 bson_iter_document(&bsonit, &document_len,
                                    &document_buffer);
-                sub_document = bson_new_from_data(document_buffer,
-                                                  document_len);
 
-                if (!_load_document_from_bson(sub_document, ndarray, sub_dtype,
+                r = bson_init_static(&sub_document,
+                                     document_buffer,
+                                     document_len);
+
+                if (!r) {
+                    PyErr_SetString(BsonNumpyError,
+                                    "document from sequence failed validation");
+                }
+
+                if (!_load_document_from_bson(&sub_document, ndarray, sub_dtype,
                                               array_coordinates, array_depth,
                                               doc_coordinates, doc_depth + 1,
                                               offset + offset_long)) {
@@ -635,8 +644,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
         bool r = bson_init_static(&document, (uint8_t *) bytes_str, bytes_len);
         if (!r) {
-            debug("binary document failed bson_new_from_document",
-                  binary_doc, NULL);
             PyErr_SetString(BsonNumpyError,
                             "document from sequence failed validation");
             goto done;
