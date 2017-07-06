@@ -854,13 +854,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
             goto done;
         }
 
-        if (!bson_validate(&document, BSON_VALIDATE_NONE, &err_offset)) {
-            debug("binary document failed bson_validate", binary_doc, NULL);
-            PyErr_SetString(BsonNumpyError,
-                            "document from sequence failed validation");
-            goto done;
-        }
-
         /* current_depth = 1 because layer 0 is the whole sequence */
         if (!_load_document_from_bson(&document, ndarray, PyArray_DTYPE(ndarray),
                                       array_coordinates, 1,
