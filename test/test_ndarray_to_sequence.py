@@ -9,23 +9,31 @@ import numpy as np
 from bson.codec_options import CodecOptions
 from bson.raw_bson import RawBSONDocument
 
-from test import client_context, millis, unittest, TestToNdarray
+from test import client_context, millis, unittest, TestToNdarray, PY3
 
 
 class TestSequenceFlat(TestToNdarray):
     def test_incorrect_arguments(self):
         # Expects iterator, dtype, count
         needs_iter = r"sequence_to_ndarray requires an iterator"
-        invalid = r"sequence_to_ndarray requires sequence of bytes objects"
+        needs_seq = r"sequence_to_ndarray requires sequence of bytes objects"
+        invalid = r"document from sequence failed validation"
 
         with self.assertRaisesPattern(TypeError, needs_iter):
             bsonnumpy.sequence_to_ndarray(1, np.dtype([("a", np.int)]), 1)
 
-        with self.assertRaisesPattern(TypeError, invalid):
-            bsonnumpy.sequence_to_ndarray("asdf", np.dtype([("a", np.int)]), 1)
+        if PY3:
+            with self.assertRaisesPattern(TypeError, needs_seq):
+                bsonnumpy.sequence_to_ndarray("asdf", np.dtype([("a", np.int)]), 1)
 
-        with self.assertRaisesPattern(TypeError, invalid):
-            bsonnumpy.sequence_to_ndarray(b"asdf", np.dtype([("a", np.int)]), 1)
+            with self.assertRaisesPattern(TypeError, needs_seq):
+                bsonnumpy.sequence_to_ndarray(b"asdf", np.dtype([("a", np.int)]), 1)
+        else:
+            with self.assertRaisesPattern(bsonnumpy.error, invalid):
+                bsonnumpy.sequence_to_ndarray("asdf", np.dtype([("a", np.int)]), 1)
+
+            with self.assertRaisesPattern(bsonnumpy.error, invalid):
+                bsonnumpy.sequence_to_ndarray(b"asdf", np.dtype([("a", np.int)]), 1)
 
         with self.assertRaises(TypeError):
             bsonnumpy.sequence_to_ndarray(10, 10, 1)
