@@ -23,6 +23,205 @@ _load_document_from_bson(
         npy_intp *array_coordinates, int array_depth,
         npy_intp *doc_coordinates, int doc_depth, npy_intp offset);
 
+
+typedef enum {
+    DTYPE_NESTED, /* like np.dtype([('a', np.int64), ('b', np.double)]) */
+    DTYPE_SCALAR, /* like np.int64 */
+    DTYPE_ARRAY,  /* like np.dtype('3i') */
+} dtype_flavor_t;
+
+
+typedef struct _parsed_dtype_t {
+    dtype_flavor_t flavor;
+    const char *field_name;
+
+    /* for scalars */
+    int type_num;
+    int elsize;
+
+    /* for nested types */
+    struct _parsed_dtype_t **children;
+    Py_ssize_t n_children;
+
+    /* for sub-array types */
+    Py_ssize_t n_dimensions;
+    long *dims;
+} parsed_dtype_t;
+
+
+static parsed_dtype_t *
+parse_array_dtype(PyArray_Descr *dtype, const char *field_name);
+
+static parsed_dtype_t *
+parse_nested_dtype(PyArray_Descr *dtype, const char *field_name);
+
+static parsed_dtype_t *
+parse_scalar_dtype(PyArray_Descr *dtype, const char *field_name);
+
+static void
+parsed_dtype_destroy(parsed_dtype_t *parsed);
+
+
+static parsed_dtype_t *
+parsed_dtype_new (PyArray_Descr *dtype, const char *field_name)
+{
+    PyObject *fields = dtype->fields;
+
+    if (dtype->subarray) {
+        return parse_array_dtype(dtype, field_name);
+    }
+
+    if (fields && fields != Py_None) {
+        return parse_nested_dtype(dtype, field_name);
+    }
+
+    return parse_scalar_dtype(dtype, field_name);
+}
+
+
+#define PARSE_FAIL do {                  \
+        if (parsed) {                    \
+           parsed_dtype_destroy(parsed); \
+           parsed = NULL;                \
+        }                                \
+        goto done;                       \
+    } while (0)
+
+
+static parsed_dtype_t *
+parse_array_dtype(PyArray_Descr *dtype, const char *field_name)
+{
+    parsed_dtype_t *parsed;
+    Py_ssize_t i;
+    PyObject* shape;
+    PyObject* dim;
+
+    parsed = bson_malloc0(sizeof(parsed_dtype_t));
+    parsed->field_name = field_name;
+    parsed->type_num = dtype->type_num;
+
+    shape = dtype->subarray->shape;
+    if (!PyTuple_Check(shape)) {
+        PyErr_SetString(BsonNumpyError, "dtype argument had invalid subarray");
+        PARSE_FAIL;
+    }
+
+    return parsed;
+
+    parsed->n_dimensions = PyTuple_Size(shape);
+    parsed->dims = bson_malloc0(parsed->n_dimensions * sizeof(Py_ssize_t));
+    for (i = 0; i < parsed->n_dimensions; i++) {
+        dim = PyTuple_GET_ITEM(shape, i);
+#if PY_MAJOR_VERSION >= 3
+        parsed->dims[i] = PyLong_AsLong(dim);
+#else
+        parsed->dims[i] = PyInt_AsLong(dim);
+#endif
+    }
+
+done:
+    return parsed;
+}
+
+
+static parsed_dtype_t *
+parse_nested_dtype(PyArray_Descr *dtype, const char *field_name)
+{
+    parsed_dtype_t *parsed;
+    PyObject *fields = NULL;
+    PyObject *key = NULL;
+    PyObject *unicode_key = NULL;
+    const char *key_str;
+    PyObject *value = NULL;
+    PyObject *ordered_names = NULL;
+    PyObject *sub_dtype_obj = NULL;
+    PyArray_Descr *sub_dtype;
+    Py_ssize_t i;
+
+    parsed = bson_malloc0(sizeof(parsed_dtype_t));
+    parsed->field_name = field_name;
+
+    fields = dtype->fields;
+    ordered_names = PyArray_FieldNames(fields);
+    parsed->n_children = PyTuple_Size(ordered_names);
+    parsed->children = bson_malloc0(
+        parsed->n_children * sizeof(parsed_dtype_t *));
+
+    for (i = 0; i < parsed->n_children; i++) {
+        key = PyTuple_GET_ITEM(ordered_names, i);
+        value = PyDict_GetItem(fields, key);
+        if (PyUnicode_Check(key)) {
+            unicode_key = PyUnicode_AsASCIIString(key);
+            if (!unicode_key) {
+                PARSE_FAIL;
+            }
+
+            key_str = PyBytes_AsString(unicode_key);
+            Py_DECREF(unicode_key);
+        } else {
+            key_str = PyBytes_AsString(key);
+        }
+
+        if (!key_str) {
+            PARSE_FAIL;
+        }
+
+        sub_dtype_obj = PyTuple_GET_ITEM(value, 0);
+        if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) {
+            PARSE_FAIL;
+        }
+
+        parsed->children[i] = parsed_dtype_new(sub_dtype, key_str);
+        if (!parsed->children[i]) {
+            PARSE_FAIL;
+        }
+    }
+
+done:
+    Py_XDECREF(ordered_names);
+    Py_XDECREF(sub_dtype_obj);
+
+    return parsed;
+}
+
+
+static parsed_dtype_t *
+parse_scalar_dtype(PyArray_Descr *dtype, const char *field_name)
+{
+    parsed_dtype_t *parsed;
+
+    parsed = bson_malloc0(sizeof(parsed_dtype_t));
+    parsed->field_name = field_name;
+    parsed->type_num = dtype->type_num;
+    parsed->elsize = dtype->elsize;
+
+    return parsed;
+}
+
+
+static void
+parsed_dtype_destroy(parsed_dtype_t *parsed)
+{
+    Py_ssize_t  i;
+
+    if (parsed) {
+        if (parsed->children) {
+            for (i = 0; i < parsed->n_children; i++) {
+                parsed_dtype_destroy(parsed->children[i]);
+            }
+
+            bson_free(parsed->children);
+        }
+
+        if (parsed->dims) {
+            bson_free(parsed->dims);
+        }
+
+        bson_free(parsed);
+    }
+}
+
+
 static bool debug_mode = false;
 
 static void
@@ -573,6 +772,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     PyObject *binary_doc = NULL;
     PyArray_Descr *dtype = NULL;
     PyArrayObject *ndarray = NULL;
+    parsed_dtype_t *parsed_dtype = NULL;
 
     int num_documents;
     int number_dimensions = 1;
@@ -605,6 +805,11 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         PyErr_SetString(BsonNumpyError,
                         "count argument was negative");
         Py_DECREF(dtype);
+        goto done;
+    }
+
+    parsed_dtype = parsed_dtype_new(dtype, NULL);
+    if (!parsed_dtype) {
         goto done;
     }
 
@@ -688,6 +893,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 done:
     Py_XDECREF(iterator_obj);
     free(array_coordinates);
+    parsed_dtype_destroy(parsed_dtype);
 
     if (PyErr_Occurred()) {
         Py_XDECREF(array_obj);
