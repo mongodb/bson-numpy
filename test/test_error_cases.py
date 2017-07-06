@@ -154,7 +154,7 @@ class TestDocErrors(TestToNdarray):
 
     def test_correct_sub_dtype(self):
         res = bsonnumpy.sequence_to_ndarray(self.raw_docs, self.dtype_sub, 10)
-        self.assertTrue(np.array_equal(self.ndarray, res))
+        np.testing.assert_array_equal(self.ndarray, res)
 
     def test_incorrect_sub_dtype1(self):
         # Top document missing key

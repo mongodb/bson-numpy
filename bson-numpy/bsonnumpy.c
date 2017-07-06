@@ -12,18 +12,6 @@
 
 static PyObject *BsonNumpyError;
 
-static int
-_load_scalar_from_bson(
-        bson_iter_t *bsonit, PyArrayObject *ndarray, PyArray_Descr *dtype,
-        npy_intp *coordinates, int current_depth, long offset);
-
-static int
-_load_document_from_bson(
-        bson_t *document, PyArrayObject *ndarray, PyArray_Descr *dtype,
-        npy_intp *array_coordinates, int array_depth,
-        npy_intp *doc_coordinates, int doc_depth, npy_intp offset);
-
-
 typedef enum {
     DTYPE_NESTED, /* like np.dtype([('a', np.int64), ('b', np.double)]) */
     DTYPE_SCALAR, /* like np.int64 */
@@ -33,7 +21,8 @@ typedef enum {
 
 typedef struct _parsed_dtype_t {
     node_type_t node_type;
-    const char *field_name;
+    char *field_name;
+    Py_ssize_t offset;
 
     /* for scalars */
     int type_num;
@@ -97,7 +86,8 @@ parse_array_dtype(PyArray_Descr *dtype, const char *field_name)
     PyObject* dim;
 
     parsed = bson_malloc0(sizeof(parsed_dtype_t));
-    parsed->field_name = field_name;
+    parsed->node_type = DTYPE_ARRAY;
+    parsed->field_name = bson_strdup(field_name);
     parsed->type_num = dtype->type_num;
 
     shape = dtype->subarray->shape;
@@ -105,8 +95,6 @@ parse_array_dtype(PyArray_Descr *dtype, const char *field_name)
         PyErr_SetString(BsonNumpyError, "dtype argument had invalid subarray");
         PARSE_FAIL;
     }
-
-    return parsed;
 
     parsed->n_dimensions = PyTuple_Size(shape);
     parsed->dims = bson_malloc0(parsed->n_dimensions * sizeof(Py_ssize_t));
@@ -139,7 +127,8 @@ parse_nested_dtype(PyArray_Descr *dtype, const char *field_name)
     Py_ssize_t i;
 
     parsed = bson_malloc0(sizeof(parsed_dtype_t));
-    parsed->field_name = field_name;
+    parsed->node_type = DTYPE_NESTED;
+    parsed->field_name = bson_strdup(field_name);
 
     fields = dtype->fields;
     ordered_names = PyArray_FieldNames(fields);
@@ -175,6 +164,8 @@ parse_nested_dtype(PyArray_Descr *dtype, const char *field_name)
         if (!parsed->children[i]) {
             PARSE_FAIL;
         }
+
+        parsed->children[i]->offset = PyLong_AsLong(PyTuple_GET_ITEM(value, 1));
     }
 
 done:
@@ -191,7 +182,8 @@ parse_scalar_dtype(PyArray_Descr *dtype, const char *field_name)
     parsed_dtype_t *parsed;
 
     parsed = bson_malloc0(sizeof(parsed_dtype_t));
-    parsed->field_name = field_name;
+    parsed->node_type = DTYPE_SCALAR;
+    parsed->field_name = bson_strdup(field_name);
     parsed->type_num = dtype->type_num;
     parsed->elsize = dtype->elsize;
 
@@ -217,9 +209,23 @@ parsed_dtype_destroy(parsed_dtype_t *parsed)
             bson_free(parsed->dims);
         }
 
+        bson_free(parsed->field_name);
         bson_free(parsed);
     }
 }
+
+
+static int
+_load_scalar_from_bson(
+    bson_iter_t *bsonit, PyArrayObject *ndarray, PyArray_Descr *dtype, parsed_dtype_t *parsed,
+    npy_intp *coordinates, int current_depth, long offset);
+
+
+static int
+_load_document_from_bson(
+    bson_t *document, PyArrayObject *ndarray, PyArray_Descr *dtype, parsed_dtype_t *parsed,
+    npy_intp *array_coordinates, int array_depth,
+    npy_intp *doc_coordinates, int doc_depth, npy_intp offset);
 
 
 static bool debug_mode = false;
@@ -464,7 +470,7 @@ _load_bool_from_bson(const bson_value_t *value, void *dst, PyArray_Descr *dtype)
 
 static int
 _load_scalar_from_bson(
-        bson_iter_t *bsonit, PyArrayObject *ndarray, PyArray_Descr *dtype,
+        bson_iter_t *bsonit, PyArrayObject *ndarray, PyArray_Descr *dtype, parsed_dtype_t *parsed,
         npy_intp *coordinates, int current_depth, long offset)
 {
     void *pointer;
@@ -501,7 +507,7 @@ _load_scalar_from_bson(
 
 static int
 _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
-                      PyArray_Descr *dtype, npy_intp *coordinates,
+                      PyArray_Descr *dtype, parsed_dtype_t *parsed, npy_intp *coordinates,
                       int current_depth, long offset)
 {
 
@@ -548,7 +554,7 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
     /* Load data into array */
     bson_iter_recurse(bsonit, &sub_it);
     PyArray_Descr* subdtype = dtype;
-    int (*load_func)(bson_iter_t*, PyArrayObject*, PyArray_Descr*,
+    int (*load_func)(bson_iter_t*, PyArrayObject*, PyArray_Descr*, parsed_dtype_t *,
                      npy_intp*, int, long) = &_load_array_from_bson;
     if(current_depth == dimensions - 1) {
         subdtype = dtype->subarray->base;
@@ -564,7 +570,7 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
             PyErr_SetString(BsonNumpyError, "TODO: unhandled case");
             return 0;
         }
-        int ret = (*load_func)(&sub_it, ndarray, subdtype,
+        int ret = (*load_func)(&sub_it, ndarray, subdtype, parsed,
                                coordinates, current_depth + 1, new_offset);
         if (ret == 0) {
             /* Error set by loading function */
@@ -582,81 +588,43 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
 
 static int
 _load_document_from_bson(
-        bson_t *document, PyArrayObject *ndarray, PyArray_Descr *dtype,
+        bson_t *document, PyArrayObject *ndarray, PyArray_Descr *dtype, parsed_dtype_t *parsed,
         npy_intp *array_coordinates, int array_depth,
         npy_intp *doc_coordinates, int doc_depth, npy_intp offset) {
 
-    PyObject *fields, *key, *value = NULL;
+    parsed_dtype_t *parsed_child;
     bson_iter_t bsonit;
-    char* key_str;
-    PyArray_Descr *sub_dtype;
-    PyObject *sub_dtype_obj, *offset_obj;
+    PyArray_Descr *sub_dtype;  /* TODO: delete */
+    PyObject *sub_dtype_obj, *fields, *value;
     Py_ssize_t i;
     int sub_i;
 
-    if (dtype->fields != NULL && dtype->fields != Py_None) {
-        /* A field is described by a tuple composed of another data-type
-         * descriptor and a byte offset. */
-        fields = dtype->fields;
-
-        PyObject *ordered_names = PyArray_FieldNames(fields);
-        Py_ssize_t number_fields = PyTuple_Size(ordered_names);
-        if (!PyDict_Check(fields)) {
-            debug("dtype->fields is not a dict", fields, NULL);
-            PyErr_SetString(BsonNumpyError,
-                            "invalid dtype: dtype.fields is not a dict");
-            return 0;
-        }
-        for (i = 0; i < number_fields; i++) {
-            long offset_long;
-            key = PyTuple_GetItem(ordered_names, i);
-            value = PyDict_GetItem(fields, key);
+    if (parsed->node_type == DTYPE_NESTED) {
+        for (i = 0; i < parsed->n_children; i++) {
+            parsed_child = parsed->children[i];
 
             /* Have found another layer of nested document */
             doc_coordinates[doc_depth] = i;
 
-            /* Get key, sub dtype, and offset for each field in dtype */
-            if (!PyTuple_Check(value)) {
-                PyErr_SetString(
-                        BsonNumpyError,
-                        "invalid dtype: sub dtype is invalid");
-                return 0;
-            }
-            if (PyUnicode_Check(key)) {
-                key = PyUnicode_AsASCIIString(key);
-            }
-            if (!PyBytes_Check(key)) {
-                PyErr_SetString(
-                        BsonNumpyError,
-                        "invalid document: bson string error in key name");
-                return 0;
-            }
-            offset_obj = PyTuple_GetItem(value, 1);
-            offset_long = PyLong_AsLong(offset_obj);
-            key_str = PyBytes_AsString(key);
-            sub_dtype_obj = PyTuple_GetItem(value, 0);
-            if (!PyArray_DescrConverter(sub_dtype_obj, &sub_dtype)) {
-                debug("dtype->fields sub dtype is invalid",
-                      sub_dtype_obj, NULL);
-                PyErr_SetString(
-                        BsonNumpyError,
-                        "invalid dtype: sub dtype is invalid");
-                return 0;
-            }
+            fields = dtype->fields;
+            value = PyDict_GetItemString(fields, parsed_child->field_name);
+            sub_dtype_obj = PyTuple_GET_ITEM(value, 0);
+            PyArray_DescrConverter(sub_dtype_obj, &sub_dtype);
 
             /* Get subdocument from BSON document */
             bson_iter_init(&bsonit, document);
-            if (!bson_iter_find(&bsonit, key_str)) {
+            if (!bson_iter_find(&bsonit, parsed_child->field_name)) {
                 PyErr_Format(
                         BsonNumpyError,
                         "document does not match dtype, missing key \"%s\"",
-                        key_str);
+                        parsed_child->field_name);
                 return 0;
             }
 
-            if (sub_dtype->subarray) {
-                /* If the current key's value is a subarray */
+            if (parsed_child->node_type == DTYPE_ARRAY) {
+                Py_ssize_t number_dimensions = parsed_child->n_dimensions;
 
+                /* If the current key's value is a subarray */
                 array_coordinates[array_depth] = i;
                 PyObject* shape = sub_dtype->subarray->shape;
                 if (!PyTuple_Check(shape)) {
@@ -665,7 +633,6 @@ _load_document_from_bson(
                                     "dtype argument had invalid subarray");
                     return 0;
                 }
-                size_t number_dimensions = (size_t)PyTuple_Size(shape);
 
                 /* Index into ndarray with array_coordinates */
                 PyArrayObject* subndarray;
@@ -677,8 +644,9 @@ _load_document_from_bson(
                  * that is nested as many levels as there are fields */
                 for (sub_i = 0; sub_i < doc_depth + 1; sub_i++) {
                     npy_intp index = doc_coordinates[sub_i];
-                    subarray_tuple = PyTuple_GetItem(subarray_tuple, index);
+                    subarray_tuple = PyTuple_GET_ITEM(subarray_tuple, index);
                 }
+
                 PyObject* subarray_obj = subarray_tuple;
 
                 /* Get element of array */
@@ -689,6 +657,7 @@ _load_document_from_bson(
                                     "indexing failed on named field");
                     return 0;
                 }
+
                 if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
                                                         &subndarray)) {
                     debug("PyArray_OutputConverter failed with array object",
@@ -697,10 +666,11 @@ _load_document_from_bson(
                                     "indexing failed on named field");
                     return 0;
                 }
+
                 npy_intp* new_coordinates = calloc(
                         1 + number_dimensions, sizeof(npy_intp));
 
-                if (!_load_array_from_bson(&bsonit, subndarray, sub_dtype,
+                if (!_load_array_from_bson(&bsonit, subndarray, sub_dtype, parsed,
                                            new_coordinates, 0, 0)) {
                     /* error set by load_array_from_bson */
                     return 0;
@@ -733,18 +703,18 @@ _load_document_from_bson(
                                     "document from sequence failed validation");
                 }
 
-                if (!_load_document_from_bson(&sub_document, ndarray, sub_dtype,
+                if (!_load_document_from_bson(&sub_document, ndarray, sub_dtype, parsed_child,
                                               array_coordinates, array_depth,
                                               doc_coordinates, doc_depth + 1,
-                                              offset + offset_long)) {
+                                              offset + parsed_child->offset)) {
                     /* error set by _load_document_from_bson */
                     return 0;
                 }
             } else {
                 /* If the current key's value is a leaf */
-                if (!_load_scalar_from_bson(&bsonit, ndarray, sub_dtype,
+                if (!_load_scalar_from_bson(&bsonit, ndarray, sub_dtype, parsed_child,
                                             array_coordinates, array_depth,
-                                            offset + offset_long)) {
+                                            offset + parsed_child->offset)) {
                     /* Error set by _load_scalar_from_bson */
                     return 0;
                 }
@@ -855,7 +825,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
         }
 
         /* current_depth = 1 because layer 0 is the whole sequence */
-        if (!_load_document_from_bson(&document, ndarray, PyArray_DTYPE(ndarray),
+        if (!_load_document_from_bson(&document, ndarray, PyArray_DTYPE(ndarray), parsed_dtype,
                                       array_coordinates, 1,
                                       doc_coordinates, 0, 0)) {
             /* error set by _load_document_from_bson */
