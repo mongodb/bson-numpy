@@ -28,11 +28,11 @@ typedef enum {
     DTYPE_NESTED, /* like np.dtype([('a', np.int64), ('b', np.double)]) */
     DTYPE_SCALAR, /* like np.int64 */
     DTYPE_ARRAY,  /* like np.dtype('3i') */
-} dtype_flavor_t;
+} node_type_t;
 
 
 typedef struct _parsed_dtype_t {
-    dtype_flavor_t flavor;
+    node_type_t node_type;
     const char *field_name;
 
     /* for scalars */
