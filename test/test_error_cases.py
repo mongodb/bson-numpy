@@ -268,7 +268,7 @@ class TestArrayErrors(TestToNdarray):
 
     def test_correct_sub_dtype_array(self):
         res = bsonnumpy.sequence_to_ndarray(self.raw_docs, self.dtype, 4)
-        self.assertTrue(np.array_equal(self.ndarray, res))
+        np.testing.assert_array_equal(self.ndarray, res)
 
     def test_incorrect_sub_dtype_array1(self):
         # Top document missing key
@@ -310,7 +310,7 @@ class TestArrayErrors(TestToNdarray):
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                "invalid document: list is of incorrect length"):
+                "invalid document: array is of incorrect length"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array4(self):
@@ -325,7 +325,7 @@ class TestArrayErrors(TestToNdarray):
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                "invalid document: list is of incorrect length"):
+                "invalid document: array is of incorrect length"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array5(self):
@@ -353,7 +353,7 @@ class TestArrayErrors(TestToNdarray):
 
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                "invalid document: list is of incorrect length"):
+                "invalid document: array is of incorrect length"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
 
     def test_incorrect_sub_dtype_array7(self):
@@ -366,5 +366,5 @@ class TestArrayErrors(TestToNdarray):
             bson._dict_to_bson(bad_doc, False, bson.DEFAULT_CODEC_OPTIONS))
         with self.assertRaisesPattern(
                 bsonnumpy.error,
-                "invalid document: list is of incorrect length"):
+                "invalid document: array is of incorrect length"):
             bsonnumpy.sequence_to_ndarray(bad_raw_docs, self.dtype, 4)
