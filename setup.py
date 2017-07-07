@@ -1,4 +1,5 @@
 import glob
+import os
 import sys
 
 # Suppress warnings during shutdown, http://bugs.python.org/issue15881
@@ -52,6 +53,11 @@ else:
     test_suite = "test"
 
 
+# For developing BSON-NumPy with CLion and CMake, useful to disable setuptools.
+ext_modules = []
+if 'BSONNUMPY_DISABLE_BUILD' not in os.environ:
+    ext_modules.append(bsonnumpymodule)
+
 setuptools.setup(
     name='BSON-NumPy',
     version='0.1',
@@ -60,7 +66,7 @@ setuptools.setup(
     author='Anna Herlihy',
     author_email='anna@mongodb',
     url='https://github.com/aherlihy/bson-numpy',
-    ext_modules=[bsonnumpymodule],
+    ext_modules=ext_modules,
     test_suite=test_suite,
     tests_require=tests_require,
     setup_requires=setup_requires,
