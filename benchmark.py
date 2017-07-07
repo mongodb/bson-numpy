@@ -84,6 +84,22 @@ def raw_bson_func():
         pass
 
 
+@bench('raw-batches')
+def raw_bson_func():
+    c = db.collection
+    try:
+        batches = list(c.find(raw_batches=True))
+    except TypeError as exc:
+        if "unexpected keyword argument 'raw_batches'" in str(exc):
+            print("Wrong PyMongo: no 'raw_batches' feature")
+            return
+        else:
+            raise
+
+    dtype = np.dtype([('_id', np.int64), ('x', np.float64)])
+    bsonnumpy.sequence_to_ndarray(batches, dtype, c.count())
+
+
 _setup()
 
 for name in sys.argv[1:]:

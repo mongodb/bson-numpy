@@ -733,6 +733,15 @@ _load_document_from_bson(
 }
 
 
+#define INVALID(_msg) do {                              \
+    PyErr_Format(                                       \
+        BsonNumpyError,                                 \
+        "document from sequence failed validation: %s", \
+        _msg);                                          \
+    goto done;                                          \
+} while (0)
+
+
 static PyObject *
 sequence_to_ndarray(PyObject *self, PyObject *args)
 {
@@ -747,7 +756,6 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
     int num_documents;
     int number_dimensions = 1;
     npy_intp *array_coordinates = NULL;
-    size_t err_offset;
     int row = 0;
     npy_intp dimension_lengths[100];
     npy_intp doc_coordinates[100];
@@ -780,6 +788,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     parsed_dtype = parse_dtype(dtype, NULL);
     if (!parsed_dtype) {
+        Py_DECREF(dtype);
         goto done;
     }
 
@@ -805,6 +814,10 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
     /* For each document in the collection, fill row of ndarray */
     while ((binary_doc = PyIter_Next(iterator_obj))) {
+        const char *bytes_str;
+        Py_ssize_t bytes_len;
+        Py_ssize_t pos = 0;
+
         if (!PyBytes_Check(binary_doc)) {
             PyErr_SetString(PyExc_TypeError,
                             "sequence_to_ndarray requires sequence of bytes"
@@ -812,32 +825,48 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
             goto done;
         }
 
-        /* Get BSON document */
-        const char *bytes_str = PyBytes_AS_STRING(binary_doc);
-        Py_ssize_t bytes_len = PyBytes_GET_SIZE(binary_doc);
-        bson_t document;
+        bytes_str = PyBytes_AS_STRING(binary_doc);
+        bytes_len = PyBytes_GET_SIZE(binary_doc);
 
-        bool r = bson_init_static(&document, (uint8_t *) bytes_str, bytes_len);
-        if (!r) {
-            PyErr_SetString(BsonNumpyError,
-                            "document from sequence failed validation");
-            goto done;
+        if (bytes_len < 5) {
+            INVALID("must be at least 5 bytes");
         }
 
-        /* current_depth = 1 because layer 0 is the whole sequence */
-        if (!_load_document_from_bson(&document, ndarray, parsed_dtype,
-                                      array_coordinates, 1,
-                                      doc_coordinates, 0, 0)) {
-            /* error set by _load_document_from_bson */
-            goto done;
-        }
+        while (pos < bytes_len) {
+            uint32_t len_le;
+            uint32_t len;
+            bson_t document;
 
-        array_coordinates[0] = ++row;
-        if (row >= num_documents) {
-            break;
+            memcpy (&len_le, bytes_str + pos, sizeof(len_le));
+            len = BSON_UINT32_FROM_LE (len_le);
+            if (len > (uint32_t) bytes_len) {
+                INVALID("incomplete batch");
+            }
+
+            bool r = bson_init_static(&document, (uint8_t *) (bytes_str + pos),
+                                      len);
+            if (!r) {
+                INVALID("incorrect length");
+            }
+
+            /* current_depth = 1 because layer 0 is the whole sequence */
+            if (!_load_document_from_bson(&document, ndarray, parsed_dtype,
+                                          array_coordinates, 1, doc_coordinates,
+                                          0, 0)) {
+                /* error set by _load_document_from_bson */
+                goto done;
+            }
+
+            array_coordinates[0] = ++row;
+            if (row >= num_documents) {
+                goto check_row_count;
+            }
+
+            pos += len;
         }
     }
 
+check_row_count:
     if (row < num_documents) {
         PyObject *none_obj;
         PyArray_Dims newshape = {dimension_lengths, number_dimensions};
