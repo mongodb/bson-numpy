@@ -1,3 +1,4 @@
+import collections
 import math
 import os
 import string
@@ -7,7 +8,7 @@ from functools import partial
 
 import pymongo
 import numpy as np
-from bson import BSON, CodecOptions, Int64
+from bson import BSON, CodecOptions, Int64, ObjectId
 from bson.raw_bson import RawBSONDocument
 
 import bsonnumpy
@@ -39,6 +40,11 @@ def _setup():
     db = pymongo.MongoClient().bsonnumpy_test
     small = db[collection_names[False]]
     small.drop()
+
+    print("%d small docs, %d bytes each with 3 keys" % (
+        N_SMALL_DOCS,
+        len(BSON.encode({'_id': ObjectId(), 'x': 1, 'y': math.pi}))))
+
     small.insert_many([
         {'x': 1, 'y': math.pi}
         for _ in range(N_SMALL_DOCS)])
@@ -51,8 +57,8 @@ def _setup():
     large_doc_keys = [c * i for c in string.ascii_lowercase
                       for i in range(1, 101)]
     large_doc = dict([(k, math.pi) for k in large_doc_keys])
-    print("Large doc is %dk with %d keys" % (
-        len(BSON.encode(large_doc)) // 1024, len(large_doc_keys)))
+    print("%d large docs, %dk each with %d keys" % (
+        N_LARGE_DOCS, len(BSON.encode(large_doc)) // 1024, len(large_doc_keys)))
 
     large.insert_many([large_doc.copy() for _ in range(N_LARGE_DOCS)])
 
@@ -81,7 +87,7 @@ def _teardown():
     db.collection.drop()
 
 
-bench_fns = {}
+bench_fns = collections.OrderedDict()
 
 
 def bench(name):
@@ -92,7 +98,7 @@ def bench(name):
     return assign_name
 
 
-@bench('conventional')
+@bench('conventional-to-ndarray')
 def conventional_func(use_large):
     collection = db[collection_names[use_large]]
     cursor = collection.find()
@@ -105,7 +111,7 @@ def conventional_func(use_large):
         np.array([(doc['x'], doc['y']) for doc in cursor], dtype=dtype)
 
 
-@bench('bson-numpy')
+@bench('raw-bson-to-ndarray')
 def bson_numpy_func(use_large):
     raw_coll = db.get_collection(
         collection_names[use_large],
@@ -117,7 +123,7 @@ def bson_numpy_func(use_large):
         (doc.raw for doc in cursor), dtype, raw_coll.count())
 
 
-@bench('raw-batches')
+@bench('raw-batches-to-ndarray')
 def raw_bson_func(use_large):
     c = db[collection_names[use_large]]
     try:
@@ -133,13 +139,13 @@ def raw_bson_func(use_large):
     bsonnumpy.sequence_to_ndarray(batches, dtype, c.count())
 
 
-@bench('bson')
+@bench('decoded-cmd-reply')
 def bson_func(use_large):
     for _ in BSON(raw_bsons[use_large]).decode()['cursor']['firstBatch']:
         pass
 
 
-@bench('raw-bson')
+@bench('raw-cmd-reply')
 def raw_bson_func(use_large):
     options = CodecOptions(document_class=RawBSONDocument)
     for _ in BSON(raw_bsons[use_large]).decode(options)['cursor']['firstBatch']:
@@ -155,11 +161,11 @@ for name in sys.argv[1:]:
         sys.exit(1)
 
 
-print("%15s: %7s %7s" % ("BENCH", "SMALL", "LARGE"))
+print("%25s: %7s %7s" % ("BENCH", "SMALL", "LARGE"))
 
 for name, fn in bench_fns.items():
     if not sys.argv[1:] or name in sys.argv[1:]:
-        sys.stdout.write("%15s: " % name)
+        sys.stdout.write("%25s: " % name)
         sys.stdout.flush()
 
         # Test with small and large documents.
