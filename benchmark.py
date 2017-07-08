@@ -1,6 +1,9 @@
 import math
+import os
+import string
 import sys
 import timeit
+from functools import partial
 
 import pymongo
 import numpy as np
@@ -9,31 +12,69 @@ from bson.raw_bson import RawBSONDocument
 
 import bsonnumpy
 
-N_DOCUMENTS = 10 * 1000
-N_TRIALS = 50
+assert pymongo.has_c()
+
+if 'BSONNUMPY_TEST_BENCHMARK' in os.environ:
+    N_LARGE_DOCS = 2
+    N_SMALL_DOCS = 2
+    N_TRIALS = 1
+else:
+    N_LARGE_DOCS = 10
+    N_SMALL_DOCS = 100000
+    N_TRIALS = 5
 
 db = None
 raw_bson = None
+large_doc_keys = None
+collection_names = {True: "large", False: "small"}
+dtypes = {}
+raw_bsons = {}
 
 
 def _setup():
     global db
     global raw_bson
+    global large_doc_keys
 
     db = pymongo.MongoClient().bsonnumpy_test
-    collection = db.collection
-    collection.drop()
-    collection.insert_many([
-        {'_id': i, 'x': i * math.pi}
-        for i in range(N_DOCUMENTS)])
+    small = db[collection_names[False]]
+    small.drop()
+    small.insert_many([
+        {'x': 1, 'y': math.pi}
+        for _ in range(N_SMALL_DOCS)])
+
+    dtypes[False] = np.dtype([('x', np.int64), ('y', np.float64)])
+
+    large = db[collection_names[True]]
+    large.drop()
+    # 2600 keys: 'a', 'aa', 'aaa', .., 'zz..z'
+    large_doc_keys = [c * i for c in string.ascii_lowercase
+                      for i in range(1, 101)]
+    large_doc = dict([(k, math.pi) for k in large_doc_keys])
+    print("Large doc is %dk with %d keys" % (
+        len(BSON.encode(large_doc)) // 1024, len(large_doc_keys)))
+
+    large.insert_many([large_doc.copy() for _ in range(N_LARGE_DOCS)])
+
+    dtypes[True] = np.dtype([(k, np.float64) for k in large_doc_keys])
 
     # Ignore for now that the first batch defaults to 101 documents.
-    raw_bson_docs = [{'_id': i, 'x': float(i)} for i in range(1000)]
-    raw_bson = BSON.encode({'ok': 1,
-                            'cursor': {
-                                'id': Int64(1234),
-                                'ns': 'db.collection',
-                                'firstBatch': raw_bson_docs}})
+    raw_bson_docs_small = [{'x': 1, 'y': math.pi} for _ in range(N_SMALL_DOCS)]
+    raw_bson_small = BSON.encode({'ok': 1,
+                                  'cursor': {
+                                      'id': Int64(1234),
+                                      'ns': 'db.collection',
+                                      'firstBatch': raw_bson_docs_small}})
+
+    raw_bson_docs_large = [large_doc.copy() for _ in range(N_LARGE_DOCS)]
+    raw_bson_large = BSON.encode({'ok': 1,
+                                  'cursor': {
+                                      'id': Int64(1234),
+                                      'ns': 'db.collection',
+                                      'firstBatch': raw_bson_docs_large}})
+
+    raw_bsons[False] = raw_bson_small
+    raw_bsons[True] = raw_bson_large
 
 
 def _teardown():
@@ -52,41 +93,33 @@ def bench(name):
 
 
 @bench('conventional')
-def conventional_func():
-    collection = db.collection
+def conventional_func(use_large):
+    collection = db[collection_names[use_large]]
     cursor = collection.find()
-    dtype = np.dtype([('_id', np.int64), ('x', np.float64)])
-    np.array([(doc['_id'], doc['x']) for doc in cursor], dtype=dtype)
+    dtype = dtypes[use_large]
+
+    if use_large:
+        np.array([tuple(doc[k] for k in large_doc_keys) for doc in cursor],
+                 dtype=dtype)
+    else:
+        np.array([(doc['x'], doc['y']) for doc in cursor], dtype=dtype)
 
 
 @bench('bson-numpy')
-def bson_numpy_func():
+def bson_numpy_func(use_large):
     raw_coll = db.get_collection(
-        'collection',
+        collection_names[use_large],
         codec_options=CodecOptions(document_class=RawBSONDocument))
 
     cursor = raw_coll.find()
-    dtype = np.dtype([('_id', np.int64), ('x', np.float64)])
+    dtype = dtypes[use_large]
     bsonnumpy.sequence_to_ndarray(
         (doc.raw for doc in cursor), dtype, raw_coll.count())
 
 
-@bench('bson')
-def bson_func():
-    for _ in BSON(raw_bson).decode()['cursor']['firstBatch']:
-        pass
-
-
-@bench('raw-bson')
-def raw_bson_func():
-    options = CodecOptions(document_class=RawBSONDocument)
-    for _ in BSON(raw_bson).decode(options)['cursor']['firstBatch']:
-        pass
-
-
 @bench('raw-batches')
-def raw_bson_func():
-    c = db.collection
+def raw_bson_func(use_large):
+    c = db[collection_names[use_large]]
     try:
         batches = list(c.find(raw_batches=True))
     except TypeError as exc:
@@ -96,8 +129,21 @@ def raw_bson_func():
         else:
             raise
 
-    dtype = np.dtype([('_id', np.int64), ('x', np.float64)])
+    dtype = dtypes[use_large]
     bsonnumpy.sequence_to_ndarray(batches, dtype, c.count())
+
+
+@bench('bson')
+def bson_func(use_large):
+    for _ in BSON(raw_bsons[use_large]).decode()['cursor']['firstBatch']:
+        pass
+
+
+@bench('raw-bson')
+def raw_bson_func(use_large):
+    options = CodecOptions(document_class=RawBSONDocument)
+    for _ in BSON(raw_bsons[use_large]).decode(options)['cursor']['firstBatch']:
+        pass
 
 
 _setup()
@@ -108,9 +154,20 @@ for name in sys.argv[1:]:
         sys.stderr.write("Available functions:\n%s\n" % ("\n".join(bench_fns)))
         sys.exit(1)
 
+
+print("%15s: %7s %7s" % ("BENCH", "SMALL", "LARGE"))
+
 for name, fn in bench_fns.items():
     if not sys.argv[1:] or name in sys.argv[1:]:
-        duration = min(timeit.Timer(fn).repeat(3, N_TRIALS))
-        print("%s: %.2f" % (name, duration))
+        sys.stdout.write("%15s: " % name)
+        sys.stdout.flush()
+
+        # Test with small and large documents.
+        for use_large in False, True:
+            duration = min(timeit.Timer(partial(fn, use_large)).repeat(3, N_TRIALS))
+            sys.stdout.write("%7.2f " % duration)
+            sys.stdout.flush()
+
+        sys.stdout.write("\n")
 
 _teardown()
