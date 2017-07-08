@@ -27,7 +27,6 @@ typedef struct _parsed_dtype_t {
     char kind;
 
     /* for scalars */
-    int type_num;
     int elsize;
 
     /* for nested types */
@@ -41,13 +40,13 @@ typedef struct _parsed_dtype_t {
 
 
 static parsed_dtype_t *
-parse_array_dtype(PyArray_Descr *dtype, const char *field_name);
+parse_array_dtype(PyArray_Descr *dtype, char *field_name);
 
 static parsed_dtype_t *
-parse_nested_dtype(PyArray_Descr *dtype, const char *field_name);
+parse_nested_dtype(PyArray_Descr *dtype, char *field_name);
 
 static parsed_dtype_t *
-parse_scalar_dtype(PyArray_Descr *dtype, const char *field_name);
+parse_scalar_dtype(PyArray_Descr *dtype, char *field_name);
 
 static void
 parsed_dtype_destroy(parsed_dtype_t *parsed);
@@ -55,7 +54,7 @@ parsed_dtype_destroy(parsed_dtype_t *parsed);
 
 static parsed_dtype_t *
 parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype,
-                 const char *field_name)
+                 char *field_name)
 {
     PyObject *repr;
     parsed_dtype_t *parsed;
@@ -67,8 +66,7 @@ parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype,
     parsed = bson_malloc0(sizeof(parsed_dtype_t));
 
     parsed->node_type = node_type;
-    parsed->type_num = dtype->type_num;
-    parsed->field_name = bson_strdup(field_name);
+    parsed->field_name = field_name;  /* take ownership */
 #if PY_MAJOR_VERSION >= 3
     s = PyUnicode_AsEncodedString(repr, "utf-8", "ignore");
     parsed->repr = bson_strdup(PyBytes_AS_STRING(s));
@@ -83,7 +81,7 @@ parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype,
 
 
 static parsed_dtype_t *
-parse_dtype(PyArray_Descr *dtype, const char *field_name)
+parse_dtype(PyArray_Descr *dtype, char *field_name)
 {
     PyObject *fields = dtype->fields;
 
@@ -109,7 +107,7 @@ parse_dtype(PyArray_Descr *dtype, const char *field_name)
 
 
 static parsed_dtype_t *
-parse_array_dtype(PyArray_Descr *dtype, const char *field_name)
+parse_array_dtype(PyArray_Descr *dtype, char *field_name)
 {
     parsed_dtype_t *parsed;
     Py_ssize_t i;
@@ -142,13 +140,13 @@ done:
 
 
 static parsed_dtype_t *
-parse_nested_dtype(PyArray_Descr *dtype, const char *field_name)
+parse_nested_dtype(PyArray_Descr *dtype, char *field_name)
 {
     parsed_dtype_t *parsed;
     PyObject *fields = NULL;
     PyObject *key = NULL;
     PyObject *unicode_key = NULL;
-    const char *key_str;
+    char *key_str;
     PyObject *value = NULL;
     PyObject *ordered_names = NULL;
     PyObject *sub_dtype_obj = NULL;
@@ -171,10 +169,10 @@ parse_nested_dtype(PyArray_Descr *dtype, const char *field_name)
                 PARSE_FAIL;
             }
 
-            key_str = PyBytes_AsString(unicode_key);
+            key_str = bson_strdup(PyBytes_AsString(unicode_key));
             Py_DECREF(unicode_key);
         } else {
-            key_str = PyBytes_AsString(key);
+            key_str = bson_strdup(PyBytes_AsString(key));
         }
 
         if (!key_str) {
@@ -203,7 +201,7 @@ done:
 
 
 static parsed_dtype_t *
-parse_scalar_dtype(PyArray_Descr *dtype, const char *field_name)
+parse_scalar_dtype(PyArray_Descr *dtype, char *field_name)
 {
     parsed_dtype_t *parsed;
 
