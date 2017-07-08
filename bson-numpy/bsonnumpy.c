@@ -32,6 +32,7 @@ typedef struct _parsed_dtype_t {
     /* for nested types */
     struct _parsed_dtype_t **children;
     Py_ssize_t n_children;
+    bool *child_fields_seen;
 
     /* for sub-array types */
     Py_ssize_t n_dimensions;
@@ -160,6 +161,9 @@ parse_nested_dtype(PyArray_Descr *dtype, char *field_name)
     parsed->children = bson_malloc0(
         parsed->n_children * sizeof(parsed_dtype_t *));
 
+    parsed->child_fields_seen = bson_malloc0(
+        parsed->n_children * sizeof(bool));
+
     for (i = 0; i < parsed->n_children; i++) {
         key = PyTuple_GET_ITEM(ordered_names, i);
         value = PyDict_GetItem(fields, key);
@@ -225,6 +229,7 @@ parsed_dtype_destroy(parsed_dtype_t *parsed)
             }
 
             bson_free(parsed->children);
+            bson_free(parsed->child_fields_seen);
         }
 
         if (parsed->dims) {
@@ -606,130 +611,150 @@ static int
 _load_document_from_bson(
         bson_t *document, PyArrayObject *ndarray, parsed_dtype_t *parsed,
         npy_intp *array_coordinates, int array_depth,
-        npy_intp *doc_coordinates, int doc_depth, npy_intp offset) {
+        npy_intp *doc_coordinates, int doc_depth, npy_intp offset)
+{
 
     parsed_dtype_t *parsed_child;
     bson_iter_t bsonit;
     Py_ssize_t i;
     int sub_i;
 
-    if (parsed->node_type == DTYPE_NESTED) {
+    if (parsed->node_type != DTYPE_NESTED) {
+
+        /* Top-level dtype did not have named fields */
+        PyErr_SetString(BsonNumpyError, "dtype must include field names, like"
+            " dtype([('fieldname', numpy.int)])");
+        return 0;
+    }
+
+    if (!bson_iter_init(&bsonit, document)) {
+        PyErr_SetString(BsonNumpyError, "bson_iter_init failed");
+        return 0;
+    }
+
+    memset(parsed->child_fields_seen, 0, parsed->n_children * sizeof(bool));
+
+    while (bson_iter_next(&bsonit)) {
+        parsed_child = NULL;
         for (i = 0; i < parsed->n_children; i++) {
-            parsed_child = parsed->children[i];
+            if (!strcmp(parsed->children[i]->field_name,
+                        bson_iter_key(&bsonit))) {
+                parsed_child = parsed->children[i];
+                parsed->child_fields_seen[i] = true;
+                break;
+            }
+        }
 
-            /* Have found another layer of nested document */
-            doc_coordinates[doc_depth] = i;
+        if (!parsed_child) {
+            /* ignore extra fields in the document not in the dtype */
+            continue;
+        }
 
-            /* Get subdocument from BSON document */
-            bson_iter_init(&bsonit, document);
-            if (!bson_iter_find(&bsonit, parsed_child->field_name)) {
-                PyErr_Format(
-                        BsonNumpyError,
-                        "document does not match dtype, missing key \"%s\"",
-                        parsed_child->field_name);
+        /* Have found another layer of nested document */
+        doc_coordinates[doc_depth] = i;
+
+        if (parsed_child->node_type == DTYPE_ARRAY) {
+            Py_ssize_t number_dimensions = parsed_child->n_dimensions;
+
+            /* If the current key's value is a subarray */
+            array_coordinates[array_depth] = i;
+
+            /* Index into ndarray with array_coordinates */
+            PyArrayObject* subndarray;
+            void* subarray_ptr = PyArray_GetPtr(ndarray, array_coordinates);
+            PyObject* subarray_tuple = PyArray_GETITEM(
+                    ndarray, subarray_ptr);
+
+            /* Indexing into ndarray with named fields returns a tuple
+             * that is nested as many levels as there are fields */
+            for (sub_i = 0; sub_i < doc_depth + 1; sub_i++) {
+                npy_intp index = doc_coordinates[sub_i];
+                subarray_tuple = PyTuple_GET_ITEM(subarray_tuple, index);
+            }
+
+            PyObject* subarray_obj = subarray_tuple;
+
+            /* Get element of array */
+            if (!subarray_obj) {
+                PyErr_SetString(BsonNumpyError,
+                                "indexing failed on named field");
                 return 0;
             }
 
-            if (parsed_child->node_type == DTYPE_ARRAY) {
-                Py_ssize_t number_dimensions = parsed_child->n_dimensions;
+            if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
+                                                    &subndarray)) {
+                debug("PyArray_OutputConverter failed with array object",
+                      subarray_obj, NULL);
+                PyErr_SetString(BsonNumpyError,
+                                "indexing failed on named field");
+                return 0;
+            }
 
-                /* If the current key's value is a subarray */
-                array_coordinates[array_depth] = i;
+            npy_intp* new_coordinates = calloc(
+                    1 + (size_t) number_dimensions, sizeof(npy_intp));
 
-                /* Index into ndarray with array_coordinates */
-                PyArrayObject* subndarray;
-                void* subarray_ptr = PyArray_GetPtr(ndarray, array_coordinates);
-                PyObject* subarray_tuple = PyArray_GETITEM(
-                        ndarray, subarray_ptr);
+            if (!_load_array_from_bson(&bsonit, subndarray, parsed_child,
+                                       new_coordinates, 0, 0)) {
+                /* error set by load_array_from_bson */
+                return 0;
+            }
 
-                /* Indexing into ndarray with named fields returns a tuple
-                 * that is nested as many levels as there are fields */
-                for (sub_i = 0; sub_i < doc_depth + 1; sub_i++) {
-                    npy_intp index = doc_coordinates[sub_i];
-                    subarray_tuple = PyTuple_GET_ITEM(subarray_tuple, index);
-                }
+        } else if (parsed_child->node_type == DTYPE_NESTED) {
+            /* If the current key's value is a subdocument */
+            bson_t sub_document;
+            uint32_t document_len;
+            const uint8_t *document_buffer;
+            bool r;
 
-                PyObject* subarray_obj = subarray_tuple;
+            if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
+                debug("the document that does not match dtype is",
+                      NULL, document);
+                PyErr_SetString(BsonNumpyError,
+                                "invalid document: expected subdoc "
+                                        "from dtype, got other type");
+                return 0;
+            }
+            bson_iter_document(&bsonit, &document_len,
+                               &document_buffer);
 
-                /* Get element of array */
-                if (!subarray_obj) {
-                    PyErr_SetString(BsonNumpyError,
-                                    "indexing failed on named field");
-                    return 0;
-                }
+            r = bson_init_static(&sub_document,
+                                 document_buffer,
+                                 document_len);
 
-                if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
-                                                        &subndarray)) {
-                    debug("PyArray_OutputConverter failed with array object",
-                          subarray_obj, NULL);
-                    PyErr_SetString(BsonNumpyError,
-                                    "indexing failed on named field");
-                    return 0;
-                }
+            if (!r) {
+                PyErr_SetString(BsonNumpyError,
+                                "document from sequence failed validation");
+            }
 
-                npy_intp* new_coordinates = calloc(
-                        1 + (size_t) number_dimensions, sizeof(npy_intp));
-
-                if (!_load_array_from_bson(&bsonit, subndarray, parsed_child,
-                                           new_coordinates, 0, 0)) {
-                    /* error set by load_array_from_bson */
-                    return 0;
-                }
-
-            } else if (parsed_child->node_type == DTYPE_NESTED) {
-                /* If the current key's value is a subdocument */
-                bson_t sub_document;
-                uint32_t document_len;
-                const uint8_t *document_buffer;
-                bool r;
-
-                if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
-                    debug("the document that does not match dtype is",
-                          NULL, document);
-                    PyErr_SetString(BsonNumpyError,
-                                    "invalid document: expected subdoc "
-                                            "from dtype, got other type");
-                    return 0;
-                }
-                bson_iter_document(&bsonit, &document_len,
-                                   &document_buffer);
-
-                r = bson_init_static(&sub_document,
-                                     document_buffer,
-                                     document_len);
-
-                if (!r) {
-                    PyErr_SetString(BsonNumpyError,
-                                    "document from sequence failed validation");
-                }
-
-                if (!_load_document_from_bson(&sub_document, ndarray, parsed_child,
-                                              array_coordinates, array_depth,
-                                              doc_coordinates, doc_depth + 1,
-                                              offset + parsed_child->offset)) {
-                    /* error set by _load_document_from_bson */
-                    return 0;
-                }
-            } else {
-                /* If the current key's value is a leaf */
-                if (!_load_scalar_from_bson(&bsonit, ndarray, parsed_child,
-                                            array_coordinates, array_depth,
-                                            offset + parsed_child->offset)) {
-                    /* Error set by _load_scalar_from_bson */
-                    return 0;
-                }
+            if (!_load_document_from_bson(&sub_document, ndarray, parsed_child,
+                                          array_coordinates, array_depth,
+                                          doc_coordinates, doc_depth + 1,
+                                          offset + parsed_child->offset)) {
+                /* error set by _load_document_from_bson */
+                return 0;
+            }
+        } else {
+            /* If the current key's value is a leaf */
+            if (!_load_scalar_from_bson(&bsonit, ndarray, parsed_child,
+                                        array_coordinates, array_depth,
+                                        offset + parsed_child->offset)) {
+                /* Error set by _load_scalar_from_bson */
+                return 0;
             }
         }
-        return 1;
     }
 
-    /* Top-level dtype did not have named fields */
-    PyErr_SetString(BsonNumpyError,
-                    "dtype must include field names, like"
-                    " dtype([('fieldname', numpy.int)])");
-    return 0;
-}
+    for (i = 0; i < parsed->n_children; i++) {
+        if (!parsed->child_fields_seen[i]) {
+            PyErr_Format(BsonNumpyError,
+                         "document does not match dtype, missing key \"%s\"",
+                         parsed->children[i]->field_name);
+            return 0;
+        }
+    }
 
+    return 1;
+}
 
 #define INVALID(_msg) do {                              \
     PyErr_Format(                                       \
