@@ -292,6 +292,7 @@ class TestSequenceDoc(TestToNdarray):
 
 
 class TestSequenceNestedArray(TestToNdarray):
+    @client_context.require_connected
     def test_nested_array(self):
         docs = [
             {'x': {'y': [100 + i, 100, i],
