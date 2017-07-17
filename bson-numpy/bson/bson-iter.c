@@ -431,6 +431,7 @@ _bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
    const uint8_t *data;
    uint32_t o;
    unsigned int len;
+   uint32_t keylen;
 
    BSON_ASSERT (iter);
 
@@ -453,7 +454,16 @@ _bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
    iter->d3 = 0;
    iter->d4 = 0;
 
+   keylen = (uint32_t) strlen ((const char *) &data[iter->off + 1]);
+   o = 1 + iter->off + keylen;
+   if (data[o]) {
+      goto mark_invalid;
+   }
+
+   iter->d1 = ++o;
+
    /* iterate from start to end of NULL-terminated key string */
+#if 0
    for (o = iter->off + 1; o < len; o++) {
       if (!data[o]) {
          iter->d1 = ++o;
@@ -462,6 +472,7 @@ _bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
    }
 
    goto mark_invalid;
+#endif
 
 fill_data_fields:
 
