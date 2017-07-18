@@ -19,6 +19,9 @@ typedef enum {
 } node_type_t;
 
 
+/* how much larger the table is than the number of entries */
+const Py_ssize_t TABLE_MULTIPLE = 4;
+
 typedef struct {
     const char *key;
     size_t keylen;
@@ -37,13 +40,30 @@ typedef struct {
 static const Py_ssize_t EMPTY = -1;
 
 
+static Py_ssize_t
+table_next_power_of_two (Py_ssize_t v)
+{
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    #if BSON_WORD_SIZE == 64
+    v |= v >> 32;
+    #endif
+    v++;
+
+    return v;
+}
+
+
 static void
 table_init(hash_table_t *table, Py_ssize_t n_entries)
 {
     Py_ssize_t i;
 
-    /* TODO: next power of 2 that's at least N * n_entries, choose an N */
-    table->size = 32768;
+    table->size = table_next_power_of_two(n_entries * TABLE_MULTIPLE);
     table->entries = bson_malloc0(
         table->size * sizeof(hash_table_entry_t));
 
