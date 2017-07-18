@@ -11,10 +11,18 @@ import numpy as np
 from bson import BSON, CodecOptions, Int64, ObjectId
 from bson.raw_bson import RawBSONDocument
 
-import bsonnumpy
+try:
+    import bsonnumpy
+except ImportError as exc:
+    print(exc)
+    bsonnumpy = None
+
+try:
+    import monary
+except ImportError as exc:
+    monary = None
 
 assert pymongo.has_c()
-
 
 # Use large document in tests? If SMALL, no, if LARGE, then yes.
 SMALL = False
@@ -134,6 +142,18 @@ def raw_bson_func(use_large):
     bsonnumpy.sequence_to_ndarray(batches, dtype, c.count())
 
 
+@bench('monary')
+def monary_func(use_large):
+    # Monary doesn't allow > 1024 keys, and it's too slow to benchmark anyway.
+    if use_large:
+        return
+
+    m = monary.Monary()
+    dtype = dtypes[use_large]
+    m.query(db.name, collection_names[use_large], {}, dtype.names,
+            ["float64"] * len(dtype.names))
+
+
 @bench('parse-dtype')
 def raw_bson_func(use_large):
     dtype = dtypes[use_large]
@@ -166,7 +186,6 @@ parser.add_argument('--test', action='store_true',
                     help='quick test of benchmark.py')
 parser.add_argument('funcs', nargs='*', default=bench_fns.keys())
 options = parser.parse_args()
-
 
 if options.test:
     N_LARGE_DOCS = 2
