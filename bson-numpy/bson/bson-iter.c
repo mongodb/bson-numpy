@@ -456,23 +456,11 @@ _bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
 
    keylen = (uint32_t) strlen ((const char *) &data[iter->off + 1]);
    o = 1 + iter->off + keylen;
-   if (data[o]) {
+   if (data[o] || o >= len) {
       goto mark_invalid;
    }
 
    iter->d1 = ++o;
-
-   /* iterate from start to end of NULL-terminated key string */
-#if 0
-   for (o = iter->off + 1; o < len; o++) {
-      if (!data[o]) {
-         iter->d1 = ++o;
-         goto fill_data_fields;
-      }
-   }
-
-   goto mark_invalid;
-#endif
 
 fill_data_fields:
 
