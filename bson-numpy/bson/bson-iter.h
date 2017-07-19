@@ -493,6 +493,9 @@ bson_iter_visit_all (bson_iter_t *iter,
                      const bson_visitor_t *visitor,
                      void *data);
 
+bool
+_bson_iter_next_internal2 (bson_iter_t *iter,
+                           size_t keylen);
 
 BSON_END_DECLS
 

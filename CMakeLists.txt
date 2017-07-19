@@ -11,8 +11,8 @@ include_directories(
         bson-numpy/bson
         bson-numpy/jsonsl)
 
-file(GLOB bsonnumpy_SRC "bson-numpy/bson/*.c" "bson-numpy/jsonsl/*.c")
-add_library(bsonnumpy SHARED bson-numpy/bsonnumpy.c ${bsonnumpy_SRC})
+file(GLOB bsonnumpy_SRC "bson-numpy/*.c" "bson-numpy/bson/*.c" "bson-numpy/jsonsl/*.c")
+add_library(bsonnumpy SHARED ${bsonnumpy_SRC})
 target_include_directories(bsonnumpy PRIVATE bson-numpy)
 target_link_libraries(bsonnumpy ${PYTHON_LIBRARIES} ${BSON_LIBRARIES})
 target_compile_definitions(bsonnumpy PRIVATE BSON_COMPILATION)

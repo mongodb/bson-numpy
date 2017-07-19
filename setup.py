@@ -36,7 +36,7 @@ elif sys.platform != "darwin":
 
 bsonnumpymodule = setuptools.Extension(
     'bsonnumpy',
-    sources=["bson-numpy/bsonnumpy.c"] + glob.glob("bson-numpy/*/*.c"),
+    sources=glob.glob("bson-numpy/*.c") + glob.glob("bson-numpy/*/*.c"),
     include_dirs=["bson-numpy", "bson-numpy/bson"],
     define_macros=[("BSON_COMPILATION", 1)],
     libraries=libraries)

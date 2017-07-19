@@ -1,162 +1,20 @@
-#include <Python.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "bsonnumpy.h"
+#include "bsonnumpy_hashtable.h"
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-/* #include <numpy/arrayobject.h> */
-/* #include <numpy/npy_common.h> */
-#include <numpy/ndarrayobject.h>
 
-#include "bson/bson.h"
 
 static PyObject *BsonNumpyError;
 
-typedef enum {
+typedef enum
+{
     DTYPE_NESTED, /* like np.dtype([('a', np.int64), ('b', np.double)]) */
     DTYPE_SCALAR, /* like np.int64 */
     DTYPE_ARRAY,  /* like np.dtype('3i') */
 } node_type_t;
 
 
-/* how much larger the table is than the number of entries */
-const Py_ssize_t TABLE_MULTIPLE = 4;
-
-typedef struct {
-    const char *key;
-    size_t keylen;
-    Py_ssize_t ideal_pos;
-    Py_ssize_t value;
-} hash_table_entry_t;
-
-
-typedef struct {
-    hash_table_entry_t *entries;
-    Py_ssize_t size;
-    Py_ssize_t used;
-} hash_table_t;
-
-
-static const Py_ssize_t EMPTY = -1;
-
-
-static Py_ssize_t
-table_next_power_of_two (Py_ssize_t v)
+typedef struct _parsed_dtype_t
 {
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    #if BSON_WORD_SIZE == 64
-    v |= v >> 32;
-    #endif
-    v++;
-
-    return v;
-}
-
-
-static void
-table_init(hash_table_t *table, Py_ssize_t n_entries)
-{
-    Py_ssize_t i;
-
-    table->size = table_next_power_of_two(n_entries * TABLE_MULTIPLE);
-    table->entries = bson_malloc0(
-        table->size * sizeof(hash_table_entry_t));
-
-    for (i = 0; i < table->size; i++) {
-        table->entries[i].value = EMPTY;
-    }
-}
-
-
-/* simple insertion w/ robin hood hashing. keys are always unique. no resize. */
-static void
-table_insert(hash_table_t *table, const char *key, Py_ssize_t value)
-{
-    Py_ssize_t mask = table->size - 1;
-    Py_ssize_t dist_key = 0;
-    Py_hash_t hash;
-    Py_ssize_t i;
-
-    hash_table_entry_t entry;
-    entry.key = key;
-    entry.keylen = strlen(key);
-    entry.value = value;
-
-    hash = _Py_HashBytes(key, entry.keylen);
-
-    /* table size is power of 2, hash & (size-1) is faster than hash % size */
-    i = entry.ideal_pos = hash & mask;
-
-    while (true) {
-        hash_table_entry_t *inplace;
-        Py_ssize_t dist_inplace;
-
-        inplace = &table->entries[i];
-        if (inplace->value == EMPTY) {
-            memcpy(inplace, &entry, sizeof(hash_table_entry_t));
-            table->used++;
-            return;
-        }
-
-        /* this spot is taken. if this entry is closer to its ideal spot than
-         * the input is, swap them and find a new place for this entry. */
-        dist_inplace = (i - inplace->ideal_pos) & mask;
-        if (dist_inplace < dist_key) {
-            hash_table_entry_t tmp;
-
-            /* swap with input, start searching for place for swapped entry */
-            memcpy(&tmp, inplace, sizeof(hash_table_entry_t));
-            memcpy(inplace, &entry, sizeof(hash_table_entry_t));
-            memcpy(&entry, &tmp, sizeof(hash_table_entry_t));
-
-            dist_key = dist_inplace;
-        }
-
-        dist_key++;
-        i++;
-        i &= mask;
-    }
-}
-
-
-static Py_ssize_t
-table_lookup(hash_table_t* table, const char *key)
-{
-    Py_ssize_t mask = table->size - 1;
-    Py_hash_t hash;
-    Py_ssize_t i;
-    Py_ssize_t dist_key = 0;
-
-    hash = _Py_HashBytes(key, strlen(key));
-    i = hash & mask;
-
-    while (true) {
-        hash_table_entry_t *entry = &table->entries[i];
-
-        if (entry->value == EMPTY || !strcmp(entry->key, key)) {
-            return entry->value;
-        }
-
-        /* we haven't yet found the key in the table, and this entry is farther
-         * from its ideal spot than key would be if it were here, so we know
-         * the key is absent */
-        if (dist_key > ((i - entry->ideal_pos) & mask)) {
-            return EMPTY;
-        }
-
-        dist_key++;
-        i++;
-        i &= mask;
-    }
-}
-
-
-typedef struct _parsed_dtype_t {
     node_type_t node_type;
     char *field_name;
     char *repr;

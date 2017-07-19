@@ -121,7 +121,7 @@ bson_malloc0 (size_t num_bytes) /* IN */
  *
  * Parameters:
  *       @mem: The memory to realloc, or NULL.
- *       @num_bytes: The size of the new allocation or 0 to free.
+ *       @num_bytes: The maxsize of the new allocation or 0 to free.
  *
  * Returns:
  *       The new allocation if successful; otherwise abort() is called and
@@ -139,7 +139,7 @@ bson_realloc (void *mem,        /* IN */
 {
    /*
     * Not all platforms are guaranteed to free() the memory if a call to
-    * realloc() with a size of zero occurs. Windows, Linux, and FreeBSD do,
+    * realloc() with a maxsize of zero occurs. Windows, Linux, and FreeBSD do,
     * however, OS X does not.
     */
    if (BSON_UNLIKELY (num_bytes == 0)) {
@@ -167,7 +167,7 @@ bson_realloc (void *mem,        /* IN */
  *
  * Parameters:
  *       @mem: The memory to realloc, or NULL.
- *       @num_bytes: The size of the new allocation or 0 to free.
+ *       @num_bytes: The maxsize of the new allocation or 0 to free.
  *       @ctx: Ignored
  *
  * Returns:
@@ -224,13 +224,13 @@ bson_free (void *mem) /* IN */
  *
  * bson_zero_free --
  *
- *       Frees @mem using the underlying allocator. @size bytes of @mem will
+ *       Frees @mem using the underlying allocator. @maxsize bytes of @mem will
  *       be zeroed before freeing the memory. This is useful in scenarios
  *       where @mem contains passwords or other sensitive information.
  *
  * Parameters:
  *       @mem: An allocation to free.
- *       @size: The number of bytes in @mem.
+ *       @maxsize: The number of bytes in @mem.
  *
  * Returns:
  *       None.
