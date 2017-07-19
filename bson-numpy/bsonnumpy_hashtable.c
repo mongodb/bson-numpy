@@ -100,3 +100,10 @@ table_lookup(hash_table_t *table, const char *key)
         i &= mask;
     }
 }
+
+
+void
+table_destroy(hash_table_t *table)
+{
+    bson_free(table->entries);
+}

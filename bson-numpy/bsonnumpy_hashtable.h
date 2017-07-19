@@ -29,4 +29,7 @@ table_insert(hash_table_t *table, const char *key, ssize_t value);
 ssize_t
 table_lookup(hash_table_t *table, const char *key);
 
+void
+table_destroy(hash_table_t *table);
+
 #endif //BSONNUMPY_HASHTABLE_H

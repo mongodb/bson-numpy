@@ -234,6 +234,7 @@ parsed_dtype_destroy(parsed_dtype_t *parsed)
             bson_free(parsed->dims);
         }
 
+        table_destroy(&parsed->table);
         bson_free(parsed->field_name);
         bson_free(parsed->repr);
         bson_free(parsed);
