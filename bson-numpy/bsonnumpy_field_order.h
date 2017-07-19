@@ -14,7 +14,7 @@ typedef struct
 } field_order_elem_t;
 
 
-static const field_order_elem_t final = {{"", 0}, NO_INDEX};
+static const field_order_elem_t final = {{"", 0}, -1};
 
 
 typedef struct
