@@ -1,5 +1,6 @@
 #include "bsonnumpy.h"
 #include "bsonnumpy_hashtable.h"
+#include "bsonnumpy_field_order.h"
 
 
 
@@ -28,6 +29,8 @@ typedef struct _parsed_dtype_t
     /* for nested types */
     struct _parsed_dtype_t **children;
     Py_ssize_t n_children;
+    field_order_t field_order;
+    bool field_order_valid;
     bool *child_fields_seen;
     hash_table_t table;
 
@@ -159,6 +162,8 @@ parse_nested_dtype(PyArray_Descr *dtype, char *field_name)
         parsed->n_children * sizeof(parsed_dtype_t *));
 
     table_init(&parsed->table, parsed->n_children);
+    field_order_init(&parsed->field_order, (size_t) parsed->n_children);
+    parsed->field_order_valid = false;
     parsed->child_fields_seen = bson_malloc0(parsed->n_children * sizeof(bool));
 
     for (i = 0; i < parsed->n_children; i++) {
@@ -714,6 +719,9 @@ _load_document_from_bson(
 {
     parsed_dtype_t *parsed_child;
     bson_iter_t bsonit;
+    size_t bson_index;
+    field_order_elem_t *elem;
+    const char *key;
     Py_ssize_t i;
     int sub_i;
 
@@ -731,11 +739,39 @@ _load_document_from_bson(
 
     memset(parsed->child_fields_seen, 0, parsed->n_children * sizeof(bool));
 
+    bson_index = -1;
     while (bson_iter_next(&bsonit)) {
-        i = table_lookup(&parsed->table, bson_iter_key(&bsonit));
-        if (i == EMPTY) {
-            /* ignore extra fields in the document not in the dtype */
-            continue;
+        key = bson_iter_key(&bsonit);
+        bson_index++;
+
+        if (parsed->field_order_valid) {
+            if (bson_index >= field_order_elems(&parsed->field_order)) {
+                parsed->field_order_valid = false;
+            } else {
+                elem = field_order_get(&parsed->field_order, bson_index);
+
+                /* are this doc's keys in same order as previous? */
+                if ((bsonit.off + elem->key.len) > document->len) {
+                    parsed->field_order_valid = false;
+                } else if (0 != memcmp(key, elem->key.s, elem->key.len)) {
+                    parsed->field_order_valid = false;
+                } else if (elem->dtype_index == EMPTY) {
+                    /* ignore extra fields in the document not in the dtype */
+                    continue;
+                } else {
+                    i = elem->dtype_index;
+                }
+            }
+        }
+
+        if (!parsed->field_order_valid) {
+            i = table_lookup(&parsed->table, key);
+            field_order_set(&parsed->field_order, bson_index, key, i);
+
+            if (i == EMPTY) {
+                /* ignore extra fields in the document not in the dtype */
+                continue;
+            }
         }
 
         parsed_child = parsed->children[i];
@@ -759,6 +795,8 @@ _load_document_from_bson(
             return 0;
         }
     }
+
+    parsed->field_order_valid = true;
 
     return 1;
 }
