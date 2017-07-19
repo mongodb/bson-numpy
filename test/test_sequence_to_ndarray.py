@@ -1,7 +1,7 @@
 import bson
 import bsonnumpy
 import numpy as np
-from bson import DEFAULT_CODEC_OPTIONS as DEFAULT
+from bson import DEFAULT_CODEC_OPTIONS as DEFAULT, SON
 
 from test import TestToNdarray, unittest
 
@@ -34,6 +34,18 @@ class TestNdarrayFlat(TestToNdarray):
         with self.assertRaises(TypeError):
             bsonnumpy.ndarray_to_sequence(10, 10)
 
+    def test_empty(self):
+        dtype = np.dtype([('x', np.int32), ('y', np.float)])
+        batch = b''.join([
+            bson.BSON.encode({"x": 1, "y": 1.1}),
+            bson.BSON.encode({}),
+            bson.BSON.encode({"x": 3, "y": 1.3}),
+        ])
+
+        with self.assertRaisesPattern(
+                bsonnumpy.error, r'document does not match dtype'):
+            bsonnumpy.sequence_to_ndarray([batch], dtype, 3)
+
     def test_raw_batch(self):
         dtype = np.dtype([('x', np.int32), ('y', np.float)])
 
@@ -46,6 +58,19 @@ class TestNdarrayFlat(TestToNdarray):
 
         result = bsonnumpy.sequence_to_ndarray([batch], dtype, 3)
         ndarray = np.array([(1, 1.1), (2, 1.2), (3, 1.3)], dtype)
+        np.testing.assert_array_equal(result, ndarray)
+
+        dtype = np.dtype([('x', np.int32), ('y', np.float), ('z', np.int32)])
+
+        # A variety of orders.
+        batch = b''.join([
+            bson.BSON.encode(SON([("x", 1), ("y", 1.1), ("z", 4)])),
+            bson.BSON.encode(SON([("x", 2), ("z", 5), ("y", 1.2)])),
+            bson.BSON.encode(SON([("z", 6), ("x", 3), ("y", 1.3)]))
+        ])
+
+        result = bsonnumpy.sequence_to_ndarray([batch], dtype, 3)
+        ndarray = np.array([(1, 1.1, 4), (2, 1.2, 5), (3, 1.3, 6)], dtype)
         np.testing.assert_array_equal(result, ndarray)
 
 if __name__ == '__main__':
