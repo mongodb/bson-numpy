@@ -749,6 +749,106 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
 
 
 static int
+_load_element_from_bson(
+    bson_iter_t *bsonit, PyArrayObject *ndarray, parsed_dtype_t *parsed,
+    npy_intp *array_coordinates, int array_depth,
+    npy_intp *doc_coordinates, int doc_depth, npy_intp offset)
+{
+    Py_ssize_t i;
+    int sub_i;
+
+    if (parsed->node_type == DTYPE_ARRAY) {
+        Py_ssize_t number_dimensions = parsed->n_dimensions;
+
+        /* If the current key's value is a subarray */
+        array_coordinates[array_depth] = i;
+
+        /* Index into ndarray with array_coordinates */
+        PyArrayObject* subndarray;
+        void* subarray_ptr = PyArray_GetPtr(ndarray, array_coordinates);
+        PyObject* subarray_tuple = PyArray_GETITEM(
+            ndarray, subarray_ptr);
+
+        /* Indexing into ndarray with named fields returns a tuple
+         * that is nested as many levels as there are fields */
+        for (sub_i = 0; sub_i < doc_depth + 1; sub_i++) {
+            npy_intp index = doc_coordinates[sub_i];
+            subarray_tuple = PyTuple_GET_ITEM(subarray_tuple, index);
+        }
+
+        PyObject* subarray_obj = subarray_tuple;
+
+        /* Get element of array */
+        if (!subarray_obj) {
+            PyErr_SetString(BsonNumpyError,
+                            "indexing failed on named field");
+            return 0;
+        }
+
+        if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
+                                                &subndarray)) {
+            debug("PyArray_OutputConverter failed with array object",
+                  subarray_obj, NULL);
+            PyErr_SetString(BsonNumpyError,
+                            "indexing failed on named field");
+            return 0;
+        }
+
+        npy_intp* new_coordinates = calloc(
+            1 + (size_t) number_dimensions, sizeof(npy_intp));
+
+        if (!_load_array_from_bson(bsonit, subndarray, parsed,
+                                   new_coordinates, 0, 0)) {
+            /* error set by load_array_from_bson */
+            return 0;
+        }
+    } else if (parsed->node_type == DTYPE_NESTED) {
+        /* If the current key's value is a subdocument */
+        bson_t sub_document;
+        uint32_t document_len;
+        const uint8_t *document_buffer;
+        bool r;
+
+        if (!BSON_ITER_HOLDS_DOCUMENT(bsonit)) {
+            PyErr_SetString(BsonNumpyError,
+                            "invalid document: expected subdoc "
+                                "from dtype, got other type");
+            return 0;
+        }
+        bson_iter_document(bsonit, &document_len,
+                           &document_buffer);
+
+        r = bson_init_static(&sub_document,
+                             document_buffer,
+                             document_len);
+
+        if (!r) {
+            PyErr_SetString(BsonNumpyError,
+                            "document from sequence failed validation");
+        }
+
+        if (!_load_document_from_bson(&sub_document, ndarray, parsed,
+                                      array_coordinates, array_depth,
+                                      doc_coordinates, doc_depth + 1,
+                                      offset + parsed->offset)) {
+            /* error set by _load_document_from_bson */
+            return 0;
+        }
+    } else {
+        /* If the current key's value is a leaf */
+        if (!_load_scalar_from_bson(bsonit, ndarray, parsed,
+                                    array_coordinates, array_depth,
+                                    offset + parsed->offset)) {
+            /* Error set by _load_scalar_from_bson */
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+
+static int
 _load_document_from_bson(
         bson_t *document, PyArrayObject *ndarray, parsed_dtype_t *parsed,
         npy_intp *array_coordinates, int array_depth,
@@ -761,7 +861,6 @@ _load_document_from_bson(
     int sub_i;
 
     if (parsed->node_type != DTYPE_NESTED) {
-
         /* Top-level dtype did not have named fields */
         PyErr_SetString(BsonNumpyError, "dtype must include field names, like"
             " dtype([('fieldname', numpy.int)])");
@@ -788,94 +887,10 @@ _load_document_from_bson(
         /* Have found another layer of nested document */
         doc_coordinates[doc_depth] = i;
 
-        if (parsed_child->node_type == DTYPE_ARRAY) {
-            Py_ssize_t number_dimensions = parsed_child->n_dimensions;
-
-            /* If the current key's value is a subarray */
-            array_coordinates[array_depth] = i;
-
-            /* Index into ndarray with array_coordinates */
-            PyArrayObject* subndarray;
-            void* subarray_ptr = PyArray_GetPtr(ndarray, array_coordinates);
-            PyObject* subarray_tuple = PyArray_GETITEM(
-                    ndarray, subarray_ptr);
-
-            /* Indexing into ndarray with named fields returns a tuple
-             * that is nested as many levels as there are fields */
-            for (sub_i = 0; sub_i < doc_depth + 1; sub_i++) {
-                npy_intp index = doc_coordinates[sub_i];
-                subarray_tuple = PyTuple_GET_ITEM(subarray_tuple, index);
-            }
-
-            PyObject* subarray_obj = subarray_tuple;
-
-            /* Get element of array */
-            if (!subarray_obj) {
-                PyErr_SetString(BsonNumpyError,
-                                "indexing failed on named field");
-                return 0;
-            }
-
-            if (NPY_FAIL == PyArray_OutputConverter(subarray_obj,
-                                                    &subndarray)) {
-                debug("PyArray_OutputConverter failed with array object",
-                      subarray_obj, NULL);
-                PyErr_SetString(BsonNumpyError,
-                                "indexing failed on named field");
-                return 0;
-            }
-
-            npy_intp* new_coordinates = calloc(
-                    1 + (size_t) number_dimensions, sizeof(npy_intp));
-
-            if (!_load_array_from_bson(&bsonit, subndarray, parsed_child,
-                                       new_coordinates, 0, 0)) {
-                /* error set by load_array_from_bson */
-                return 0;
-            }
-
-        } else if (parsed_child->node_type == DTYPE_NESTED) {
-            /* If the current key's value is a subdocument */
-            bson_t sub_document;
-            uint32_t document_len;
-            const uint8_t *document_buffer;
-            bool r;
-
-            if (!BSON_ITER_HOLDS_DOCUMENT(&bsonit)) {
-                debug("the document that does not match dtype is",
-                      NULL, document);
-                PyErr_SetString(BsonNumpyError,
-                                "invalid document: expected subdoc "
-                                        "from dtype, got other type");
-                return 0;
-            }
-            bson_iter_document(&bsonit, &document_len,
-                               &document_buffer);
-
-            r = bson_init_static(&sub_document,
-                                 document_buffer,
-                                 document_len);
-
-            if (!r) {
-                PyErr_SetString(BsonNumpyError,
-                                "document from sequence failed validation");
-            }
-
-            if (!_load_document_from_bson(&sub_document, ndarray, parsed_child,
-                                          array_coordinates, array_depth,
-                                          doc_coordinates, doc_depth + 1,
-                                          offset + parsed_child->offset)) {
-                /* error set by _load_document_from_bson */
-                return 0;
-            }
-        } else {
-            /* If the current key's value is a leaf */
-            if (!_load_scalar_from_bson(&bsonit, ndarray, parsed_child,
-                                        array_coordinates, array_depth,
-                                        offset + parsed_child->offset)) {
-                /* Error set by _load_scalar_from_bson */
-                return 0;
-            }
+        if (!_load_element_from_bson(&bsonit, ndarray, parsed_child,
+                                     array_coordinates, array_depth,
+                                     doc_coordinates, doc_depth, offset)) {
+            return 0;
         }
     }
 
