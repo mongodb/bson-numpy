@@ -618,14 +618,10 @@ _load_element_from_bson(
     npy_intp *array_coordinates, int array_depth,
     npy_intp *doc_coordinates, int doc_depth, npy_intp offset)
 {
-    Py_ssize_t i;
     int sub_i;
 
     if (parsed->node_type == DTYPE_ARRAY) {
         Py_ssize_t number_dimensions = parsed->n_dimensions;
-
-        /* If the current key's value is a subarray */
-        array_coordinates[array_depth] = i;
 
         /* Index into ndarray with array_coordinates */
         PyArrayObject* subndarray;
