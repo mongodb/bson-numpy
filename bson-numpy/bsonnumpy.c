@@ -17,6 +17,7 @@ typedef struct _parsed_dtype_t
 {
     node_type_t node_type;
     char *field_name;
+    size_t field_len;
     char *repr;
     Py_ssize_t offset;
     char kind;
@@ -63,6 +64,7 @@ parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype, char *field_name)
 
     parsed->node_type = node_type;
     parsed->field_name = field_name;  /* take ownership */
+    parsed->field_len = field_name ? strlen(field_name) : 0;
 #if PY_MAJOR_VERSION >= 3
     s = PyUnicode_AsEncodedString(repr, "utf-8", "ignore");
     parsed->repr = bson_strdup(PyBytes_AS_STRING(s));
