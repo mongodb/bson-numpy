@@ -50,8 +50,7 @@ parsed_dtype_destroy(parsed_dtype_t *parsed);
 
 
 static parsed_dtype_t *
-parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype,
-                 char *field_name)
+parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype, char *field_name)
 {
     PyObject *repr;
     parsed_dtype_t *parsed;
@@ -108,8 +107,8 @@ parse_array_dtype(PyArray_Descr *dtype, char *field_name)
 {
     parsed_dtype_t *parsed;
     Py_ssize_t i;
-    PyObject* shape;
-    PyObject* dim;
+    PyObject *shape;
+    PyObject *dim;
 
     parsed = parsed_dtype_new(DTYPE_ARRAY, dtype, field_name);
     parsed->elsize = dtype->subarray->base->elsize;
@@ -158,9 +157,7 @@ parse_nested_dtype(PyArray_Descr *dtype, char *field_name)
         parsed->n_children * sizeof(parsed_dtype_t *));
 
     table_init(&parsed->table, parsed->n_children);
-
-    parsed->child_fields_seen = bson_malloc0(
-        parsed->n_children * sizeof(bool));
+    parsed->child_fields_seen = bson_malloc0(parsed->n_children * sizeof(bool));
 
     for (i = 0; i < parsed->n_children; i++) {
         key = PyTuple_GET_ITEM(ordered_names, i);
@@ -219,7 +216,7 @@ parse_scalar_dtype(PyArray_Descr *dtype, char *field_name)
 static void
 parsed_dtype_destroy(parsed_dtype_t *parsed)
 {
-    Py_ssize_t  i;
+    Py_ssize_t i;
 
     if (parsed) {
         if (parsed->children) {
@@ -712,7 +709,6 @@ _load_document_from_bson(
         npy_intp *array_coordinates, int array_depth,
         npy_intp *doc_coordinates, int doc_depth, npy_intp offset)
 {
-
     parsed_dtype_t *parsed_child;
     bson_iter_t bsonit;
     Py_ssize_t i;
