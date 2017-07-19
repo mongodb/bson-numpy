@@ -49,7 +49,7 @@ def _setup():
         len(BSON.encode({'_id': ObjectId(), 'x': 1, 'y': math.pi}))))
 
     small.insert_many([
-        {'x': 1, 'y': math.pi}
+        collections.OrderedDict([('x', 1), ('y', math.pi)])
         for _ in range(N_SMALL_DOCS)])
 
     dtypes[SMALL] = np.dtype([('x', np.int64), ('y', np.float64)])
@@ -59,7 +59,7 @@ def _setup():
     # 2600 keys: 'a', 'aa', 'aaa', .., 'zz..z'
     large_doc_keys = [c * i for c in string.ascii_lowercase
                       for i in range(1, 101)]
-    large_doc = dict([(k, math.pi) for k in large_doc_keys])
+    large_doc = collections.OrderedDict([(k, math.pi) for k in large_doc_keys])
     print("%d large docs, %dk each with %d keys" % (
         N_LARGE_DOCS, len(BSON.encode(large_doc)) // 1024, len(large_doc_keys)))
 
