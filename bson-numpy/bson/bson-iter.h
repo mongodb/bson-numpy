@@ -330,6 +330,10 @@ bson_iter_key (const bson_iter_t *iter);
 static BSON_INLINE const char *
 bson_iter_key_unsafe (const bson_iter_t *iter)
 {
+   if (!iter->key) {
+      return (const char *) iter->raw + 5;
+   }
+
    return (const char *) (iter->raw + iter->key);
 }
 
@@ -494,8 +498,8 @@ bson_iter_visit_all (bson_iter_t *iter,
                      void *data);
 
 bool
-_bson_iter_next_internal2 (bson_iter_t *iter,
-                           size_t keylen);
+bson_iter_next_with_len (bson_iter_t *iter,
+                           uint32_t keylen);
 
 BSON_END_DECLS
 

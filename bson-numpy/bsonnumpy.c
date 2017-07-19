@@ -240,6 +240,7 @@ parsed_dtype_destroy(parsed_dtype_t *parsed)
         }
 
         table_destroy(&parsed->table);
+        field_order_destroy(&parsed->field_order);
         bson_free(parsed->field_name);
         bson_free(parsed->repr);
         bson_free(parsed);
@@ -711,6 +712,9 @@ _load_element_from_bson(
 }
 
 
+static long invalidations = 0;
+
+
 static int
 _load_document_from_bson(
         bson_t *document, PyArrayObject *ndarray, parsed_dtype_t *parsed,
@@ -720,7 +724,8 @@ _load_document_from_bson(
     parsed_dtype_t *parsed_child;
     bson_iter_t bsonit;
     size_t bson_index;
-    field_order_elem_t *elem;
+    const field_order_elem_t *elem = NULL;
+    const char *next_key;
     const char *key;
     Py_ssize_t i;
     int sub_i;
@@ -739,38 +744,41 @@ _load_document_from_bson(
 
     memset(parsed->child_fields_seen, 0, parsed->n_children * sizeof(bool));
 
-    bson_index = -1;
-    while (bson_iter_next(&bsonit)) {
-        key = bson_iter_key(&bsonit);
-        bson_index++;
+    bson_index = 0;
 
+    while (true) {
         if (parsed->field_order_valid) {
-            if (bson_index >= field_order_elems(&parsed->field_order)) {
+            if (!field_order_match(&parsed->field_order, bson_index, &bsonit,
+                                   &elem)) {
                 parsed->field_order_valid = false;
+                invalidations++;
             } else {
-                elem = field_order_get(&parsed->field_order, bson_index);
+                i = elem->dtype_index;
+                if (!bson_iter_next_with_len(&bsonit,
+                                             (uint32_t)elem->key.len)) {
+                    /* document completed */
+                    break;
+                }
 
-                /* are this doc's keys in same order as previous? */
-                if ((bsonit.off + elem->key.len) > document->len) {
-                    parsed->field_order_valid = false;
-                } else if (0 != memcmp(key, elem->key.s, elem->key.len)) {
-                    parsed->field_order_valid = false;
-                } else if (elem->dtype_index == EMPTY) {
-                    /* ignore extra fields in the document not in the dtype */
-                    continue;
-                } else {
-                    i = elem->dtype_index;
+                if (i == EMPTY) {
+                    goto next;
                 }
             }
         }
 
         if (!parsed->field_order_valid) {
+            if (!bson_iter_next(&bsonit)) {
+                /* document completed */
+                break;
+            }
+
+            key = bson_iter_key(&bsonit);
             i = table_lookup(&parsed->table, key);
             field_order_set(&parsed->field_order, bson_index, key, i);
 
             if (i == EMPTY) {
                 /* ignore extra fields in the document not in the dtype */
-                continue;
+                goto next;
             }
         }
 
@@ -785,8 +793,12 @@ _load_document_from_bson(
                                      doc_coordinates, doc_depth, offset)) {
             return 0;
         }
+
+next:
+        bson_index++;
     }
 
+done:
     for (i = 0; i < parsed->n_children; i++) {
         if (!parsed->child_fields_seen[i]) {
             PyErr_Format(BsonNumpyError,
@@ -987,9 +999,16 @@ ndarray_to_sequence(PyObject *self, PyObject *args)
     return PyTuple_New(0);
 }
 
+static PyObject *
+invalidation_count(PyObject *self, PyObject *args)
+{
+    return PyLong_FromLong(invalidations);
+}
+
 
 static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_sequence", ndarray_to_sequence, METH_VARARGS, "Convert an ndarray into a iterator of BSON documents"},
                                          {"sequence_to_ndarray", sequence_to_ndarray, METH_VARARGS, "Convert an iterator containing BSON documents into an ndarray"},
+                                         {"_invalidation_count", invalidation_count, METH_NOARGS, "Internal diagnostic"},
                                          {NULL,                  NULL,                0,            NULL}        /* Sentinel */
 };
 
