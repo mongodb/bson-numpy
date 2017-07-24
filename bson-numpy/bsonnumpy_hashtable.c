@@ -5,6 +5,41 @@
 const ssize_t TABLE_MULTIPLE = 4;
 
 
+Py_ssize_t
+string_hash(const char *string, size_t len)
+{
+    size_t hash = 5381;
+    const unsigned char *p = (const unsigned char *) string;
+
+    for (; len >= 8; len -= 8) {
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+        hash = ((hash << 5) + hash) + *p++;
+    }
+
+    switch (len) {
+        case 7: hash = ((hash << 5) + hash) + *p++;
+        case 6: hash = ((hash << 5) + hash) + *p++;
+        case 5: hash = ((hash << 5) + hash) + *p++;
+        case 4: hash = ((hash << 5) + hash) + *p++;
+        case 3: hash = ((hash << 5) + hash) + *p++;
+        case 2: hash = ((hash << 5) + hash) + *p++;
+        case 1: hash = ((hash << 5) + hash) + *p++;
+            break;
+        case 0:
+        default:
+            break;
+    }
+
+    return hash;
+}
+
+
 void
 table_init(hash_table_t *table, ssize_t n_entries)
 {
@@ -25,7 +60,7 @@ table_insert(hash_table_t *table, const char *key, ssize_t value)
 {
     ssize_t mask = table->size - 1;
     ssize_t dist_key = 0;
-    Py_hash_t hash;
+    Py_ssize_t hash;
     ssize_t i;
 
     hash_table_entry_t entry;
@@ -33,7 +68,7 @@ table_insert(hash_table_t *table, const char *key, ssize_t value)
     bsnp_string_init(&entry.key, key);
     entry.value = value;
 
-    hash = _Py_HashBytes(key, entry.key.len);
+    hash = string_hash(key, entry.key.len);
 
     /* table size is power of 2, hash & (size-1) is faster than hash % size */
     i = entry.ideal_pos = hash & mask;
@@ -74,11 +109,11 @@ ssize_t
 table_lookup(hash_table_t *table, const char *key)
 {
     ssize_t mask = table->size - 1;
-    Py_hash_t hash;
+    Py_ssize_t hash;
     ssize_t i;
     ssize_t dist_key = 0;
 
-    hash = _Py_HashBytes(key, strlen(key));
+    hash = string_hash(key, strlen(key));
     i = hash & mask;
 
     while (true) {
