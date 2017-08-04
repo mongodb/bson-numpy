@@ -3,7 +3,7 @@
 #include "bsonnumpy_field_order.h"
 
 
-static const int MAX_DTYPE_NESTING = 32;
+#define MAX_DTYPE_NESTING 32
 
 static PyObject *BsonNumpyError;
 
