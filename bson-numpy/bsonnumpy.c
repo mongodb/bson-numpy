@@ -3,6 +3,7 @@
 #include "bsonnumpy_field_order.h"
 
 
+static const int MAX_DTYPE_NESTING = 32;
 
 static PyObject *BsonNumpyError;
 
@@ -41,13 +42,16 @@ typedef struct _parsed_dtype_t
 
 
 static parsed_dtype_t *
-parse_array_dtype(PyArray_Descr *dtype, char *field_name);
+parse_dtype_recurse(PyArray_Descr *dtype, char *field_name, int level);
 
 static parsed_dtype_t *
-parse_nested_dtype(PyArray_Descr *dtype, char *field_name);
+parse_array_dtype(PyArray_Descr *dtype, char *field_name, int level);
 
 static parsed_dtype_t *
-parse_scalar_dtype(PyArray_Descr *dtype, char *field_name);
+parse_nested_dtype(PyArray_Descr *dtype, char *field_name, int level);
+
+static parsed_dtype_t *
+parse_scalar_dtype(PyArray_Descr *dtype, char *field_name, int level);
 
 static void
 parsed_dtype_destroy(parsed_dtype_t *parsed);
@@ -84,18 +88,34 @@ parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype, char *field_name)
 static parsed_dtype_t *
 parse_dtype(PyArray_Descr *dtype, char *field_name)
 {
+    return parse_dtype_recurse(dtype, field_name, 0);
+}
+
+
+static parsed_dtype_t *
+parse_dtype_recurse(PyArray_Descr *dtype, char *field_name, int level)
+{
     PyObject *fields = dtype->fields;
 
+    if (level > MAX_DTYPE_NESTING) {
+        PyErr_Format(BsonNumpyError,
+                     "dtype exceeds %d levels of nesting",
+                     MAX_DTYPE_NESTING);
+
+        return NULL;
+    }
+
     if (dtype->subarray) {
-        return parse_array_dtype(dtype, field_name);
+        return parse_array_dtype(dtype, field_name, level);
     }
 
     if (fields && fields != Py_None) {
-        return parse_nested_dtype(dtype, field_name);
+        return parse_nested_dtype(dtype, field_name, level);
     }
 
-    return parse_scalar_dtype(dtype, field_name);
+    return parse_scalar_dtype(dtype, field_name, level);
 }
+
 
 
 #define PARSE_FAIL do {                  \
@@ -108,7 +128,7 @@ parse_dtype(PyArray_Descr *dtype, char *field_name)
 
 
 static parsed_dtype_t *
-parse_array_dtype(PyArray_Descr *dtype, char *field_name)
+parse_array_dtype(PyArray_Descr *dtype, char *field_name, int level)
 {
     parsed_dtype_t *parsed;
     Py_ssize_t i;
@@ -141,7 +161,7 @@ done:
 
 
 static parsed_dtype_t *
-parse_nested_dtype(PyArray_Descr *dtype, char *field_name)
+parse_nested_dtype(PyArray_Descr *dtype, char *field_name, int level)
 {
     parsed_dtype_t *parsed;
     PyObject *fields = NULL;
@@ -190,7 +210,9 @@ parse_nested_dtype(PyArray_Descr *dtype, char *field_name)
             PARSE_FAIL;
         }
 
-        parsed->children[i] = parse_dtype(sub_dtype, key_str);
+        parsed->children[i] = parse_dtype_recurse(
+            sub_dtype, key_str, level + 1);
+
         if (!parsed->children[i]) {
             PARSE_FAIL;
         }
@@ -208,7 +230,7 @@ done:
 
 
 static parsed_dtype_t *
-parse_scalar_dtype(PyArray_Descr *dtype, char *field_name)
+parse_scalar_dtype(PyArray_Descr *dtype, char *field_name, int level)
 {
     parsed_dtype_t *parsed;
 

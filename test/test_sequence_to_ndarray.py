@@ -73,5 +73,19 @@ class TestNdarrayFlat(TestToNdarray):
         ndarray = np.array([(1, 1.1, 4), (2, 1.2, 5), (3, 1.3, 6)], dtype)
         np.testing.assert_array_equal(result, ndarray)
 
+    def test_dimensions_limit(self):
+        # Make a deeply-nested dtype([('x', dtype([('x', dtype([('x', ...
+        dtype = np.dtype([('y', np.int32)])
+        for _ in range(31):
+            dtype = np.dtype([('x', dtype)])
+
+        # No error.
+        bsonnumpy.sequence_to_ndarray([], dtype, 0)
+
+        # One more level.
+        dtype = np.dtype([('x', dtype)])
+        with self.assertRaisesPattern(bsonnumpy.error, r'exceeds 32 levels'):
+            bsonnumpy.sequence_to_ndarray([], dtype, 0)
+
 if __name__ == '__main__':
     unittest.main()
