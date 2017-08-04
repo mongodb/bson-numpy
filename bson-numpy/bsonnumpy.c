@@ -266,6 +266,8 @@ static bool debug_mode = false;
 static void
 debug(char* message, PyObject* object, bson_t* doc)
 {
+    char *json;
+
     if (debug_mode) {
         printf("%s", message);
         if (object) {
@@ -273,8 +275,9 @@ debug(char* message, PyObject* object, bson_t* doc)
             PyObject_Print(object, stdout, 0);
         }
         if (doc) {
-            printf(": %s", bson_as_json(doc, NULL));
-
+            json = bson_as_json(doc, NULL);
+            printf(": %s", json);
+            bson_free(json);
         }
         printf("\n");
     }
