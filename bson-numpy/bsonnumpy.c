@@ -145,6 +145,14 @@ parse_array_dtype(PyArray_Descr *dtype, char *field_name, int level)
     }
 
     parsed->n_dimensions = PyTuple_Size(shape);
+    if (parsed->n_dimensions > MAX_DTYPE_NESTING) {
+        PyErr_Format(BsonNumpyError,
+                     "dtype exceeds %d levels of nesting",
+                     MAX_DTYPE_NESTING);
+
+        PARSE_FAIL;
+    }
+
     parsed->dims = bson_malloc0(parsed->n_dimensions * sizeof(Py_ssize_t));
     for (i = 0; i < parsed->n_dimensions; i++) {
         dim = PyTuple_GET_ITEM(shape, i);
@@ -646,7 +654,7 @@ _load_element_from_bson(
     int sub_i;
 
     if (parsed->node_type == DTYPE_ARRAY) {
-        Py_ssize_t number_dimensions = parsed->n_dimensions;
+        npy_intp new_coordinates[MAX_DTYPE_NESTING] = { 0 };
 
         /* Index into ndarray with array_coordinates */
         PyArrayObject* subndarray;
@@ -678,9 +686,6 @@ _load_element_from_bson(
                             "indexing failed on named field");
             return 0;
         }
-
-        npy_intp* new_coordinates = calloc(
-            1 + (size_t) number_dimensions, sizeof(npy_intp));
 
         if (!_load_array_from_bson(bsonit, subndarray, parsed,
                                    new_coordinates, 0, 0)) {
