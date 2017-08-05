@@ -8,6 +8,8 @@ branches:
 install:
 - echo $TRAVIS_PYTHON_VERSION
 - sudo apt-get install gcc
+# See https://github.com/pypa/setuptools/pull/1089
+- pip install setuptools==35.0.0
 - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
 - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pandas; fi
 - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx; fi
