@@ -107,7 +107,7 @@ The current prototype of BSON-NumPy relies on PyMongo installed from a branch::
   $ python3 -m pip install -U git+https://github.com/ajdavis/mongo-python-driver.git@raw-batch
   $ python3 -m pip install git+https://github.com/mongodb/bson-numpy.git
 
-Or in Python 2:
+Or in Python 2::
 
   $ python -m pip install numpy
   $ python -m pip install -U git+https://github.com/ajdavis/mongo-python-driver.git@raw-batch
@@ -160,7 +160,7 @@ Python from python.org <https://www.python.org/downloads/>`_. Then::
   $ python3 -m pip install -U git+https://github.com/ajdavis/mongo-python-driver.git@raw-batch
   $ python3 -m pip install git+https://github.com/mongodb/bson-numpy.git
 
-Or in Python 2:
+Or in Python 2::
 
   $ python -m pip install -U git+https://github.com/ajdavis/mongo-python-driver.git@raw-batch
   $ python -m pip install git+https://github.com/mongodb/bson-numpy.git
