@@ -462,8 +462,6 @@ _bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
 
    iter->d1 = ++o;
 
-fill_data_fields:
-
    *key = bson_iter_key_unsafe (iter);
    *bson_type = ITER_TYPE (iter);
 
@@ -773,8 +771,6 @@ bson_iter_next_with_len (bson_iter_t *iter,
    }
 
    iter->d1 = ++o;
-
-fill_data_fields:
 
    bson_type = ITER_TYPE (iter);
 
