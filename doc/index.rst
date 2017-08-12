@@ -5,6 +5,9 @@ A Python extension written in C that uses `libbson
 <http://mongoc.org/libbson/current>`_ to convert between NumPy arrays and BSON,
 the native data format of MongoDB.
 
+This is currently a **prototype**. It requires PyMongo installed from a branch.
+See the `installing`_ instructions below.
+
 Converting MongoDB data to NumPy
 --------------------------------
 
@@ -37,20 +40,15 @@ We can convert these to a NumPy :class:`~numpy.ndarray` directly:
 
 .. doctest::
 
-    >>> from bson import CodecOptions
-    >>> from bson.raw_bson import RawBSONDocument
     >>> from pymongo import MongoClient
     >>> import numpy as np
     >>> import bsonnumpy
     >>>
     >>> client = MongoClient()
-    >>> collection = client.test.get_collection(
-    ...     'collection',
-    ...     codec_options=CodecOptions(document_class=RawBSONDocument))
-    >>>
+    >>> collection = client.test.collection
     >>> dtype = np.dtype([('_id', np.int64), ('n', np.double), ('str', 'S10')])
     >>> ndarray = bsonnumpy.sequence_to_ndarray(
-    ...    (doc.raw for doc in collection.find()), dtype, collection.count())
+    ...     collection.find_raw(), dtype, collection.count())
     >>>
     >>> print(ndarray)
     [(1,  1. , b'hello') (2,  3.1, b'and') (3,  7.7, b'goodbye')]

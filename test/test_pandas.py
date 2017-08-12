@@ -7,8 +7,6 @@ except ImportError:
     pd = None
 
 import numpy as np
-from bson.codec_options import CodecOptions
-from bson.raw_bson import RawBSONDocument
 
 import bsonnumpy
 from test import client_context, unittest
@@ -26,13 +24,10 @@ def to_dataframe(seq, dtype, n):
 class TestSequence2Pandas(unittest.TestCase):
     def dataframe_test(self, docs, dtype):
         db = client_context.client.bsonnumpy_test
-        coll = db.get_collection('coll', codec_options=CodecOptions(
-            document_class=RawBSONDocument))
-
+        coll = db.coll
         coll.delete_many({})
         coll.insert_many(docs)
-        return to_dataframe((doc.raw for doc in coll.find().sort('_id')),
-                            dtype, coll.count())
+        return to_dataframe(coll.find_raw().sort('_id'), dtype, coll.count())
 
     @client_context.require_connected
     def test_one_value(self):

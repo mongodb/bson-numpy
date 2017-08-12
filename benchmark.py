@@ -13,13 +13,13 @@ from bson.raw_bson import RawBSONDocument
 
 try:
     import bsonnumpy
-except ImportError as exc:
+except (ImportError, OSError) as exc:
     print(exc)
     bsonnumpy = None
 
 try:
     import monary
-except ImportError as exc:
+except (ImportError, OSError) as exc:
     monary = None
 
 assert pymongo.has_c()
@@ -129,17 +129,12 @@ def bson_numpy_func(use_large):
 @bench('raw-batches-to-ndarray')
 def raw_bson_func(use_large):
     c = db[collection_names[use_large]]
-    try:
-        batches = list(c.find(raw_batches=True))
-    except TypeError as exc:
-        if "unexpected keyword argument 'raw_batches'" in str(exc):
-            print("Wrong PyMongo: no 'raw_batches' feature")
-            return
-        else:
-            raise
+    if not hasattr(c, 'find_raw'):
+        print("Wrong PyMongo: no 'raw_batches' feature")
+        return
 
     dtype = dtypes[use_large]
-    bsonnumpy.sequence_to_ndarray(batches, dtype, c.count())
+    bsonnumpy.sequence_to_ndarray(c.find_raw(), dtype, c.count())
 
 
 @bench('monary')

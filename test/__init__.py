@@ -6,8 +6,6 @@ import bson
 import bsonnumpy
 import numpy as np
 import pymongo
-from bson.codec_options import CodecOptions
-from bson.raw_bson import RawBSONDocument
 
 if sys.version_info[:2] == (2, 6):
     import unittest2 as unittest
@@ -131,16 +129,13 @@ class TestToNdarray(unittest.TestCase):
     def get_cursor_sequence(self, docs):
         self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-        return raw_coll
+        return self.client.bsonnumpy_test.coll
 
     def make_mixed_collection_test(self, docs, dtype):
-        raw_coll = self.get_cursor_sequence(docs)
+        coll = self.get_cursor_sequence(docs)
 
         ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in raw_coll.find()), dtype, raw_coll.count())
+            coll.find_raw(), dtype, coll.count())
         self.compare_results(np.dtype(dtype),
                              self.client.bsonnumpy_test.coll.find(),
                              ndarray)

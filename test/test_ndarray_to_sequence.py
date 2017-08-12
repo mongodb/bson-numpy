@@ -6,8 +6,6 @@ import string
 import bson
 import bsonnumpy
 import numpy as np
-from bson.codec_options import CodecOptions
-from bson.raw_bson import RawBSONDocument
 
 from test import client_context, millis, unittest, TestToNdarray, PY3
 
@@ -71,13 +69,8 @@ class TestSequenceFlat(TestToNdarray):
 
         self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-
-        cursor = raw_coll.find()
-        ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
+        cursor = self.client.bsonnumpy_test.coll.find_raw()
+        ndarray = bsonnumpy.sequence_to_ndarray(cursor, dtype, cursor.count())
 
         for i, row in enumerate(ndarray):
             document = docs[i]
@@ -98,13 +91,8 @@ class TestSequenceFlat(TestToNdarray):
 
         self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
-        raw_coll = self.client.get_database(
-            'bsonnumpy_test',
-            codec_options=CodecOptions(document_class=RawBSONDocument)).coll
-
-        cursor = raw_coll.find()
-        ndarray = bsonnumpy.sequence_to_ndarray(
-            (doc.raw for doc in cursor), dtype, raw_coll.count())
+        cursor = self.client.bsonnumpy_test.coll.find_raw()
+        ndarray = bsonnumpy.sequence_to_ndarray(cursor, dtype, cursor.count())
 
         for i, row in enumerate(ndarray):
             document = docs[i]
