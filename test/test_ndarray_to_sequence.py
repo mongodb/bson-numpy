@@ -69,7 +69,7 @@ class TestSequenceFlat(TestToNdarray):
 
         self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
-        cursor = self.client.bsonnumpy_test.coll.find_raw()
+        cursor = self.client.bsonnumpy_test.coll.find_raw_batches()
         ndarray = bsonnumpy.sequence_to_ndarray(cursor, dtype, cursor.count())
 
         for i, row in enumerate(ndarray):
@@ -91,7 +91,7 @@ class TestSequenceFlat(TestToNdarray):
 
         self.client.bsonnumpy_test.coll.delete_many({})
         self.client.bsonnumpy_test.coll.insert_many(docs)
-        cursor = self.client.bsonnumpy_test.coll.find_raw()
+        cursor = self.client.bsonnumpy_test.coll.find_raw_batches()
         ndarray = bsonnumpy.sequence_to_ndarray(cursor, dtype, cursor.count())
 
         for i, row in enumerate(ndarray):
@@ -124,6 +124,20 @@ class TestSequenceFlat(TestToNdarray):
     def test_void(self):
         # TODO: test for types that are 'V'
         pass
+
+    @client_context.require_connected
+    def test_aggregate_raw_batches(self):
+        dtype = np.dtype([('y', np.int32)])
+        docs = [{"x": i} for i in range(10)]
+        expected = [(2 * i,) for i in range(10)]
+
+        coll = self.get_cursor_sequence(docs)
+        pipeline = [{'$project': {'y': {'$multiply': [2, '$x']}}}]
+        ndarray = bsonnumpy.sequence_to_ndarray(
+            coll.aggregate_raw_batches(pipeline), dtype, coll.count())
+
+        self.assertEqual(dtype, ndarray.dtype)
+        np.testing.assert_array_equal(ndarray, np.array(expected, dtype))
 
 
 class TestSequenceArray(TestToNdarray):

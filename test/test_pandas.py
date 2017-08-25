@@ -27,7 +27,7 @@ class TestSequence2Pandas(unittest.TestCase):
         coll = db.coll
         coll.delete_many({})
         coll.insert_many(docs)
-        return to_dataframe(coll.find_raw().sort('_id'), dtype, coll.count())
+        return to_dataframe(coll.find_raw_batches().sort('_id'), dtype, coll.count())
 
     @client_context.require_connected
     def test_one_value(self):

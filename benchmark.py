@@ -129,12 +129,12 @@ def bson_numpy_func(use_large):
 @bench('raw-batches-to-ndarray')
 def raw_bson_func(use_large):
     c = db[collection_names[use_large]]
-    if not hasattr(c, 'find_raw'):
-        print("Wrong PyMongo: no 'raw_batches' feature")
+    if not hasattr(c, 'find_raw_batches'):
+        print("Wrong PyMongo: no 'find_raw_batches' feature")
         return
 
     dtype = dtypes[use_large]
-    bsonnumpy.sequence_to_ndarray(c.find_raw(), dtype, c.count())
+    bsonnumpy.sequence_to_ndarray(c.find_raw_batches(), dtype, c.count())
 
 
 @bench('monary')

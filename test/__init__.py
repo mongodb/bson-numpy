@@ -135,7 +135,7 @@ class TestToNdarray(unittest.TestCase):
         coll = self.get_cursor_sequence(docs)
 
         ndarray = bsonnumpy.sequence_to_ndarray(
-            coll.find_raw(), dtype, coll.count())
+            coll.find_raw_batches(), dtype, coll.count())
         self.compare_results(np.dtype(dtype),
                              self.client.bsonnumpy_test.coll.find(),
                              ndarray)
