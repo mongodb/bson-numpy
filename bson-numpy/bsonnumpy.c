@@ -671,11 +671,6 @@ _load_element_from_bson(
         temp_obj = PyTuple_GetItem(subarray_tuple, index);
         for (sub_i = 1; sub_i < doc_depth + 1; sub_i++) {
             index = doc_coordinates[sub_i]; 
-            
-            // LOOPING OVER THE FOLLOWING LINE IS CAUSING REFCNT ISSUES //
-            // reference [count] is getting messed up due to using
-            // same PyObject for return value
-            
             temp_obj = PyTuple_GetItem(temp_obj, index);                      
         }  
         
