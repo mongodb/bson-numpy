@@ -55,6 +55,21 @@ We can convert these to a NumPy :class:`~numpy.ndarray` directly:
     >>> print(ndarray.dtype)
     [('_id', '<i8'), ('n', '<f8'), ('str', 'S10')]
 
+PyMongo's :meth:`~pymongo.collection.Collection.find_raw_batches` method
+allows you to query documents that match a filter and to choose which fields
+to retrieve, with a projection:
+
+.. doctest::
+
+    >>> filter = {'_id': {'$gte': 2}}
+    >>> projection = {'str': False}
+    >>> dtype = np.dtype([('_id', np.int64), ('n', np.double)])
+    >>> ndarray = bsonnumpy.sequence_to_ndarray(
+    ...     collection.find_raw_batches(filter, projection), dtype, collection.count(filter))
+    >>>
+    >>> print(ndarray)
+    [(2,  3.1) (3,  7.7)]
+
 We can also use the MongoDB aggregation framework:
 
 .. doctest::
