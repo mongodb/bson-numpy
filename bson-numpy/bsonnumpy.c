@@ -664,14 +664,21 @@ _load_element_from_bson(
 
         /* Indexing into ndarray with named fields returns a tuple
          * that is nested as many levels as there are fields */
-        for (sub_i = 0; sub_i < doc_depth + 1; sub_i++) {
-            npy_intp index = doc_coordinates[sub_i];
-            subarray_tuple = PyTuple_GET_ITEM(subarray_tuple, index);
-        }
-
-        PyObject* subarray_obj = subarray_tuple;
-
-        /* Get element of array */
+        npy_intp index;
+        PyObject* temp_obj = NULL;
+        
+        index = doc_coordinates[0];
+        temp_obj = PyTuple_GetItem(subarray_tuple, index);
+        for (sub_i = 1; sub_i < doc_depth + 1; sub_i++) {
+            index = doc_coordinates[sub_i]; 
+            temp_obj = PyTuple_GetItem(temp_obj, index);                      
+        }  
+        
+        
+        PyObject* subarray_obj = temp_obj;
+        // Get element of array  
+           
+        
         if (!subarray_obj) {
             PyErr_SetString(BsonNumpyError,
                             "indexing failed on named field");
@@ -692,6 +699,9 @@ _load_element_from_bson(
             /* error set by load_array_from_bson */
             return 0;
         }
+       
+        Py_DECREF(subarray_tuple);
+                
     } else if (parsed->node_type == DTYPE_NESTED) {
         /* If the current key's value is a subdocument */
         bson_t sub_document;
@@ -970,6 +980,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
             pos += len;
         }
+        Py_DECREF(binary_doc); 
     }
 
 check_row_count:
