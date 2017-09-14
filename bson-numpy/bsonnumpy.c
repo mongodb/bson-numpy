@@ -634,7 +634,6 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
         PyErr_Format(BsonNumpyError,
                      "invalid document: array is shorter than expected"
                      " length of %ld, got %ld", expected_length, i);
-
     }
 
     /* Reset the rest of the coordinates to zero */
@@ -666,19 +665,17 @@ _load_element_from_bson(
          * that is nested as many levels as there are fields */
         npy_intp index;
         PyObject* temp_obj = NULL;
-        
+
         index = doc_coordinates[0];
         temp_obj = PyTuple_GetItem(subarray_tuple, index);
         for (sub_i = 1; sub_i < doc_depth + 1; sub_i++) {
-            index = doc_coordinates[sub_i]; 
-            temp_obj = PyTuple_GetItem(temp_obj, index);                      
-        }  
-        
-        
+            index = doc_coordinates[sub_i];
+            temp_obj = PyTuple_GetItem(temp_obj, index);
+        }
+
         PyObject* subarray_obj = temp_obj;
-        // Get element of array  
-           
-        
+
+        // Get element of array
         if (!subarray_obj) {
             PyErr_SetString(BsonNumpyError,
                             "indexing failed on named field");
@@ -699,9 +696,9 @@ _load_element_from_bson(
             /* error set by load_array_from_bson */
             return 0;
         }
-       
+
         Py_DECREF(subarray_tuple);
-                
+
     } else if (parsed->node_type == DTYPE_NESTED) {
         /* If the current key's value is a subdocument */
         bson_t sub_document;
@@ -980,7 +977,7 @@ sequence_to_ndarray(PyObject *self, PyObject *args)
 
             pos += len;
         }
-        Py_DECREF(binary_doc); 
+        Py_DECREF(binary_doc);
     }
 
 check_row_count:
