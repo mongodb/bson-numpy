@@ -205,7 +205,7 @@ BSON numeric types convert naturally:
     >>> data = bson.BSON().encode({'pi': 3.14159, 'answer': 42, 'big': 2**63-1})
     >>> dtype = np.dtype([('pi', np.double), ('answer', np.int32), ('big', np.int64)])
     >>> bsonnumpy.sequence_to_ndarray([data], dtype, 1)
-    array([( 3.14159, 42, 9223372036854775807)],
+    array([(3.14159, 42, 9223372036854775807)],
           dtype=[('pi', '<f8'), ('answer', '<i4'), ('big', '<i8')])
 
 Arrays
@@ -248,9 +248,9 @@ The values can be retrieved by name or by position:
     >>> array[0]['a']['b']
     1
     >>> array[0]['a']['c']
-    3.1400000000000001
+    3.14
     >>> array[0][0][1]
-    3.1400000000000001
+    3.14
 
 Binary
 ^^^^^^
