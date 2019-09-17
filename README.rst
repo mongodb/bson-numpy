@@ -10,8 +10,8 @@ About
 =====
 
 A Python extension written in C that uses `libbson
-<http://mongoc.org/libbson/current>`_ to convert between `NumPy<https://pypi.org/project/numpy/>`_
-arrays and `BSON<http://bsonspec.org>`_, the native data format of MongoDB.
+<http://mongoc.org/libbson/current>`_ to convert between `NumPy <https://pypi.org/project/numpy/>`_
+arrays and `BSON <http://bsonspec.org>`_, the native data format of MongoDB.
 
 This project is a **prototype** and not ready for production use.
 
@@ -19,7 +19,7 @@ Bugs / Feature Requests
 =======================
 
 Think you’ve found a bug? Want to see a new feature in BSON-NumPy? `Please open a
-issue in github.<https://github.com/mongodb/bson-numpy/issues>`_
+issue in github. <https://github.com/mongodb/bson-numpy/issues>`_
 
 How To Ask For Help
 -------------------
