@@ -5,8 +5,7 @@ A Python extension written in C that uses `libbson
 <http://mongoc.org/libbson/current>`_ to convert between NumPy arrays and BSON,
 the native data format of MongoDB.
 
-This is currently a **prototype**. It requires PyMongo installed from master.
-See the `installing`_ instructions below.
+This is currently a **prototype**. See the `installing`_ instructions below.
 
 Converting MongoDB data to NumPy
 --------------------------------
@@ -123,52 +122,32 @@ API
 Installing
 ----------
 
-BSON-NumPy is supported on Linux and Mac OS X, with Python 2.6 and later,
-on Intel architectures. It requires NumPy 1.11 or greater.
+BSON-NumPy is supported on Linux and macOS, with Python 3.5 and later,
+on Intel architectures. It requires NumPy 1.17.0 or greater, and works with
+PyMongo 3.6 or greater::
 
-The current prototype of BSON-NumPy relies on PyMongo installed from a branch::
-
-  $ python3 -m pip install numpy
-  $ python3 -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
+  $ python3 -m pip install -U numpy pymongo
   $ python3 -m pip install git+https://github.com/mongodb/bson-numpy.git
-
-Or in Python 2::
-
-  $ python -m pip install numpy
-  $ python -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
-  $ python -m pip install git+https://github.com/mongodb/bson-numpy.git
 
 Here are more detailed instructions for a few platforms.
 
 Debian or Ubuntu
 ^^^^^^^^^^^^^^^^
 
-Install with Python 3::
+::
 
   $ sudo apt-get install -y python3-dev python3-numpy python3-pip
-  $ python3 -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
+  $ python3 -m pip install -U pymongo
   $ python3 -m pip install git+https://github.com/mongodb/bson-numpy.git
-
-Or Python 2::
-
-  $ sudo apt-get install -y python-dev python-numpy python-pip
-  $ python -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
-  $ python -m pip install git+https://github.com/mongodb/bson-numpy.git
 
 Fedora or RedHat
 ^^^^^^^^^^^^^^^^
 
-With Python3::
+::
 
   $ sudo yum install -y python3-devel python3-numpy python3-pip
-  $ python3 -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
+  $ python3 -m pip install -U pymongo
   $ python3 -m pip install git+https://github.com/mongodb/bson-numpy.git
-
-Or Python 2::
-
-  $ sudo yum install -y python-devel numpy python-pip
-  $ python -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
-  $ python -m pip install git+https://github.com/mongodb/bson-numpy.git
 
 Mac OS X
 ^^^^^^^^
@@ -179,21 +158,17 @@ The easiest way to install BSON-NumPy's dependencies is with Homebrew.
 
 macOS comes with an outdated version of NumPy, too old to work with BSON-NumPy.
 We recommend you don't use the macOS system Python at all, and install your own
-Python with ``brew install python3`` or ``brew install python``, or `download
+Python with ``brew install python3`` or `download
 Python from python.org <https://www.python.org/downloads/>`_. Then::
 
-  $ python3 -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
+  $ python3 -m pip install -U numpy pymongo
   $ python3 -m pip install git+https://github.com/mongodb/bson-numpy.git
 
-Or in Python 2::
-
-  $ python -m pip install -U git+https://github.com/mongodb/mongo-python-driver.git
-  $ python -m pip install git+https://github.com/mongodb/bson-numpy.git
 
 Converting BSON to NumPy
 ------------------------
 
-The following examples use Python 3.6 and NumPy 1.12.
+The following examples use Python 3.6 and NumPy 1.17.
 
 Double, int32, int64
 ^^^^^^^^^^^^^^^^^^^^

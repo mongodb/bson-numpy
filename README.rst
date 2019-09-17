@@ -46,7 +46,8 @@ Please see the `instructions on readthedocs.
 Dependencies
 ============
 
-BSON-NumPy supports CPython 3.5+. BSON-NumPy requires NumPy 1.17.0+.
+BSON-NumPy supports CPython 3.5+. BSON-NumPy requires NumPy 1.17.0+, and works
+with PyMongo 3.6+.
 
 Examples
 ========
