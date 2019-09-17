@@ -3,17 +3,14 @@ language: python
 # safelist
 branches:
   only:
-  - dev
+  - master
 
 install:
 - echo $TRAVIS_PYTHON_VERSION
 - sudo apt-get install gcc
 # See https://github.com/pypa/setuptools/pull/1089
 - pip install setuptools==35.0.0
-- if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install 'numpy>=1.11,<1.12'; else pip install -U numpy; fi
-- if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pandas; fi
-- if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx; fi
-- pip install -U git+https://github.com/mongodb/mongo-python-driver.git
+- pip install -U numpy, pandas, pymongo, sphinx
 
 env:
 - MONGODB=2.6.12
@@ -28,9 +25,6 @@ before_script:
   - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath /tmp/data --bind_ip 127.0.0.1 &> /dev/null &
 
 python:
-  - "2.6"
-  - "2.7"
-  - "3.4"
   - "3.5"
   - "3.6"
 
