@@ -31,6 +31,10 @@ Please include all of the following information when opening an issue:
 
   $ python -c "import sys; print(sys.version)"
 
+- The exact version of bson-numpy used::
+
+  $ python -c "import bsonnumpy; print(bsonnumpy.__version__)"
+
 - The operating system and version (e.g. Windows 7, OSX 10.8, ...)
 
 Installation

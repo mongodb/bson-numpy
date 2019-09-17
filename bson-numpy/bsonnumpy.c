@@ -1082,6 +1082,9 @@ PyInit_bsonnumpy(void) {
     BsonNumpyError = PyErr_NewException("bsonnumpy.error", NULL, NULL);
     Py_INCREF(BsonNumpyError);
     PyModule_AddObject(m, "error", BsonNumpyError);
+    PyModule_AddObject(m,
+                       "__version__",
+                       PyUnicode_FromString("0.2.0.dev0"));
 
     init_debug_mode();
     import_array();
