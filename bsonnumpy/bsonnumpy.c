@@ -1065,26 +1065,23 @@ static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_sequence", ndarray_to_sequ
 #if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef bsonnumpymodule = {
    PyModuleDef_HEAD_INIT,
-   "bsonnumpy",
+   "_cbsonnumpy",
    NULL,
    -1,
    BsonNumpyMethods
 };
 
 PyMODINIT_FUNC
-PyInit_bsonnumpy(void) {
+PyInit__cbsonnumpy(void) {
     PyObject* m;
 
     m = PyModule_Create(&bsonnumpymodule);
     if (m == NULL)
         return NULL;
 
-    BsonNumpyError = PyErr_NewException("bsonnumpy.error", NULL, NULL);
+    BsonNumpyError = PyErr_NewException("_cbsonnumpy.error", NULL, NULL);
     Py_INCREF(BsonNumpyError);
     PyModule_AddObject(m, "error", BsonNumpyError);
-    PyModule_AddObject(m,
-                       "__version__",
-                       PyUnicode_FromString("0.2.0.dev0"));
 
     init_debug_mode();
     import_array();
@@ -1099,12 +1096,12 @@ initbsonnumpy(void)
 {
     PyObject *m;
 
-    m = Py_InitModule("bsonnumpy", BsonNumpyMethods);
+    m = Py_InitModule("_cbsonnumpy", BsonNumpyMethods);
     if (m == NULL) {
         return;
     }
 
-    BsonNumpyError = PyErr_NewException("bsonnumpy.error", NULL, NULL);
+    BsonNumpyError = PyErr_NewException("_cbsonnumpy.error", NULL, NULL);
     Py_INCREF(BsonNumpyError);
     PyModule_AddObject(m, "error", BsonNumpyError);
 
