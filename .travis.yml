@@ -15,8 +15,10 @@ install:
 env:
 - MONGODB=2.6.12
 - MONGODB=3.0.15
-- MONGODB=3.2.14
-- MONGODB=3.4.5
+- MONGODB=3.2.22
+- MONGODB=3.4.23
+- MONGODB=3.6.14
+- MONGODB=4.0.12
 
 before_script:
   - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz -O /tmp/mongodb.tgz
@@ -27,6 +29,7 @@ before_script:
 python:
   - "3.5"
   - "3.6"
+  - "3.7"
 
 script:
   - python setup.py test
