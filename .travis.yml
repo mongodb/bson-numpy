@@ -10,7 +10,7 @@ install:
 - sudo apt-get install gcc
 # See https://github.com/pypa/setuptools/pull/1089
 - pip install setuptools==35.0.0
-- pip install -U numpy, pandas, pymongo, sphinx
+- pip install -U numpy pandas pymongo sphinx
 
 env:
 - MONGODB=2.6.12
