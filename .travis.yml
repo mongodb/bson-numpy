@@ -33,9 +33,9 @@ install:
   - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath /tmp/data --bind_ip 127.0.0.1 &> /dev/null &
 
 before_script:
-  - pip install -U numpy pandas pymongo sphinx
+  - pip install -U numpy pandas pymongo
 
 script:
   - echo $TRAVIS_PYTHON_VERSION
   - python setup.py test
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then python setup.py doc --test; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx && python setup.py doc --test; fi
