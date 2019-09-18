@@ -78,9 +78,7 @@ parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype, char *field_name)
 {
     PyObject *repr;
     parsed_dtype_t *parsed;
-#if PY_MAJOR_VERSION >= 3
     PyObject *s;
-#endif
 
     repr = PyObject_Repr((PyObject *) dtype);
     parsed = bson_malloc0(sizeof(parsed_dtype_t));
@@ -88,13 +86,9 @@ parsed_dtype_new(node_type_t node_type, PyArray_Descr *dtype, char *field_name)
     parsed->node_type = node_type;
     parsed->field_name = field_name;  /* take ownership */
     parsed->field_len = field_name ? strlen(field_name) : 0;
-#if PY_MAJOR_VERSION >= 3
     s = PyUnicode_AsEncodedString(repr, "utf-8", "ignore");
     parsed->repr = bson_strdup(PyBytes_AS_STRING(s));
     Py_DECREF(s);
-#else
-    parsed->repr = bson_strdup(PyString_AS_STRING(repr));
-#endif
     Py_DECREF(repr);
 
     return parsed;
@@ -172,11 +166,7 @@ parse_array_dtype(PyArray_Descr *dtype, char *field_name, int level)
     parsed->dims = bson_malloc0(parsed->n_dimensions * sizeof(Py_ssize_t));
     for (i = 0; i < parsed->n_dimensions; i++) {
         dim = PyTuple_GET_ITEM(shape, i);
-#if PY_MAJOR_VERSION >= 3
         parsed->dims[i] = PyLong_AsLong(dim);
-#else
-        parsed->dims[i] = PyInt_AsLong(dim);
-#endif
     }
 
 done:
@@ -1062,7 +1052,6 @@ static PyMethodDef BsonNumpyMethods[] = {{"ndarray_to_sequence", ndarray_to_sequ
                                          {NULL,                  NULL,                0,            NULL}        /* Sentinel */
 };
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef bsonnumpymodule = {
    PyModuleDef_HEAD_INIT,
    "_cbsonnumpy",
@@ -1088,26 +1077,3 @@ PyInit__cbsonnumpy(void) {
 
     return m;
 }
-#else  /* Python 2.x */
-
-
-PyMODINIT_FUNC
-initbsonnumpy(void)
-{
-    PyObject *m;
-
-    m = Py_InitModule("_cbsonnumpy", BsonNumpyMethods);
-    if (m == NULL) {
-        return;
-    }
-
-    BsonNumpyError = PyErr_NewException("_cbsonnumpy.error", NULL, NULL);
-    Py_INCREF(BsonNumpyError);
-    PyModule_AddObject(m, "error", BsonNumpyError);
-
-    init_debug_mode();
-    import_array();
-}
-
-
-#endif
