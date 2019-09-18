@@ -1,5 +1,6 @@
 import glob
 import os
+import subprocess
 import sys
 
 # Suppress warnings during shutdown, http://bugs.python.org/issue15881
@@ -31,7 +32,8 @@ VERSION = write_version_py()
 
 
 try:
-    from sphinx.cmd import build as sphinx
+    from sphinx.setup_command import BuildDoc
+    from sphinx.cmd import build as sphinxbuild
     HAVE_SPHINX = True
 except Exception:
     HAVE_SPHINX = False
@@ -52,7 +54,7 @@ class build_ext(_build_ext):
 
 
 # Enables building docs and running doctests from setup.py
-class doc(Command):
+class build_sphinx(BuildDoc):
 
     description = "generate or test documentation"
 
@@ -63,11 +65,14 @@ class doc(Command):
 
     def initialize_options(self):
         self.test = False
-
-    def finalize_options(self):
-        pass
+        super().initialize_options()
 
     def run(self):
+        # Run in-place build before Sphinx doc build.
+        ret = subprocess.call([sys.executable, sys.argv[0], 'build_ext', '-i'])
+        if ret != 0:
+            raise RuntimeError("Building BSON-Numpy failed!")
+
         if not HAVE_SPHINX:
             raise RuntimeError(
                 "You must install Sphinx to build or test the documentation.")
@@ -87,17 +92,10 @@ class doc(Command):
                 pass
 
         sphinx_args = ["-E", "-b", mode, "doc", path]
-
-        # sphinx.main calls sys.exit when sphinx.build_main exists.
-        # Call build_main directly so we can check status and print
-        # the full path to the built docs.
-        if hasattr(sphinx, 'build_main'):
-            status = sphinx.build_main(sphinx_args)
-        else:
-            status = sphinx.main(sphinx_args)
+        status = sphinxbuild.main(sphinx_args)
 
         if status:
-            raise RuntimeError("documentation step '%s' failed" % (mode,))
+            raise RuntimeError("Documentation step '%s' failed" % (mode,))
 
         sys.stdout.write("\nDocumentation step '%s' performed, results here:\n"
                          "   %s/\n" % (mode, path))
@@ -155,7 +153,7 @@ def setup_package():
         test_suite="test",
         tests_require=tests_require,
         cmdclass={'build_ext': build_ext,
-                  'doc': doc},
+                  'doc': build_sphinx},
         packages=["bsonnumpy"])
 
 
