@@ -33,8 +33,6 @@ install:
   - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath /tmp/data --bind_ip 127.0.0.1 &> /dev/null &
 
 before_script:
-  # See https://github.com/pypa/setuptools/pull/1089
-  - pip install setuptools==35.0.0
   - pip install -U numpy pandas pymongo sphinx
 
 script:
