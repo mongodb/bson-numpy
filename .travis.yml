@@ -1,36 +1,43 @@
 language: python
 
-# safelist
-branches:
-  only:
-  - master
+# cache artifacts for faster builds
+cache: pip
 
-install:
-- echo $TRAVIS_PYTHON_VERSION
-- sudo apt-get install gcc
-# See https://github.com/pypa/setuptools/pull/1089
-- pip install setuptools==35.0.0
-- pip install -U numpy pandas pymongo sphinx
-
-env:
-- MONGODB=2.6.12
-- MONGODB=3.0.15
-- MONGODB=3.2.22
-- MONGODB=3.4.23
-- MONGODB=3.6.14
-- MONGODB=4.0.12
-
-before_script:
-  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz -O /tmp/mongodb.tgz
-  - tar -xvf /tmp/mongodb.tgz
-  - mkdir /tmp/data
-  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath /tmp/data --bind_ip 127.0.0.1 &> /dev/null &
-
+# build matrix
 python:
   - "3.5"
   - "3.6"
   - "3.7"
 
+# build matrix
+env:
+  - MONGODB=2.6.12
+  - MONGODB=3.0.15
+  - MONGODB=3.2.22
+  - MONGODB=3.4.23
+  - MONGODB=3.6.14
+  - MONGODB=4.0.12
+
+# safelist
+branches:
+  only:
+  - master
+
+before_install:
+  - sudo apt-get install gcc
+
+install:
+  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz -O /tmp/mongodb.tgz
+  - tar -xvf /tmp/mongodb.tgz
+  - mkdir /tmp/data
+  - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath /tmp/data --bind_ip 127.0.0.1 &> /dev/null &
+
+before_script:
+  # See https://github.com/pypa/setuptools/pull/1089
+  - pip install setuptools==35.0.0
+  - pip install -U numpy pandas pymongo sphinx
+
 script:
+  - echo $TRAVIS_PYTHON_VERSION
   - python setup.py test
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then cd doc && PYTHONPATH=.. make doctest; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then python setup.py doc --test; fi
