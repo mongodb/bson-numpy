@@ -39,5 +39,5 @@ before_script:
 
 script:
   - echo $TRAVIS_PYTHON_VERSION
-  - python setup.py test
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx && python setup.py doc --test; fi
+  - CC="ccache gcc" python setup.py test
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install -U sphinx && CC="ccache gcc" python setup.py doc --test; fi
