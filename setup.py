@@ -43,52 +43,59 @@ class build_ext(_build_ext):
         self.include_dirs.append(numpy.get_include())
 
 
+CMDCLASS = {'build_ext': build_ext}
+
+
 # Enables building docs and running doctests from setup.py
-class build_sphinx(BuildDoc):
+if HAVE_SPHINX:
+    class build_sphinx(BuildDoc):
 
-    description = "generate or test documentation"
+        description = "generate or test documentation"
 
-    user_options = [("test", "t",
-                     "run doctests instead of generating documentation")]
+        user_options = [("test", "t",
+                         "run doctests instead of generating documentation")]
 
-    boolean_options = ["test"]
+        boolean_options = ["test"]
 
-    def initialize_options(self):
-        self.test = False
-        super().initialize_options()
+        def initialize_options(self):
+            self.test = False
+            super().initialize_options()
 
-    def run(self):
-        # Run in-place build before Sphinx doc build.
-        ret = subprocess.call([sys.executable, sys.argv[0], 'build_ext', '-i'])
-        if ret != 0:
-            raise RuntimeError("Building BSON-Numpy failed!")
+        def run(self):
+            # Run in-place build before Sphinx doc build.
+            ret = subprocess.call(
+                [sys.executable, sys.argv[0], 'build_ext', '-i'])
+            if ret != 0:
+                raise RuntimeError("Building BSON-Numpy failed!")
 
-        if not HAVE_SPHINX:
-            raise RuntimeError(
-                "You must install Sphinx to build or test the documentation.")
+            if not HAVE_SPHINX:
+                raise RuntimeError("You must install Sphinx to build or test "
+                                   "the documentation.")
 
-        if self.test:
-            path = os.path.join(
-                os.path.abspath('.'), "doc", "_build", "doctest")
-            mode = "doctest"
-        else:
-            path = os.path.join(
-                os.path.abspath('.'), "doc", "_build", version)
-            mode = "html"
+            if self.test:
+                path = os.path.join(
+                    os.path.abspath('.'), "doc", "_build", "doctest")
+                mode = "doctest"
+            else:
+                path = os.path.join(
+                    os.path.abspath('.'), "doc", "_build", version)
+                mode = "html"
 
-            try:
-                os.makedirs(path)
-            except:
-                pass
+                try:
+                    os.makedirs(path)
+                except:
+                    pass
 
-        sphinx_args = ["-E", "-b", mode, "doc", path]
-        status = sphinxbuild.main(sphinx_args)
+            sphinx_args = ["-E", "-b", mode, "doc", path]
+            status = sphinxbuild.main(sphinx_args)
 
-        if status:
-            raise RuntimeError("Documentation step '%s' failed" % (mode,))
+            if status:
+                raise RuntimeError("Documentation step '%s' failed" % (mode,))
 
-        sys.stdout.write("\nDocumentation step '%s' performed, results here:\n"
-                         "   %s/\n" % (mode, path))
+            msg = "\nDocumentation step '{}' performed, results here:\n   {}\n"
+            sys.stdout.write(msg.format(mode, path))
+
+    CMDCLASS["doc"] = build_sphinx
 
 
 def setup_package():
@@ -142,8 +149,7 @@ def setup_package():
         install_requires=install_requires,
         test_suite="test",
         tests_require=tests_require,
-        cmdclass={'build_ext': build_ext,
-                  'doc': build_sphinx},
+        cmdclass=CMDCLASS,
         packages=["bsonnumpy"])
 
 
