@@ -1,7 +1,9 @@
 language: python
 
 # cache artifacts for faster builds
-cache: pip
+cache:
+  - pip
+  - ccache
 
 # build matrix
 python:
