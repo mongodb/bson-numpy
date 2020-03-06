@@ -36,7 +36,7 @@ class TestSequence2Pandas(unittest.TestCase):
         self.assertEqual(df.shape, (10, 1))
         self.assertEqual(df['_id'].name, '_id')
         self.assertEqual(df['_id'].dtype, np.int32)
-        np.testing.assert_array_equal(df['_id'].as_matrix(), np.arange(10, 20))
+        np.testing.assert_array_equal(df['_id'].values, np.arange(10, 20))
 
     @client_context.require_connected
     def test_multi_values(self):

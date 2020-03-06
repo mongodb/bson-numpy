@@ -1006,7 +1006,7 @@ done:
     Py_XDECREF(iterator_obj);
     free(array_coordinates);
     parsed_dtype_destroy(parsed_dtype);
-
+    Py_XDECREF(binary_doc);
     if (PyErr_Occurred()) {
         Py_XDECREF(array_obj);
         return NULL;
