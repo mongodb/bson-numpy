@@ -498,6 +498,38 @@ _load_int64_from_bson(const bson_value_t *value, void *dst,
 
 
 static int
+_load_decimal128_from_bson(const bson_value_t *value, void *dst,
+                       parsed_dtype_t *parsed)
+{
+
+    char decimal128String[BSON_DECIMAL128_STRING];
+    bson_decimal128_to_string(&value->value.v_decimal128, decimal128String);
+
+    PyObject *decimalString = Py_BuildValue("s", decimal128String);
+    PyObject *floatValue = PyFloat_FromString(decimalString);
+
+    if (floatValue == NULL) {
+        PyErr_Format(
+            BsonNumpyError,
+            "unable to convert %s",
+            decimal128String
+        );
+
+        return 0;
+    }
+
+    double doubleValue = PyFloat_AsDouble(floatValue);
+
+    memcpy(dst, &doubleValue, sizeof doubleValue);
+
+    Py_XDECREF(decimalString);
+    Py_XDECREF(floatValue);
+
+   return 1;
+}
+
+
+static int
 _load_double_from_bson(const bson_value_t *value, void *dst,
                        parsed_dtype_t *parsed)
 {
@@ -559,6 +591,8 @@ _load_scalar_from_bson(
             return _load_int32_from_bson(value, pointer, parsed);
         case BSON_TYPE_INT64:
             return _load_int64_from_bson(value, pointer, parsed);
+        case BSON_TYPE_DECIMAL128:
+            return _load_decimal128_from_bson(value, pointer, parsed);
 
         default:
             PyErr_Format(BsonNumpyError, "unsupported BSON type: %s",
