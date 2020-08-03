@@ -120,10 +120,9 @@ def bson_numpy_func(use_large):
         collection_names[use_large],
         codec_options=CodecOptions(document_class=RawBSONDocument))
 
-    cursor = raw_coll.find()
+    cursor = raw_coll.find_raw_batches()
     dtype = dtypes[use_large]
-    bsonnumpy.sequence_to_ndarray(
-        (doc.raw for doc in cursor), dtype, raw_coll.count())
+    bsonnumpy.sequence_to_ndarray(cursor, dtype, raw_coll.count_documents({}))
 
 
 @bench('raw-batches-to-ndarray')
@@ -134,11 +133,13 @@ def raw_bson_func(use_large):
         return
 
     dtype = dtypes[use_large]
-    bsonnumpy.sequence_to_ndarray(c.find_raw_batches(), dtype, c.count())
+    bsonnumpy.sequence_to_ndarray(c.find_raw_batches(), dtype,
+                                  c.count_documents({}))
 
 
 @bench('monary')
 def monary_func(use_large):
+    return
     # Monary doesn't allow > 1024 keys, and it's too slow to benchmark anyway.
     if use_large:
         return
@@ -215,6 +216,8 @@ for name, fn in bench_fns.items():
         sys.stdout.flush()
 
         # Test with small and large documents.
+        import faulthandler
+        faulthandler.enable()
         for size in (SMALL, LARGE):
             if size not in sizes:
                 sys.stdout.write("%7s" % "-")
