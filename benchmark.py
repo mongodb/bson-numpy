@@ -5,6 +5,7 @@ import string
 import sys
 import timeit
 from functools import partial
+import faulthandler
 
 import pymongo
 import numpy as np
@@ -23,6 +24,8 @@ except (ImportError, OSError) as exc:
     monary = None
 
 assert pymongo.has_c()
+
+faulthandler.enable()
 
 # Use large document in tests? If SMALL, no, if LARGE, then yes.
 SMALL = False
@@ -112,17 +115,6 @@ def conventional_func(use_large):
                  dtype=dtype)
     else:
         np.array([(doc['x'], doc['y']) for doc in cursor], dtype=dtype)
-
-
-@bench('raw-bson-to-ndarray')
-def bson_numpy_func(use_large):
-    raw_coll = db.get_collection(
-        collection_names[use_large],
-        codec_options=CodecOptions(document_class=RawBSONDocument))
-
-    cursor = raw_coll.find_raw_batches()
-    dtype = dtypes[use_large]
-    bsonnumpy.sequence_to_ndarray(cursor, dtype, raw_coll.count_documents({}))
 
 
 @bench('raw-batches-to-ndarray')
@@ -216,8 +208,6 @@ for name, fn in bench_fns.items():
         sys.stdout.flush()
 
         # Test with small and large documents.
-        import faulthandler
-        faulthandler.enable()
         for size in (SMALL, LARGE):
             if size not in sizes:
                 sys.stdout.write("%7s" % "-")
