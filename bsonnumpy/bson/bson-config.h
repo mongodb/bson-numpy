@@ -110,7 +110,7 @@
 /*
  * Define to 1 if you have reallocf available on your platform.
  */
-#define BSON_HAVE_REALLOCF 1
+#define BSON_HAVE_REALLOCF 0
 #if BSON_HAVE_REALLOCF != 1
 # undef BSON_HAVE_REALLOCF
 #endif
@@ -137,7 +137,7 @@
 /*
  * Define to 1 if you have SYS_gettid syscall
  */
-#define BSON_HAVE_SYSCALL_TID 0
+#define BSON_HAVE_SYSCALL_TID 1
 #if BSON_HAVE_SYSCALL_TID != 1
 # undef BSON_HAVE_SYSCALL_TID
 #endif
