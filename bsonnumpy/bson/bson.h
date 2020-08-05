@@ -80,7 +80,7 @@ BSON_BEGIN_DECLS
  *
  * bson_t *doc = bson_new();
  * bson_clear (&doc);
- * assert (doc == NULL);
+ * BSON_ASSERT (doc == NULL);
  */
 #define bson_clear(bptr)         \
    do {                          \
@@ -354,6 +354,12 @@ bson_copy_to_excluding_noinit (const bson_t *src,
                                const char *first_exclude,
                                ...) BSON_GNUC_NULL_TERMINATED;
 
+BSON_EXPORT (void)
+bson_copy_to_excluding_noinit_va (const bson_t *src,
+                                  bson_t *dst,
+                                  const char *first_exclude,
+                                  va_list args);
+
 /**
  * bson_destroy:
  * @bson: A bson_t.
@@ -373,11 +379,11 @@ bson_steal (bson_t *dst, bson_t *src);
 /**
  * bson_destroy_with_steal:
  * @bson: A #bson_t.
- * @steal: If ownership of the data buffer should be transfered to caller.
+ * @steal: If ownership of the data buffer should be transferred to caller.
  * @length: (out): location for the length of the buffer.
  *
  * Destroys @bson similar to calling bson_destroy() except that the underlying
- * buffer will be returned and ownership transfered to the caller if @steal
+ * buffer will be returned and ownership transferred to the caller if @steal
  * is non-zero.
  *
  * If length is non-NULL, the length of @bson will be stored in @length.
@@ -444,7 +450,7 @@ BSON_EXPORT (int)
 bson_compare (const bson_t *bson, const bson_t *other);
 
 /*
- * bson_compare:
+ * bson_equal:
  * @bson: A bson_t.
  * @other: A bson_t.
  *
@@ -471,13 +477,33 @@ bson_validate (const bson_t *bson, bson_validate_flags_t flags, size_t *offset);
 
 
 /**
- * bson_as_json:
+ * bson_validate_with_error:
+ * @bson: A bson_t.
+ * @error: A location for the error info.
+ *
+ * Validates a BSON document by walking through the document and inspecting
+ * the fields for valid content.
+ *
+ * Returns: true if @bson is valid; otherwise false and @error is filled out.
+ */
+BSON_EXPORT (bool)
+bson_validate_with_error (const bson_t *bson,
+                          bson_validate_flags_t flags,
+                          bson_error_t *error);
+
+
+/**
+ * bson_as_canonical_extended_json:
  * @bson: A bson_t.
  * @length: A location for the string length, or NULL.
  *
- * Creates a new string containing @bson in extended JSON format. The caller
- * is responsible for freeing the resulting string. If @length is non-NULL,
- * then the length of the resulting string will be placed in @length.
+ * Creates a new string containing @bson in canonical extended JSON format,
+ * conforming to the MongoDB Extended JSON Spec:
+ *
+ * github.com/mongodb/specifications/blob/master/source/extended-json.rst
+ *
+ * The caller is responsible for freeing the resulting string. If @length is
+ * non-NULL, then the length of the resulting string will be placed in @length.
  *
  * See http://docs.mongodb.org/manual/reference/mongodb-extended-json/ for
  * more information on extended JSON.
@@ -485,7 +511,46 @@ bson_validate (const bson_t *bson, bson_validate_flags_t flags, size_t *offset);
  * Returns: A newly allocated string that should be freed with bson_free().
  */
 BSON_EXPORT (char *)
+bson_as_canonical_extended_json (const bson_t *bson, size_t *length);
+
+
+/**
+ * bson_as_json:
+ * @bson: A bson_t.
+ * @length: A location for the string length, or NULL.
+ *
+ * Creates a new string containing @bson in libbson's legacy JSON format.
+ * Superseded by bson_as_canonical_extended_json and
+ * bson_as_relaxed_extended_json. The caller is
+ * responsible for freeing the resulting string. If @length is non-NULL, then
+ * the length of the resulting string will be placed in @length.
+ *
+ * Returns: A newly allocated string that should be freed with bson_free().
+ */
+BSON_EXPORT (char *)
 bson_as_json (const bson_t *bson, size_t *length);
+
+
+/**
+ * bson_as_relaxed_extended_json:
+ * @bson: A bson_t.
+ * @length: A location for the string length, or NULL.
+ *
+ * Creates a new string containing @bson in relaxed extended JSON format,
+ * conforming to the MongoDB Extended JSON Spec:
+ *
+ * github.com/mongodb/specifications/blob/master/source/extended-json.rst
+ *
+ * The caller is responsible for freeing the resulting string. If @length is
+ * non-NULL, then the length of the resulting string will be placed in @length.
+ *
+ * See http://docs.mongodb.org/manual/reference/mongodb-extended-json/ for
+ * more information on extended JSON.
+ *
+ * Returns: A newly allocated string that should be freed with bson_free().
+ */
+BSON_EXPORT (char *)
+bson_as_relaxed_extended_json (const bson_t *bson, size_t *length);
 
 
 /* like bson_as_json() but for outermost arrays. */
@@ -877,7 +942,7 @@ bson_append_oid (bson_t *bson,
  *   's' for dotall mode ('.' matches everything)
  *   'u' to make \w and \W match unicode.
  *
- * For more information on what comprimises a BSON regex, see bsonspec.org.
+ * For more detailed information about BSON regex elements, see bsonspec.org.
  *
  * Returns: true if successful; false if append would overflow max size.
  */
@@ -887,6 +952,40 @@ bson_append_regex (bson_t *bson,
                    int key_length,
                    const char *regex,
                    const char *options);
+
+
+/**
+ * bson_append_regex:
+ * @bson: A bson_t.
+ * @key: The key of the field.
+ * @key_length: The length of the key string.
+ * @regex: The regex to append to the bson.
+ * @regex_length: The length of the regex string.
+ * @options: Options for @regex.
+ *
+ * Appends a new field to @bson of type BSON_TYPE_REGEX. @regex should
+ * be the regex string. @options should contain the options for the regex.
+ *
+ * Valid options for @options are:
+ *
+ *   'i' for case-insensitive.
+ *   'm' for multiple matching.
+ *   'x' for verbose mode.
+ *   'l' to make \w and \W locale dependent.
+ *   's' for dotall mode ('.' matches everything)
+ *   'u' to make \w and \W match unicode.
+ *
+ * For more detailed information about BSON regex elements, see bsonspec.org.
+ *
+ * Returns: true if successful; false if append would overflow max size.
+ */
+BSON_EXPORT (bool)
+bson_append_regex_w_len (bson_t *bson,
+                         const char *key,
+                         int key_length,
+                         const char *regex,
+                         int regex_length,
+                         const char *options);
 
 
 /**
@@ -979,7 +1078,7 @@ bson_append_timeval (bson_t *bson,
  *
  * Appends a new field to @bson of type BSON_TYPE_DATE_TIME.
  *
- * Returns: true if sucessful; otherwise false.
+ * Returns: true if successful; otherwise false.
  */
 BSON_EXPORT (bool)
 bson_append_date_time (bson_t *bson,

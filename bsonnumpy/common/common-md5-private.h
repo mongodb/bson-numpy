@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2018-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,37 +14,21 @@
  * limitations under the License.
  */
 
-#include "bson-prelude.h"
+#include "common-prelude.h"
 
+#ifndef COMMON_MD5_PRIVATE_H
+#define COMMON_MD5_PRIVATE_H
 
-#ifndef BSON_ERROR_H
-#define BSON_ERROR_H
-
-
-#include "bson-compat.h"
-#include "bson-macros.h"
-#include "bson-types.h"
-
+#include "bson/bson.h"
 
 BSON_BEGIN_DECLS
 
-
-#define BSON_ERROR_JSON 1
-#define BSON_ERROR_READER 2
-#define BSON_ERROR_INVALID 3
-
-
-BSON_EXPORT (void)
-bson_set_error (bson_error_t *error,
-                uint32_t domain,
-                uint32_t code,
-                const char *format,
-                ...) BSON_GNUC_PRINTF (4, 5);
-BSON_EXPORT (char *)
-bson_strerror_r (int err_code, char *buf, size_t buflen);
-
+void COMMON_PREFIX (_bson_md5_init) (bson_md5_t *pms);
+void COMMON_PREFIX (_bson_md5_append) (bson_md5_t *pms,
+                                       const uint8_t *data,
+                                       uint32_t nbytes);
+void COMMON_PREFIX (_bson_md5_finish) (bson_md5_t *pms, uint8_t digest[16]);
 
 BSON_END_DECLS
 
-
-#endif /* BSON_ERROR_H */
+#endif /* COMMON_MD5_PRIVATE_H */

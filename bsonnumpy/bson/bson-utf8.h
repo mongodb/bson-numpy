@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
+#include "bson-prelude.h"
+
 
 #ifndef BSON_UTF8_H
 #define BSON_UTF8_H
-
-
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
 
 
 #include "bson-macros.h"

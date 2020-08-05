@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2018-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,6 @@
  * limitations under the License.
  */
 
-#include "bson-prelude.h"
-
-
-#ifndef BSON_VALUE_H
-#define BSON_VALUE_H
-
-
-#include "bson-macros.h"
-#include "bson-types.h"
-
-
-BSON_BEGIN_DECLS
-
-
-BSON_EXPORT (void)
-bson_value_copy (const bson_value_t *src, bson_value_t *dst);
-BSON_EXPORT (void)
-bson_value_destroy (bson_value_t *value);
-
-
-BSON_END_DECLS
-
-
-#endif /* BSON_VALUE_H */
+#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
+#error "Only <bson/bson.h> can be included directly."
+#endif

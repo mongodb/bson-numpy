@@ -17,7 +17,6 @@
 
 #include <limits.h>
 #include <stdarg.h>
-#include <string.h>
 
 #include "bson-compat.h"
 #include "bson-config.h"
@@ -25,6 +24,11 @@
 #include "bson-memory.h"
 #include "bson-utf8.h"
 
+#ifdef BSON_HAVE_STRINGS_H
+#include <strings.h>
+#else
+#include <string.h>
+#endif
 
 /*
  *--------------------------------------------------------------------------
@@ -79,27 +83,6 @@ bson_string_new (const char *str) /* IN */
 
    return ret;
 }
-
-
-/*
- *--------------------------------------------------------------------------
- *
- * bson_string_free --
- *
- *       Free the bson_string_t @string and related allocations.
- *
- *       If @free_segment is false, then the strings buffer will be
- *       returned and is not freed. Otherwise, NULL is returned.
- *
- * Returns:
- *       The string->str if free_segment is false.
- *       Otherwise NULL.
- *
- * Side effects:
- *       None.
- *
- *--------------------------------------------------------------------------
- */
 
 char *
 bson_string_free (bson_string_t *string, /* IN */
@@ -559,8 +542,16 @@ bson_strncpy (char *dst,       /* IN */
               const char *src, /* IN */
               size_t size)     /* IN */
 {
+   if (size == 0) {
+      return;
+   }
+
+/* Prefer strncpy_s for MSVC, or strlcpy, which has additional checks and only
+ * adds one trailing \0 */
 #ifdef _MSC_VER
    strncpy_s (dst, size, src, _TRUNCATE);
+#elif defined(BSON_HAVE_STRLCPY)
+   strlcpy (dst, src, size);
 #else
    strncpy (dst, src, size);
    dst[size - 1] = '\0';
@@ -596,15 +587,16 @@ bson_vsnprintf (char *str,          /* IN */
                 const char *format, /* IN */
                 va_list ap)         /* IN */
 {
-#ifdef BSON_OS_WIN32
+#ifdef _MSC_VER
    int r = -1;
 
    BSON_ASSERT (str);
 
-   if (size != 0) {
-      r = _vsnprintf_s (str, size, _TRUNCATE, format, ap);
+   if (size == 0) {
+      return 0;
    }
 
+   r = _vsnprintf_s (str, size, _TRUNCATE, format, ap);
    if (r == -1) {
       r = _vscprintf (format, ap);
    }
@@ -614,6 +606,12 @@ bson_vsnprintf (char *str,          /* IN */
    return r;
 #else
    int r;
+
+   BSON_ASSERT (str);
+
+   if (size == 0) {
+      return 0;
+   }
 
    r = vsnprintf (str, size, format, ap);
    str[size - 1] = '\0';
@@ -671,7 +669,11 @@ bson_snprintf (char *str,          /* IN */
  *       A portable strtoll.
  *
  *       Convert a string to a 64-bit signed integer according to the given
- *       @base, which must be 16, 10, or 8. Leading whitespace will be ignord.
+ *       @base, which must be 16, 10, or 8. Leading whitespace will be ignored.
+ *
+ *       If base is 0 is passed in, the base is inferred from the string's
+ *       leading characters. Base-16 numbers start with "0x" or "0X", base-8
+ *       numbers start with "0", base-10 numbers start with a digit from 1 to 9.
  *
  *       If @e is not NULL, it will be assigned the address of the first invalid
  *       character of @s, or its null terminating byte if the entire string was
@@ -710,7 +712,7 @@ bson_ascii_strtoll (const char *s, char **e, int base)
 
    c = *tok;
 
-   while (isspace (c)) {
+   while (bson_isspace (c)) {
       c = *++tok;
    }
 
@@ -797,4 +799,22 @@ bson_ascii_strtoll (const char *s, char **e, int base)
    }
 
    return number;
+}
+
+
+int
+bson_strcasecmp (const char *s1, const char *s2)
+{
+#ifdef BSON_OS_WIN32
+   return _stricmp (s1, s2);
+#else
+   return strcasecmp (s1, s2);
+#endif
+}
+
+
+bool
+bson_isspace (int c)
+{
+   return c >= -1 && c <= 255 && isspace (c);
 }

@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
+#include "bson-prelude.h"
+
 
 #ifndef BSON_ITER_H
 #define BSON_ITER_H
-
-
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
 
 
 #include "bson.h"
@@ -79,13 +76,19 @@ BSON_BEGIN_DECLS
 #define BSON_ITER_HOLDS_INT64(iter) (bson_iter_type ((iter)) == BSON_TYPE_INT64)
 
 #define BSON_ITER_HOLDS_DECIMAL128(iter) \
-   (bson_iter_type (iter)) == BSON_TYPE_DECIMAL128
+   (bson_iter_type ((iter)) == BSON_TYPE_DECIMAL128)
 
 #define BSON_ITER_HOLDS_MAXKEY(iter) \
    (bson_iter_type ((iter)) == BSON_TYPE_MAXKEY)
 
 #define BSON_ITER_HOLDS_MINKEY(iter) \
    (bson_iter_type ((iter)) == BSON_TYPE_MINKEY)
+
+#define BSON_ITER_HOLDS_INT(iter) \
+   (BSON_ITER_HOLDS_INT32 (iter) || BSON_ITER_HOLDS_INT64 (iter))
+
+#define BSON_ITER_HOLDS_NUMBER(iter) \
+   (BSON_ITER_HOLDS_INT (iter) || BSON_ITER_HOLDS_DOUBLE (iter))
 
 #define BSON_ITER_IS_KEY(iter, key) \
    (0 == strcmp ((key), bson_iter_key ((iter))))
@@ -171,6 +174,8 @@ bson_iter_document (const bson_iter_t *iter,
 BSON_EXPORT (double)
 bson_iter_double (const bson_iter_t *iter);
 
+BSON_EXPORT (double)
+bson_iter_as_double (const bson_iter_t *iter);
 
 /**
  * bson_iter_double_unsafe:
@@ -193,9 +198,21 @@ bson_iter_double_unsafe (const bson_iter_t *iter)
 BSON_EXPORT (bool)
 bson_iter_init (bson_iter_t *iter, const bson_t *bson);
 
+BSON_EXPORT (bool)
+bson_iter_init_from_data (bson_iter_t *iter,
+                          const uint8_t *data,
+                          size_t length);
+
 
 BSON_EXPORT (bool)
 bson_iter_init_find (bson_iter_t *iter, const bson_t *bson, const char *key);
+
+
+BSON_EXPORT (bool)
+bson_iter_init_find_w_len (bson_iter_t *iter,
+                           const bson_t *bson,
+                           const char *key,
+                           int keylen);
 
 
 BSON_EXPORT (bool)
@@ -203,6 +220,12 @@ bson_iter_init_find_case (bson_iter_t *iter,
                           const bson_t *bson,
                           const char *key);
 
+BSON_EXPORT (bool)
+bson_iter_init_from_data_at_offset (bson_iter_t *iter,
+                                    const uint8_t *data,
+                                    size_t length,
+                                    uint32_t offset,
+                                    uint32_t keylen);
 
 BSON_EXPORT (int32_t)
 bson_iter_int32 (const bson_iter_t *iter);
@@ -254,6 +277,10 @@ bson_iter_int64_unsafe (const bson_iter_t *iter)
 
 BSON_EXPORT (bool)
 bson_iter_find (bson_iter_t *iter, const char *key);
+
+
+BSON_EXPORT (bool)
+bson_iter_find_w_len (bson_iter_t *iter, const char *key, int keylen);
 
 
 BSON_EXPORT (bool)
@@ -318,6 +345,9 @@ bson_iter_decimal128_unsafe (const bson_iter_t *iter, bson_decimal128_t *dec)
 BSON_EXPORT (const char *)
 bson_iter_key (const bson_iter_t *iter);
 
+BSON_EXPORT (uint32_t)
+bson_iter_key_len (const bson_iter_t *iter);
+
 
 /**
  * bson_iter_key_unsafe:
@@ -330,10 +360,6 @@ bson_iter_key (const bson_iter_t *iter);
 static BSON_INLINE const char *
 bson_iter_key_unsafe (const bson_iter_t *iter)
 {
-   if (!iter->key) {
-      return (const char *) iter->raw + 5;
-   }
-
    return (const char *) (iter->raw + iter->key);
 }
 
@@ -485,11 +511,25 @@ bson_iter_overwrite_double (bson_iter_t *iter, double value);
 
 
 BSON_EXPORT (void)
-bson_iter_overwrite_decimal128 (bson_iter_t *iter, bson_decimal128_t *value);
+bson_iter_overwrite_decimal128 (bson_iter_t *iter, const bson_decimal128_t *value);
 
 
 BSON_EXPORT (void)
 bson_iter_overwrite_bool (bson_iter_t *iter, bool value);
+
+
+BSON_EXPORT (void)
+bson_iter_overwrite_oid (bson_iter_t *iter, const bson_oid_t *value);
+
+
+BSON_EXPORT (void)
+bson_iter_overwrite_timestamp (bson_iter_t *iter,
+                               uint32_t timestamp,
+                               uint32_t increment);
+
+
+BSON_EXPORT (void)
+bson_iter_overwrite_date_time (bson_iter_t *iter, int64_t value);
 
 
 BSON_EXPORT (bool)
@@ -497,9 +537,9 @@ bson_iter_visit_all (bson_iter_t *iter,
                      const bson_visitor_t *visitor,
                      void *data);
 
-bool
-bson_iter_next_with_len (bson_iter_t *iter,
-                           uint32_t keylen);
+BSON_EXPORT (uint32_t)
+bson_iter_offset (bson_iter_t *iter);
+
 
 BSON_END_DECLS
 

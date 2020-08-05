@@ -143,7 +143,8 @@ def setup_package():
                 'bsonnumpy._cbsonnumpy',
                 sources=(glob.glob("bsonnumpy/*.c") +
                          glob.glob("bsonnumpy/*/*.c")),
-                include_dirs=["bsonnumpy", "bsonnumpy/bson"],
+                include_dirs=["bsonnumpy", "bsonnumpy/bson",
+                              "bsonnumpy/common"],
                 define_macros=[("BSON_COMPILATION", 1)],
                 libraries=libraries)],
         install_requires=install_requires,
