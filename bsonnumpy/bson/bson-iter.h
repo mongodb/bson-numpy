@@ -540,6 +540,9 @@ bson_iter_visit_all (bson_iter_t *iter,
 BSON_EXPORT (uint32_t)
 bson_iter_offset (bson_iter_t *iter);
 
+bool
+bson_iter_next_with_len (bson_iter_t *iter,
+                           uint32_t keylen);
 
 BSON_END_DECLS
 
