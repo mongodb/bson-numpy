@@ -168,6 +168,7 @@ typedef enum {
     /** @private Private */
     JSONSL_SPECIALf_ZERO    = 1 << 11 | JSONSL_SPECIALf_UNSIGNED,
     /** @private */
+    JSONSL_SPECIALf_DASH    = 1 << 12,
     /** @private */
     JSONSL_SPECIALf_POS_INF = (JSONSL_SPECIALf_INF),
     JSONSL_SPECIALf_NEG_INF = (JSONSL_SPECIALf_INF|JSONSL_SPECIALf_SIGNED),
