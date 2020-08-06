@@ -142,7 +142,7 @@
 # undef BSON_HAVE_SYSCALL_TID
 #endif
 
-#define BSON_HAVE_RAND_R 1
+#define BSON_HAVE_RAND_R 0
 #if BSON_HAVE_RAND_R != 1
 # undef BSON_HAVE_RAND_R
 #endif
