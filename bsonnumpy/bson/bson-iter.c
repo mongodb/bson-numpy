@@ -831,6 +831,7 @@ mark_invalid:
    return false;
 }
 
+/* added to BSON-NumPy's vendored libbson */
 bool
 bson_iter_next_with_len (bson_iter_t *iter,
                          uint32_t keylen)
