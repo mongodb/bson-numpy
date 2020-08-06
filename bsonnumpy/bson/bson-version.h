@@ -37,7 +37,7 @@
  *
  * BSON minor version component (e.g. 2 if %BSON_VERSION is 1.2.3)
  */
-#define BSON_MINOR_VERSION (18)
+#define BSON_MINOR_VERSION (17)
 
 
 /**
@@ -53,14 +53,14 @@
  *
  * BSON prerelease version component (e.g. pre if %BSON_VERSION is 1.2.3-pre)
  */
-#define BSON_PRERELEASE_VERSION (pre)
+#define BSON_PRERELEASE_VERSION ()
 
 /**
  * BSON_VERSION:
  *
  * BSON version.
  */
-#define BSON_VERSION (1.18.0-pre)
+#define BSON_VERSION (1.17.0)
 
 
 /**
@@ -69,7 +69,7 @@
  * BSON version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define BSON_VERSION_S "1.18.0-pre"
+#define BSON_VERSION_S "1.17.0"
 
 
 /**
