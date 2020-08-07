@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "bson-prelude.h"
+
 
 #ifndef BSON_KEYS_H
 #define BSON_KEYS_H

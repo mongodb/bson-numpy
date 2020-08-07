@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2018-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,14 @@
  * limitations under the License.
  */
 
-#include "bson-prelude.h"
+#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION) && \
+   !defined(BSON_COMPILATION) && !defined(BSON_INSIDE)
+#error "Only <mongoc/mongoc.h> or <bson/bson.h> can be included directly."
+#endif
 
-
-#ifndef BSON_VALUE_H
-#define BSON_VALUE_H
-
-
-#include "bson-macros.h"
-#include "bson-types.h"
-
-
-BSON_BEGIN_DECLS
-
-
-BSON_EXPORT (void)
-bson_value_copy (const bson_value_t *src, bson_value_t *dst);
-BSON_EXPORT (void)
-bson_value_destroy (bson_value_t *value);
-
-
-BSON_END_DECLS
-
-
-#endif /* BSON_VALUE_H */
+#ifndef COMMON_PREFIX_
+#define COMMON_PREFIX_
+#endif
+#define JOINER(x, y) x##_##y
+#define NAME_EVALUATOR(x, y) JOINER (x, y)
+#define COMMON_PREFIX(name) NAME_EVALUATOR (COMMON_PREFIX_, name)
