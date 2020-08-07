@@ -21,10 +21,21 @@
 #ifndef BSON_CONFIG_H
 #define BSON_CONFIG_H
 
+#define PY_SSIZE_T_CLEAN  /* Make "s#" use Py_ssize_t rather than int. */
+
+/*
+ * Rely on CPython to make libbson portable
+ */
+#include <Python.h>
+
 /*
  * Define to 1234 for Little Endian, 4321 for Big Endian.
  */
-#define BSON_BYTE_ORDER 1234
+#ifdef WORDS_BIGENDIAN
+# define BSON_BYTE_ORDER 4321
+#else
+# define BSON_BYTE_ORDER 1234
+#endif
 
 
 /*
@@ -39,7 +50,11 @@
 /*
  * Define to 1 for POSIX-like systems, 2 for Windows.
  */
-#define BSON_OS 1
+#ifdef MS_WINDOWS
+# define BSON_OS 2
+#else
+# define BSON_OS 1
+#endif
 
 
 /*
@@ -65,7 +80,10 @@
 /*
  * Define to 1 if you have clock_gettime() available.
  */
-#define BSON_HAVE_CLOCK_GETTIME 1
+#ifdef HAVE_CLOCK_GETTIME
+# define BSON_HAVE_CLOCK_GETTIME 1
+#endif
+
 #if BSON_HAVE_CLOCK_GETTIME != 1
 # undef BSON_HAVE_CLOCK_GETTIME
 #endif
@@ -92,7 +110,10 @@
 /*
  * Define to 1 if you have snprintf available on your platform.
  */
-#define BSON_HAVE_SNPRINTF 1
+#ifndef MS_WINDOWS
+# define BSON_HAVE_SNPRINTF 1
+#endif
+
 #if BSON_HAVE_SNPRINTF != 1
 # undef BSON_HAVE_SNPRINTF
 #endif
@@ -119,7 +140,10 @@
 /*
  * Define to 1 if you have struct timespec available on your platform.
  */
-#define BSON_HAVE_TIMESPEC 1
+#ifdef HAVE_CLOCK_GETTIME
+# define BSON_HAVE_TIMESPEC 1
+#endif
+
 #if BSON_HAVE_TIMESPEC != 1
 # undef BSON_HAVE_TIMESPEC
 #endif
