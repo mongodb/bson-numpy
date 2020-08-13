@@ -21,16 +21,27 @@
 #ifndef BSON_CONFIG_H
 #define BSON_CONFIG_H
 
+#define PY_SSIZE_T_CLEAN  /* Make "s#" use Py_ssize_t rather than int. */
+
+/*
+ * Rely on CPython to make libbson portable
+ */
+#include <Python.h>
+
 /*
  * Define to 1234 for Little Endian, 4321 for Big Endian.
  */
-#define BSON_BYTE_ORDER 1234
+#ifdef WORDS_BIGENDIAN
+# define BSON_BYTE_ORDER 4321
+#else
+# define BSON_BYTE_ORDER 1234
+#endif
 
 
 /*
  * Define to 1 if you have stdbool.h
  */
-#define BSON_HAVE_STDBOOL_H 1
+#define BSON_HAVE_STDBOOL_H 0
 #if BSON_HAVE_STDBOOL_H != 1
 # undef BSON_HAVE_STDBOOL_H
 #endif
@@ -39,7 +50,11 @@
 /*
  * Define to 1 for POSIX-like systems, 2 for Windows.
  */
-#define BSON_OS 1
+#ifdef MS_WINDOWS
+# define BSON_OS 2
+#else
+# define BSON_OS 1
+#endif
 
 
 /*
@@ -48,7 +63,7 @@
  * dependent. For example, some PPC or ARM systems may not have it even
  * if it is a recent GCC version.
  */
-#define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 1
+#define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 0
 #if BSON_HAVE_ATOMIC_32_ADD_AND_FETCH != 1
 # undef BSON_HAVE_ATOMIC_32_ADD_AND_FETCH
 #endif
@@ -56,7 +71,7 @@
 /*
  * Similarly, define to 1 if we have access to GCC 64-bit atomic builtins.
  */
-#define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 1
+#define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 0
 #if BSON_HAVE_ATOMIC_64_ADD_AND_FETCH != 1
 # undef BSON_HAVE_ATOMIC_64_ADD_AND_FETCH
 #endif
@@ -65,7 +80,10 @@
 /*
  * Define to 1 if you have clock_gettime() available.
  */
-#define BSON_HAVE_CLOCK_GETTIME 1
+#ifdef HAVE_CLOCK_GETTIME
+# define BSON_HAVE_CLOCK_GETTIME 1
+#endif
+
 #if BSON_HAVE_CLOCK_GETTIME != 1
 # undef BSON_HAVE_CLOCK_GETTIME
 #endif
@@ -74,7 +92,7 @@
 /*
  * Define to 1 if you have strings.h available on your platform.
  */
-#define BSON_HAVE_STRINGS_H 1
+#define BSON_HAVE_STRINGS_H 0
 #if BSON_HAVE_STRINGS_H != 1
 # undef BSON_HAVE_STRINGS_H
 #endif
@@ -83,7 +101,7 @@
 /*
  * Define to 1 if you have strnlen available on your platform.
  */
-#define BSON_HAVE_STRNLEN 1
+#define BSON_HAVE_STRNLEN 0
 #if BSON_HAVE_STRNLEN != 1
 # undef BSON_HAVE_STRNLEN
 #endif
@@ -92,7 +110,12 @@
 /*
  * Define to 1 if you have snprintf available on your platform.
  */
-#define BSON_HAVE_SNPRINTF 1
+#ifdef MS_WINDOWS
+# define BSON_HAVE_SNPRINTF 0
+#else
+# define BSON_HAVE_SNPRINTF 1
+#endif
+
 #if BSON_HAVE_SNPRINTF != 1
 # undef BSON_HAVE_SNPRINTF
 #endif
@@ -101,7 +124,12 @@
 /*
  * Define to 1 if you have gmtime_r available on your platform.
  */
-#define BSON_HAVE_GMTIME_R 1
+#ifdef MS_WINDOWS
+# define BSON_HAVE_GMTIME_R 0
+#else
+# define BSON_HAVE_GMTIME_R 1
+#endif
+
 #if BSON_HAVE_GMTIME_R != 1
 # undef BSON_HAVE_GMTIME_R
 #endif
@@ -119,7 +147,10 @@
 /*
  * Define to 1 if you have struct timespec available on your platform.
  */
-#define BSON_HAVE_TIMESPEC 1
+#ifdef HAVE_CLOCK_GETTIME
+# define BSON_HAVE_TIMESPEC 1
+#endif
+
 #if BSON_HAVE_TIMESPEC != 1
 # undef BSON_HAVE_TIMESPEC
 #endif
@@ -137,19 +168,26 @@
 /*
  * Define to 1 if you have SYS_gettid syscall
  */
-#define BSON_HAVE_SYSCALL_TID 1
+#define BSON_HAVE_SYSCALL_TID 0
 #if BSON_HAVE_SYSCALL_TID != 1
 # undef BSON_HAVE_SYSCALL_TID
 #endif
 
-#define BSON_HAVE_RAND_R 0
+
+#ifdef MS_WINDOWS
+# define BSON_HAVE_RAND_R 0
+#else
+# define BSON_HAVE_RAND_R 1
+#endif
 #if BSON_HAVE_RAND_R != 1
 # undef BSON_HAVE_RAND_R
 #endif
+
 
 #define BSON_HAVE_STRLCPY 0
 #if BSON_HAVE_STRLCPY != 1
 # undef BSON_HAVE_STRLCPY
 #endif
+
 
 #endif /* BSON_CONFIG_H */
