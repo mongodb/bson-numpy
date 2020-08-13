@@ -111,7 +111,7 @@
  * Define to 1 if you have snprintf available on your platform.
  */
 #ifndef MS_WINDOWS
-# define BSON_HAVE_SNPRINTF 1
+# define BSON_HAVE_SNPRINTF 0
 #endif
 
 #if BSON_HAVE_SNPRINTF != 1
@@ -139,18 +139,6 @@
 #define BSON_HAVE_REALLOCF 0
 #if BSON_HAVE_REALLOCF != 1
 # undef BSON_HAVE_REALLOCF
-#endif
-
-
-/*
- * Define to 1 if you have _set_output_format (VS2013 and older).
- */
-#if defined(_MSV_VER) && (_MSC_VER < 1900)
-# define BSON_NEEDS_SET_OUTPUT_FORMAT 1
-#endif
-
-#if BSON_NEEDS_SET_OUTPUT_FORMAT != 1
-# undef BSON_NEEDS_SET_OUTPUT_FORMAT
 #endif
 
 
@@ -183,13 +171,6 @@
 # undef BSON_HAVE_SYSCALL_TID
 #endif
 
-/*
- * Define to 1 if _Decimal128 (BID format) is available on your platform.
- */
-#define BSON_HAVE_DECIMAL128 0
-#if BSON_HAVE_DECIMAL128 != 1
-# undef BSON_HAVE_DECIMAL128
-#endif
 
 #ifdef MS_WINDOWS
 # define BSON_HAVE_RAND_R 0
