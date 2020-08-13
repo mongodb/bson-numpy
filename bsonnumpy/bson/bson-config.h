@@ -183,6 +183,28 @@
 # undef BSON_HAVE_SYSCALL_TID
 #endif
 
+/*
+ * Define to 1 if _Decimal128 (BID format) is available on your platform.
+ */
+#define BSON_HAVE_DECIMAL128 0
+#if BSON_HAVE_DECIMAL128 != 1
+# undef BSON_HAVE_DECIMAL128
+#endif
+
+#ifdef MS_WINDOWS
+# define BSON_HAVE_RAND_R 0
+#else
+# define BSON_HAVE_RAND_R 1
+#endif
+#if BSON_HAVE_RAND_R != 1
+# undef BSON_HAVE_RAND_R
+#endif
+
+
+#define BSON_HAVE_STRLCPY 0
+#if BSON_HAVE_STRLCPY != 1
+# undef BSON_HAVE_STRLCPY
+#endif
 
 
 #endif /* BSON_CONFIG_H */
