@@ -410,7 +410,7 @@ _load_utf8_from_bson(const bson_value_t *value, void *dst,
 
     memcpy(dst, value->value.v_utf8.str, bson_item_len);
     /* zero-pad data that's too short */
-    memset(dst + bson_item_len, '\0', itemsize - bson_item_len);
+    memset((char *)dst + bson_item_len, '\0', itemsize - bson_item_len);
 
     return 1;
 }
@@ -438,7 +438,7 @@ _load_binary_from_bson(const bson_value_t *value, void *dst,
 
     memcpy(dst, value->value.v_binary.data, bson_item_len);
     /* zero-pad data that's too short */
-    memset(dst + bson_item_len, '\0', itemsize - bson_item_len);
+    memset((char *)dst + bson_item_len, '\0', itemsize - bson_item_len);
 
     return 1;
 }
@@ -540,7 +540,7 @@ _load_scalar_from_bson(
     const bson_value_t *value;
 
     value = bson_iter_value(bsonit);
-    pointer = PyArray_GetPtr(ndarray, coordinates) + offset;
+    pointer = (char *)PyArray_GetPtr(ndarray, coordinates) + offset;
 
     switch (value->value_type) {
         case BSON_TYPE_DOUBLE:
