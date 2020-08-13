@@ -41,7 +41,7 @@
 /*
  * Define to 1 if you have stdbool.h
  */
-#define BSON_HAVE_STDBOOL_H 1
+#define BSON_HAVE_STDBOOL_H 0
 #if BSON_HAVE_STDBOOL_H != 1
 # undef BSON_HAVE_STDBOOL_H
 #endif
@@ -63,7 +63,7 @@
  * dependent. For example, some PPC or ARM systems may not have it even
  * if it is a recent GCC version.
  */
-#define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 1
+#define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 0
 #if BSON_HAVE_ATOMIC_32_ADD_AND_FETCH != 1
 # undef BSON_HAVE_ATOMIC_32_ADD_AND_FETCH
 #endif
@@ -71,7 +71,7 @@
 /*
  * Similarly, define to 1 if we have access to GCC 64-bit atomic builtins.
  */
-#define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 1
+#define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 0
 #if BSON_HAVE_ATOMIC_64_ADD_AND_FETCH != 1
 # undef BSON_HAVE_ATOMIC_64_ADD_AND_FETCH
 #endif
@@ -92,7 +92,7 @@
 /*
  * Define to 1 if you have strings.h available on your platform.
  */
-#define BSON_HAVE_STRINGS_H 1
+#define BSON_HAVE_STRINGS_H 0
 #if BSON_HAVE_STRINGS_H != 1
 # undef BSON_HAVE_STRINGS_H
 #endif
@@ -101,7 +101,7 @@
 /*
  * Define to 1 if you have strnlen available on your platform.
  */
-#define BSON_HAVE_STRNLEN 1
+#define BSON_HAVE_STRNLEN 0
 #if BSON_HAVE_STRNLEN != 1
 # undef BSON_HAVE_STRNLEN
 #endif
@@ -122,7 +122,12 @@
 /*
  * Define to 1 if you have gmtime_r available on your platform.
  */
-#define BSON_HAVE_GMTIME_R 1
+#ifdef MS_WINDOWS
+# define BSON_HAVE_GMTIME_R 0
+#else
+# define BSON_HAVE_GMTIME_R 1
+#endif
+
 #if BSON_HAVE_GMTIME_R != 1
 # undef BSON_HAVE_GMTIME_R
 #endif
@@ -134,6 +139,18 @@
 #define BSON_HAVE_REALLOCF 0
 #if BSON_HAVE_REALLOCF != 1
 # undef BSON_HAVE_REALLOCF
+#endif
+
+
+/*
+ * Define to 1 if you have _set_output_format (VS2013 and older).
+ */
+#if defined(_MSV_VER) && (_MSC_VER < 1900)
+# define BSON_NEEDS_SET_OUTPUT_FORMAT 1
+#endif
+
+#if BSON_NEEDS_SET_OUTPUT_FORMAT != 1
+# undef BSON_NEEDS_SET_OUTPUT_FORMAT
 #endif
 
 
@@ -166,14 +183,6 @@
 # undef BSON_HAVE_SYSCALL_TID
 #endif
 
-#define BSON_HAVE_RAND_R 0
-#if BSON_HAVE_RAND_R != 1
-# undef BSON_HAVE_RAND_R
-#endif
 
-#define BSON_HAVE_STRLCPY 0
-#if BSON_HAVE_STRLCPY != 1
-# undef BSON_HAVE_STRLCPY
-#endif
 
 #endif /* BSON_CONFIG_H */
