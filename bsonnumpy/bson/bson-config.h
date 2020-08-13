@@ -110,8 +110,10 @@
 /*
  * Define to 1 if you have snprintf available on your platform.
  */
-#ifndef MS_WINDOWS
+#ifdef MS_WINDOWS
 # define BSON_HAVE_SNPRINTF 0
+#else
+# define BSON_HAVE_SNPRINTF 1
 #endif
 
 #if BSON_HAVE_SNPRINTF != 1
