@@ -287,7 +287,7 @@ parsed_dtype_destroy(parsed_dtype_t *parsed)
 static int
 _load_scalar_from_bson(
     bson_iter_t *bsonit, PyArrayObject *ndarray, parsed_dtype_t *parsed,
-    npy_intp *coordinates, int current_depth, long offset);
+    npy_intp *coordinates, int current_depth, npy_intp offset);
 
 
 static int
@@ -410,7 +410,7 @@ _load_utf8_from_bson(const bson_value_t *value, void *dst,
 
     memcpy(dst, value->value.v_utf8.str, bson_item_len);
     /* zero-pad data that's too short */
-    memset(dst + bson_item_len, '\0', itemsize - bson_item_len);
+    memset((char *)dst + bson_item_len, '\0', itemsize - bson_item_len);
 
     return 1;
 }
@@ -438,7 +438,7 @@ _load_binary_from_bson(const bson_value_t *value, void *dst,
 
     memcpy(dst, value->value.v_binary.data, bson_item_len);
     /* zero-pad data that's too short */
-    memset(dst + bson_item_len, '\0', itemsize - bson_item_len);
+    memset((char *)dst + bson_item_len, '\0', itemsize - bson_item_len);
 
     return 1;
 }
@@ -534,13 +534,13 @@ _load_bool_from_bson(const bson_value_t *value, void *dst,
 static int
 _load_scalar_from_bson(
         bson_iter_t *bsonit, PyArrayObject *ndarray, parsed_dtype_t *parsed,
-        npy_intp *coordinates, int current_depth, long offset)
+        npy_intp *coordinates, int current_depth, npy_intp offset)
 {
     void *pointer;
     const bson_value_t *value;
 
     value = bson_iter_value(bsonit);
-    pointer = PyArray_GetPtr(ndarray, coordinates) + offset;
+    pointer = (char *)PyArray_GetPtr(ndarray, coordinates) + offset;
 
     switch (value->value_type) {
         case BSON_TYPE_DOUBLE:
@@ -571,7 +571,7 @@ _load_scalar_from_bson(
 static int
 _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
                       parsed_dtype_t *parsed, npy_intp *coordinates,
-                      int current_depth, long offset)
+                      int current_depth, npy_intp offset)
 {
     long expected_length;
     Py_ssize_t dimensions;
@@ -604,14 +604,13 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
     /* Load data into array */
     bson_iter_recurse(bsonit, &sub_it);
     int (*load_func)(bson_iter_t*, PyArrayObject*, parsed_dtype_t *,
-                     npy_intp*, int, long) = &_load_array_from_bson;
+                     npy_intp*, int, npy_intp) = &_load_array_from_bson;
     if(current_depth == dimensions - 1) {
         load_func = &_load_scalar_from_bson;
     }
 
     i = 0;
     while (bson_iter_next(&sub_it)) {
-        long new_offset = offset;
         if (i > expected_length) {
             PyErr_Format(BsonNumpyError,
                          "invalid document: array is longer than expected"
@@ -627,7 +626,7 @@ _load_array_from_bson(bson_iter_t *bsonit, PyArrayObject *ndarray,
         }
 
         int ret = (*load_func)(&sub_it, ndarray, parsed, coordinates,
-                               current_depth + 1, new_offset);
+                               current_depth + 1, offset);
         if (ret == 0) {
             /* Error set by loading function */
             return 0;
@@ -764,10 +763,8 @@ _load_document_from_bson(
     bson_iter_t bsonit;
     size_t bson_index;
     const field_order_elem_t *elem = NULL;
-    const char *next_key;
     const char *key;
     Py_ssize_t i;
-    int sub_i;
 
     if (parsed->node_type != DTYPE_NESTED) {
         /* Top-level dtype did not have named fields */
