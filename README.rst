@@ -1,6 +1,13 @@
 ==========
 BSON-NumPy
 ==========
+
+MongoDB, Inc. has stopped development of BSON-NumPy and this project has been superseded by
+`PyMongoArrow <https://github.com/mongodb-labs/mongo-arrow/tree/main/bindings/python>`_. In addition
+to NumPy arrays, **PyMongoArrow** also supports direct conversion of MongoDB query results to
+Pandas DataFrames and Apache Arrow Tables, amongst other features. See the project
+`documentation <https://mongo-arrow.readthedocs.io/>`_ to get started with **PyMongoArrow**.
+
 :Info: See `the mongo site <http://www.mongodb.org>`_ for more information. See `GitHub <http://github.com/mongodb/bson-numpy>`_ for the latest source.
 :Author: Anna Herlihy
 :Maintainer: The MongoDB Python Team
