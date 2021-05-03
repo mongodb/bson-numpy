@@ -126,7 +126,7 @@ def setup_package():
         license="Apache License, Version 2.0",
         python_requires=">=3.5",
         classifiers=[
-            "Development Status :: 3 - Alpha",
+            "Development Status :: 7 - Inactive",
             "Intended Audience :: Developers",
             "License :: OSI Approved :: Apache Software License",
             "Operating System :: MacOS :: MacOS X",
